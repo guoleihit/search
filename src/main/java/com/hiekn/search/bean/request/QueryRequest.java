@@ -1,8 +1,13 @@
 package com.hiekn.search.bean.request;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.ws.rs.DefaultValue;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.KVBean;
 
 import io.swagger.annotations.ApiParam;
 
@@ -39,6 +44,18 @@ public class QueryRequest {
 
 	@ApiParam("关键词类别，作者=1、机构=2、关键词=3")
 	private Integer kwType = 0;
+
+	@ApiParam("过滤条件，比如 [{k: 'earliest_publication_date', v: ['2017'], d: '发表年份'}]")
+	private List<KVBean<String,List<String>>> filters = new ArrayList<>();
+
+	public List<KVBean<String, List<String>>> getFilters() {
+		return filters;
+	}
+
+	@JsonDeserialize(using=KVBeanListDeserializer.class)
+	public void setFilters(List<KVBean<String, List<String>>> filters) {
+		this.filters = filters;
+	}
 
 	public Integer getKwType() {
 		return kwType;

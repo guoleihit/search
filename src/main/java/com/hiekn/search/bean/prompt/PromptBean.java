@@ -19,8 +19,16 @@ public class PromptBean {
 	 * 提示词类别
 	 * (作者=1、机构=2、关键词=3)
 	 */
-	private Integer type;
+	private Integer type = 0;
 	
+	private String description;
+
+	public String getDescription() {
+		return description;
+	}
+	public void setDescription(String description) {
+		this.description = description;
+	}
 	public String getName() {
 		return name;
 	}
