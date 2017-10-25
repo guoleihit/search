@@ -14,15 +14,15 @@
         http://www.springframework.org/schema/context 
         http://www.springframework.org/schema/context/spring-context-4.3.xsd">
 
-	<context:property-placeholder location="classpath:db.properties" />
-	<util:properties id="props" location="classpath:meta_ws.properties" />
-
-<!-- 	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource"	destroy-method="close">
+    <context:property-placeholder location="classpath:db.properties" />
+    <util:properties id="props" location="classpath:meta_ws.properties"/>
+    
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${db.driver}" />
-		<property name="url" value="${db.url}" />
-		<property name="username" value="${db.user}" />
-		<property name="password" value="${db.password}" />
-		<property name="initialSize" value="${db.initialSize}" />
+	    <property name="url" value="${db.url}" />
+	    <property name="username" value="${db.user}" />
+	    <property name="password" value="${db.password}" />
+	    <property name="initialSize" value="${db.initialSize}" />
 		<property name="maxTotal" value="${db.maxTotal}" />
 		<property name="maxIdle" value="${db.maxIdle}" />
 		<property name="minIdle" value="${db.minIdle}" />
@@ -32,20 +32,19 @@
 		<property name="timeBetweenEvictionRunsMillis" value="${db.timeBetweenEvictionRunsMillis}" />
 		<property name="minEvictableIdleTimeMillis" value="${db.minEvictableIdleTimeMillis}" />
 	</bean>
--->
-	<!-- 所有依赖注入均采用基于注解的方式来进行 -->
-	<context:component-scan base-package="com.hiekn.search" />
+	
+	<context:component-scan base-package="com.hiekn.search,com.hiekn.plantdata" />
 
-	<!-- MyBatis的sqlSession装配 -->
-	<!-- <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
 		<property name="dataSource" ref="dataSource" />
-		<property name="mapperLocations" value="classpath:com/hiekn/plantdata/dao/*Mapper.xml" />
+		<property name="mapperLocations" value="classpath:com/hiekn/search/dao/*Mapper.xml" />
 	</bean>
-	 -->
-	<!-- 自动扫描dao接口 -->
-	<!-- <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+	
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
 		<property name="basePackage" value="com.hiekn.plantdata.dao" />
-		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />  
 	</bean>
-	-->
+	
+	<aop:aspectj-autoproxy />
+	
 </beans>
