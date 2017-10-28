@@ -26,8 +26,8 @@ public class QueryRequest {
 	private Long tt;
 
 	@ApiParam(value="页码 默认")
-	@DefaultValue("0") 
-	private Integer pageNo = 0;
+	@DefaultValue("1") 
+	private Integer pageNo = 1;
 
 	@ApiParam(value="页数 默认20")
 	@DefaultValue("20")
@@ -35,9 +35,6 @@ public class QueryRequest {
 
 	@ApiParam(value="排序方式")
 	private Integer sort;
-
-	@ApiParam(value="查询类型，0=一框式 1=组合 2=句子")
-	private Integer queryType;
 
 	@ApiParam("查询信息来源,专利、论文、新闻...")
 	private DocType docType;
@@ -79,14 +76,6 @@ public class QueryRequest {
 
 	public void setSort(Integer sort) {
 		this.sort = sort;
-	}
-
-	public Integer getQueryType() {
-		return queryType;
-	}
-
-	public void setQueryType(Integer queryType) {
-		this.queryType = queryType;
 	}
 
 	public Integer getPageNo() {

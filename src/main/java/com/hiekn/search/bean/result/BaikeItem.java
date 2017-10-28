@@ -3,8 +3,11 @@ package com.hiekn.search.bean.result;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+
 import com.hiekn.search.bean.DocType;
 
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class BaikeItem extends ItemBean {
 
 	private String eTitle;

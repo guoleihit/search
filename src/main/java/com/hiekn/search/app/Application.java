@@ -13,7 +13,7 @@ import io.swagger.jaxrs.listing.SwaggerSerializers;
 
 public class Application  extends ResourceConfig{
 	public Application() {
-		packages("com.hiekn.search.rest");
+		packages("com.hiekn.search.rest,com.hiekn.plantdata.rest");
 		
 		register(JacksonJsonProvider.class);
 		register(MultiPartFeature.class);
@@ -33,7 +33,7 @@ public class Application  extends ResourceConfig{
 		beanConfig.setDescription("GW Search全部API");
 		beanConfig.setHost(CommonResource.swagger_ip_port);
 		beanConfig.setBasePath(CommonResource.swagger_base_path);
-		beanConfig.setResourcePackage("com.hiekn.search.rest");
+		beanConfig.setResourcePackage("com.hiekn.search.rest,com.hiekn.plantdata.rest");
 		beanConfig.setScan(true);
 	}
 }

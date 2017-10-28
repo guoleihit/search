@@ -11,12 +11,19 @@ public class ItemBean {
 	private String title;
 	private String abs;
 	private List<String> authors;
-	private List<String> agencies;
+	private String pubDate;
 	private DocType docType;
+
+	public String getPubDate() {
+		return pubDate;
+	}
+
+	public void setPubDate(String pubDate) {
+		this.pubDate = pubDate;
+	}
 
 	public ItemBean(){
 		authors = new ArrayList<>();
-		agencies = new ArrayList<>();
 	}
 
 	public String getDocId() {
@@ -49,14 +56,6 @@ public class ItemBean {
 
 	public void setAuthors(List<String> authors) {
 		this.authors = authors;
-	}
-
-	public List<String> getAgencies() {
-		return agencies;
-	}
-
-	public void setAgencies(List<String> agencies) {
-		this.agencies = agencies;
 	}
 
 	public DocType getDocType() {
