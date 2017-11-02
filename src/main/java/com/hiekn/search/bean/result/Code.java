@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public enum Code {
 	
-	PARAM_FILTER_ERROR(30001,"fitlers json parse error."),
+	PARAM_QUERY_EMPTY_ERROR(30001,"query string is empty"),
 	PARAM_CAT_ERROR(30002,"cats json parse error."),
 	PARAM_BRAND_ERROR(30003,"brands json parse error."),
 	PARAM_STORE_ERROR(30004,"stores json parse error."),
