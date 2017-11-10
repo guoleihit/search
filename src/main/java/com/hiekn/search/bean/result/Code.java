@@ -15,6 +15,7 @@ public enum Code {
 	PARAM_PAGESIZE_TOO_BIG_ERROR(30014,"pagesize is too large."),
 	
 	JSON_ERROR(40001,"json转换失败"),
+	NEED_USER_INFO_ERROR(50000,"缺少用户信息"),
 	
 	HTTP_ERROR(80001,"http相关错误"),
 	

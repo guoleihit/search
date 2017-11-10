@@ -45,6 +45,16 @@ public class QueryRequest {
 	@ApiParam("过滤条件，比如 [{k: 'earliest_publication_date', v: ['2017'], d: '发表年份'}]")
 	private List<KVBean<String,List<String>>> filters = new ArrayList<>();
 
+	private String otherKw;
+
+	public String getOtherKw() {
+		return otherKw;
+	}
+
+	public void setOtherKw(String otherKw) {
+		this.otherKw = otherKw;
+	}
+
 	public List<KVBean<String, List<String>>> getFilters() {
 		return filters;
 	}

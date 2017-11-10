@@ -1,28 +1,18 @@
 package com.hiekn.search.rest;
 
-import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.getStringListFromNameOrgObject;
-import static com.hiekn.service.Helper.toDateString;
-import static com.hiekn.service.Helper.toStringList;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.annotation.Resource;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-
+import com.hiekn.plantdata.bean.graph.SchemaBean;
+import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.prompt.PromptBean;
+import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.result.*;
+import com.hiekn.search.exception.BaseException;
+import com.hiekn.service.PaperService;
+import com.hiekn.service.PatentService;
+import com.hiekn.service.PictureService;
+import com.hiekn.service.StandardService;
+import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -41,29 +31,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
-import com.hiekn.plantdata.bean.graph.SchemaBean;
-import com.hiekn.plantdata.service.IGeneralSSEService;
-import com.hiekn.search.bean.DocType;
-import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.prompt.PromptBean;
-import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.BaikeItem;
-import com.hiekn.search.bean.result.Code;
-import com.hiekn.search.bean.result.ItemBean;
-import com.hiekn.search.bean.result.PaperItem;
-import com.hiekn.search.bean.result.PatentItem;
-import com.hiekn.search.bean.result.RestResp;
-import com.hiekn.search.bean.result.SearchResultBean;
-import com.hiekn.search.bean.result.StandardItem;
-import com.hiekn.search.exception.BaseException;
-import com.hiekn.service.PatentService;
-import com.hiekn.service.PictureService;
+import javax.annotation.Resource;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import static com.hiekn.service.Helper.*;
 
 @Controller
 @Path("/p")
@@ -105,8 +81,13 @@ public class SearchRestApi {
 		String index = PATENT_INDEX;
 		if (DocType.PICTURE.equals(docType)) {
 			index = PICTURE_INDEX;
-		}
+		} else if (DocType.PAPER.equals(docType)) {
+			index = PAPER_INDEX;
+		} else if (DocType.STANDARD.equals(docType)) {
+		    index = STANDARD_INDEX;
+        }
 		SearchRequestBuilder srb = esClient.prepareSearch(index);
+		System.out.println(srb.toString());
 		srb.setQuery(docQuery).setFrom(0).setSize(1);
 		SearchResponse docResp = srb.get();
 		if (docResp.getHits().getHits().length > 0) {
@@ -114,13 +95,17 @@ public class SearchRestApi {
 			ItemBean item = extractDetail(hit, docType);
 			result.getRsData().add(item);
 		}
-		return new RestResp<SearchResultBean>(result, tt);
+		return new RestResp<>(result, tt);
 	}
 
 	private ItemBean extractDetail(SearchHit hit, DocType docType) {
 		switch (docType) {
 		case PICTURE:
 			return PictureService.extractPictureDetail(hit);
+		case PAPER:
+			return PaperService.extractPaperDetail(hit);
+        case STANDARD:
+            return StandardService.extractStandardDetail(hit);
 		case PATENT:
 		default:
 			return PatentService.extractPatentDetail(hit);
@@ -154,7 +139,7 @@ public class SearchRestApi {
 			BaikeItem item = extractBaikeItem(hit);
 			result.getRsData().add(item);
 		}
-		return new RestResp<SearchResultBean>(result, request.getTt());
+		return new RestResp<>(result, request.getTt());
 	}
 
 	@POST
@@ -165,9 +150,17 @@ public class SearchRestApi {
 			@ApiResponse(code = 500, message = "失败") })
 	public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
 			throws InterruptedException, ExecutionException {
+		if (StringUtils.isEmpty(request.getKw())) {
+			throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+		}
 		log.info(com.hiekn.util.JSONUtils.toJson(request));
 
 		SearchResultBean result = new SearchResultBean(request.getKw());
+		String[] kws = request.getKw().trim().split(" ");
+		if (kws.length > 1) {
+			request.setKw(kws[0]);
+			request.setOtherKw(kws[1]);
+		}
 		SearchResponse response = null;
 		if (request.getDocType() == null) {
 			BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -195,15 +188,16 @@ public class SearchRestApi {
 			response = searchIndexes(request, boolQuery, Arrays.asList(new String[] { PICTURE_INDEX }));
 		}
 
+		assert response != null;
 		result.setRsCount(response.getHits().totalHits);
 		for (SearchHit hit : response.getHits()) {
-			ItemBean item = null;
+			ItemBean item;
 			if (hit.getType().equals("patent_data"))
-				item = extractPatentItem(hit);
+				item = PatentService.extractPatentItem(hit);
 			else if (hit.getType().equals("paper_data"))
-				item = extractPaperItem(hit);
+				item = PaperService.extractPaperItem(hit);
 			else if (hit.getType().equals("standard_data"))
-				item = extractStandardItem(hit);
+				item = StandardService.extractStandardItem(hit);
 			else if (hit.getType().equals("picture_data"))
 				item = PictureService.extractPictureItem(hit);
 			else {
@@ -213,7 +207,7 @@ public class SearchRestApi {
 		}
 
 		Histogram yearAgg = response.getAggregations().get("publication_year");
-		KVBean<String, Map<String, ? extends Object>> yearFilter = new KVBean<>();
+		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
 		yearFilter.setD("发表年份");
 		yearFilter.setK("earliest_publication_date");
 		Map<String, Long> yearMap = new HashMap<>();
@@ -249,33 +243,7 @@ public class SearchRestApi {
 		knowledgeClassFilter.setV(knowledgeMap);
 		result.getFilters().add(knowledgeClassFilter);
 
-		return new RestResp<SearchResultBean>(result, request.getTt());
-	}
-
-	private ItemBean extractStandardItem(SearchHit hit) {
-		StandardItem item = new StandardItem();
-		Map<String, Object> source = hit.getSource();
-		item.setDocId(hit.getId().toString());
-
-		Object titleObj = source.get("title");
-		if (titleObj != null) {
-			item.setTitle(titleObj.toString());
-		}
-		Object absObj = source.get("abs");
-		if (absObj != null) {
-			item.setAbs(absObj.toString());
-		}
-
-		Object inventorsObj = source.get("persons");
-		List<String> inventors = toStringList(inventorsObj);
-		if (!inventors.isEmpty()) {
-			item.setAuthors(inventors);
-		}
-
-		if (source.get("earliest_publication_date") != null) {
-			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
-		}
-		return item;
+		return new RestResp<>(result, request.getTt());
 	}
 
 	private BoolQueryBuilder buildQueryDetail(String docId) {
@@ -326,44 +294,6 @@ public class SearchRestApi {
 		return boolQuery;
 	}
 
-	@SuppressWarnings("rawtypes")
-	private PaperItem extractPaperItem(SearchHit hit) {
-		PaperItem item = new PaperItem();
-		Map<String, Object> source = hit.getSource();
-		item.setDocId(hit.getId().toString());
-
-		Object titleObj = source.get("title");
-		if (titleObj != null) {
-			item.setTitle(titleObj.toString());
-		}
-		Object absObj = source.get("abs");
-		if (absObj != null) {
-			item.setAbs(absObj.toString());
-		}
-		Object keywords = source.get("keywords");
-		List<String> kws = toStringList(keywords);
-		if (!kws.isEmpty()) {
-			item.setKeywords(kws);
-		}
-
-		Object inventorsObj = source.get("persons");
-		List<String> inventors = new ArrayList<>();
-		if (inventorsObj != null && inventorsObj instanceof List) {
-			for (Object inventor : (List) inventorsObj) {
-				if (inventor != null && ((Map) inventor).get("name") != null) {
-					inventors.add(((Map) inventor).get("name").toString());
-				}
-			}
-		}
-		if (!inventors.isEmpty()) {
-			item.setAuthors(inventors);
-		}
-		if (source.get("earliest_publication_date") != null) {
-			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
-		}
-		return item;
-	}
-
 	@SuppressWarnings("unchecked")
 	private BaikeItem extractBaikeItem(SearchHit hit) {
 		Map<String, Object> source = hit.getSource();
@@ -384,7 +314,6 @@ public class SearchRestApi {
 			throws InterruptedException, ExecutionException {
 		SearchRequestBuilder srb = esClient.prepareSearch(BAIKE_INDEX);
 		srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
-
 		SearchResponse response = srb.execute().get();
 		return response;
 	}
@@ -446,9 +375,11 @@ public class SearchRestApi {
 		TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abstract.original", request.getKw());
 		TermQueryBuilder inventorTerm = QueryBuilders.termQuery("inventors.name.original.keyword", request.getKw())
 				.boost(2);
-		TermQueryBuilder applicantTerm = QueryBuilders.termQuery("applicants.name.original", request.getKw())
+		TermQueryBuilder applicantTerm = QueryBuilders.termQuery("applicants.name.original.keyword", request.getKw())
 				.boost(1.5f);
 		TermQueryBuilder agenciesTerm = QueryBuilders.termQuery("agencies_standerd.agency", request.getKw())
+				.boost(1.5f);
+		TermQueryBuilder annotationTagTerm = QueryBuilders.termQuery("annotation_tag.name", request.getKw())
 				.boost(1.5f);
 
 		BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -458,15 +389,23 @@ public class SearchRestApi {
 			termQuery.should(inventorTerm);
 			termQuery.should(agenciesTerm);
 			termQuery.should(applicantTerm);
+			termQuery.should(annotationTagTerm);
+			if (!StringUtils.isEmpty(request.getOtherKw())) {
+				termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+			}
 		} else if (request.getKwType() == 1) {
 			termQuery.should(inventorTerm);
 			termQuery.should(applicantTerm);
+			if (!StringUtils.isEmpty(request.getOtherKw())) {
+				termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+			}
 		} else if (request.getKwType() == 2) {
 			termQuery.should(agenciesTerm);
 			termQuery.should(applicantTerm);
 		} else if (request.getKwType() == 3) {
 			termQuery.should(titleTerm);
 			termQuery.should(abstractTerm);
+			termQuery.should(annotationTagTerm);
 		}
 
 		boolQuery.must(termQuery);
@@ -505,55 +444,22 @@ public class SearchRestApi {
 		TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(2);
 		TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
 		TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons.name.keyword", request.getKw()).boost(1.5f);
+		TermQueryBuilder orgsTerm = QueryBuilders.termQuery("persons.orgs.name.keyword", request.getKw()).boost(1.5f);
 		TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords", request.getKw()).boost(1.5f);
+		TermQueryBuilder annotationTagTerm = QueryBuilders.termQuery("annotation_tag.name", request.getKw())
+				.boost(1.5f);
 
 		BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 		termQuery.should(titleTerm);
 		termQuery.should(abstractTerm);
 		termQuery.should(authorTerm);
 		termQuery.should(kwsTerm);
+		termQuery.should(orgsTerm);
+		termQuery.should(annotationTagTerm);
 
 		boolQuery.must(termQuery);
 		boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data"));
 		return boolQuery;
-	}
-
-	@SuppressWarnings("rawtypes")
-	private ItemBean extractPatentItem(SearchHit hit) {
-		PatentItem item = new PatentItem();
-		Map<String, Object> source = hit.getSource();
-		// use application_number.lowercase as doc id for detail search
-		item.setDocId(hit.getId().toString());
-
-		Object titleObj = source.get("title");
-		if (titleObj != null && titleObj instanceof Map) {
-			item.setTitle(((Map) titleObj).get("original") != null ? ((Map) titleObj).get("original").toString() : "");
-		}
-		Object absObj = source.get("abstract");
-		if (absObj != null && absObj instanceof Map) {
-			item.setAbs(((Map) absObj).get("original") != null ? ((Map) absObj).get("original").toString() : "");
-		}
-		Object agenciesObj = source.get("agencies");
-		List<String> agencies = toStringList(agenciesObj);
-		if (!agencies.isEmpty()) {
-			item.setAgencies(agencies);
-		}
-
-		Object applicantsObj = source.get("applicants");
-		List<String> applicants = getStringListFromNameOrgObject(applicantsObj);
-		if (!applicants.isEmpty()) {
-			item.setApplicants(applicants);
-		}
-
-		Object inventorsObj = source.get("inventors");
-		List<String> inventors = getStringListFromNameOrgObject(inventorsObj);
-		if (!inventors.isEmpty()) {
-			item.setAuthors(inventors);
-		}
-		if (source.get("earliest_publication_date") != null) {
-			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
-		}
-		return item;
 	}
 
 	private boolean isChinese(String words) {
@@ -574,7 +480,7 @@ public class SearchRestApi {
 		if (StringUtils.isEmpty(request.getKw())) {
 			throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
 		}
-		QueryBuilder titleTerm = null;
+		QueryBuilder titleTerm;
 		if (!isChinese(request.getKw())) {
 			titleTerm = QueryBuilders.prefixQuery("name.pinyin", request.getKw()).boost(2);
 		} else {
@@ -616,9 +522,9 @@ public class SearchRestApi {
 	@ApiOperation(value = "schema")
 	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
 			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<SchemaBean> chema(@QueryParam("tt") Long tt) {
+	public RestResp<SchemaBean> schema(@QueryParam("tt") Long tt) {
 		SchemaBean schema = generalSSEService.getAllAtts(kgName);
 		schema.setTypes(this.generalSSEService.getAllTypes(kgName));
-		return new RestResp<SchemaBean>(schema, tt);
+		return new RestResp<>(schema, tt);
 	}
 }

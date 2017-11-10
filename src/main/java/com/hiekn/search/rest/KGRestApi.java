@@ -19,6 +19,7 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,71 +64,67 @@ public class KGRestApi {
 
 	private static Logger log = LoggerFactory.getLogger(KGRestApi.class);
 
-	@ApiOperation(value="实体的下拉提示")
+	@ApiOperation(value = "实体的下拉提示")
 	@POST
 	@Path("/prompt")
-	public Response prompt(@QueryParam("userId") Integer userId,
-			@FormParam("kgName") String kgName,
-			@FormParam("kw") String kw,
-			@FormParam("pageSize") @DefaultValue("3") Integer pageSize,
+	public Response prompt(@QueryParam("userId") Integer userId, @FormParam("kgName") String kgName,
+			@FormParam("kw") String kw, @FormParam("pageSize") @DefaultValue("3") Integer pageSize,
 			@FormParam("allowTypes") String allowTypes,
 			@FormParam("isCaseSensitive") @DefaultValue("false") Boolean isCaseSensitive,
-			@QueryParam("token") String token,
-			@QueryParam("tt") Long tt) {
+			@QueryParam("token") String token, @QueryParam("tt") Long tt) {
 
 		List<Long> allowTypesList;
 		List<EntityBean> rsList;
 
-		allowTypesList = JSONUtils.fromJson(allowTypes, new TypeToken<List<Long>>(){}.getType());
+		allowTypesList = JSONUtils.fromJson(allowTypes, new TypeToken<List<Long>>() {
+		}.getType());
 
 		rsList = getPrompt(kgName, kw, allowTypesList, isCaseSensitive, pageSize);
-		RestResp<EntityBean> rs = new RestResp<>( rsList, tt);
+		RestResp<EntityBean> rs = new RestResp<>(rsList, tt);
 		return Response.ok().entity(rs).build();
 	}
-	
-	
-	public List<EntityBean> getPrompt(String kgName, String kw,
-			List<Long> allowTypes, boolean isCaseSensitive, Integer pageSize) {
+
+	public List<EntityBean> getPrompt(String kgName, String kw, List<Long> allowTypes, boolean isCaseSensitive,
+			Integer pageSize) {
 		String url = SSEResource.sse_service_location + "/kg/entity/prompt";
-		
-		MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>(); 
+
+		MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>();
 		para.add("kgName", kgName);
 		para.add("prefix", kw);
 		para.add("type", 1);
 		para.add("size", pageSize);
 		para.add("isCaseInsensitive", !isCaseSensitive);
-		
-		if(allowTypes!=null && allowTypes.size()>0){
+
+		if (allowTypes != null && allowTypes.size() > 0) {
 			para.add("conceptIds", allowTypes);
 			para.add("isInherit", false);
-		}
-		else{
-			//如果没指定 在全域上搜 指定顶层为0 递归为true
+		} else {
+			// 如果没指定 在全域上搜 指定顶层为0 递归为true
 			para.add("conceptIds", Arrays.asList(0));
 			para.add("isInherit", true);
 		}
-		
+
 		String rs;
-		
+
 		try {
 			rs = HttpClient.sendPost(url, null, para);
-		
+
 		} catch (Exception e) {
 			throw ServiceException.newInstance(RestReturnCode.REMOTE_INVOKE_ERROR);
-		}	
-		
+		}
+
 		KGResultItem<Map<String, List<PromptItem>>> kgResultItem = null;
 		try {
 			System.out.println(rs);
 			JSONObject result = JSONUtils.fromJson(rs, JSONObject.class);
 			List<EntityBean> rsList = new ArrayList<>();
-			for(Object e: (List)result.get("data")) {
-				JSONObject element = (JSONObject)e;
+			for (Object e : (List) result.get("data")) {
+				JSONObject element = (JSONObject) e;
 				EntityBean bean = new EntityBean();
 				bean.setId(element.getLong("_id"));
-				if (element.get("entity_name")!=null) 
+				if (element.get("entity_name") != null)
 					bean.setName(element.getString("entity_name"));
-				if (element.get("meaning_tag")!=null)
+				if (element.get("meaning_tag") != null)
 					bean.setMeaningTag(element.getString("meaning_tag"));
 				rsList.add(bean);
 			}
@@ -136,25 +133,19 @@ public class KGRestApi {
 			throw ServiceException.newInstance(RestReturnCode.REMOTE_PARSE_ERROR);
 		}
 	}
-	
+
 	@POST
 	@Path("/graph")
 	@ApiOperation(value = "图谱")
 	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
 			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<GraphBean> kg(@FormParam("kw") String kw, 
-			@FormParam("allowAtts") String allowAtts,
-			@FormParam("allowTypes") String allowTypes, 
-			@FormParam("entitiesLimit") Integer entitiesLimit,
-			@FormParam("relationsLimit") Integer relationsLimit, 
-			@FormParam("conceptsLimit") Integer conceptsLimit,
-			@FormParam("statsLimit") Integer statsLimit, 
-			@FormParam("pageNo") Integer pageNo, 
-			@FormParam("pageSize") Integer pageSize, 
-			@FormParam("kwType") Integer kwType, 
-			@ApiParam("0表示不继承，1表示继承,默认0")@DefaultValue("0")@FormParam("isInherit") Integer isInherit,
-			@QueryParam("tt") Long tt)
-			throws InterruptedException, ExecutionException {
+	public RestResp<GraphBean> kg(@FormParam("kw") String kw, @FormParam("allowAtts") String allowAtts,
+			@FormParam("allowTypes") String allowTypes, @FormParam("entitiesLimit") Integer entitiesLimit,
+			@FormParam("relationsLimit") Integer relationsLimit, @FormParam("conceptsLimit") Integer conceptsLimit,
+			@FormParam("statsLimit") Integer statsLimit, @FormParam("pageNo") Integer pageNo,
+			@FormParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
+			@ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
+			@QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
 
 		List<Long> allowAttList = null;
 		List<Long> allowTypeList = null;
@@ -162,9 +153,9 @@ public class KGRestApi {
 		if (pageNo == null) {
 			pageNo = 0;
 		}
-		
+
 		if (pageSize == null) {
-			pageSize = 0;
+			pageSize = 10;
 		}
 		try {
 			allowAttList = JSONUtils.fromJson(allowAtts, new TypeToken<List<Long>>() {
@@ -175,17 +166,34 @@ public class KGRestApi {
 			log.error("parse to json error", e);
 			throw JsonException.newInstance();
 		}
+		String[] kws = kw.trim().split(" ");
+		if (kws.length > 0) {
+			kw = kws[0];
+		}
 		List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
 		GraphBean graphBean = null;
 
 		if (rsList != null && rsList.size() > 0) {
 			Long entityId = rsList.get(0).getId();
-			if(kwType!=null && kwType >0) {
-				if(kwType == 2) { //机构
-					for(EntityBean entity: rsList){
-						if (entity.getClassId() == 2 && kw.equals(entity.getName())) { 
+			if (kwType != null && kwType > 0) {
+				if (kwType == 2) { // 机构
+					for (EntityBean entity : rsList) {
+						if (entity.getClassId() == 2 && kw.equals(entity.getName())) {
 							entityId = entity.getId();
 							break;
+						}
+					}
+				} else if (kwType == 1) { // 人物
+					for (EntityBean entity : rsList) {
+						if (entity.getClassId() == 1) {
+							if (kws.length > 1 && !StringUtils.isEmpty(entity.getMeaningTag())) {
+								if (kws[1].indexOf(entity.getMeaningTag()) >= 0 || (entity.getMeaningTag() != null
+										|| entity.getMeaningTag().indexOf(kws[1]) >= 0)) {
+									entityId = entity.getId();
+									break;
+								}
+							}
+
 						}
 					}
 				}

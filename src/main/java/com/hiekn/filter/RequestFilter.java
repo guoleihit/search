@@ -21,8 +21,7 @@ public class RequestFilter implements Filter{
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-		
-		
+
 		HttpServletRequest httpRequest = (HttpServletRequest)request;
 		HttpServletResponse httpResponse = (HttpServletResponse)response;
 		httpRequest.setCharacterEncoding("UTF-8");
@@ -30,7 +29,7 @@ public class RequestFilter implements Filter{
 		//跨域设置,生产环境应该去掉
 		httpResponse.addHeader("Access-Control-Allow-Origin", "*");  
 		httpResponse.addHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE");  
-		httpResponse.addHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");  
+		httpResponse.addHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");  
 		httpResponse.addHeader("Access-Control-Max-Age", "3600");
 		
 		

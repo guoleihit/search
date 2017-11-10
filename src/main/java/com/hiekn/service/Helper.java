@@ -9,6 +9,7 @@ public class Helper {
 	public static String getString(Object obj) {
 		return obj == null ? "" : obj.toString();
 	}
+
 	public static List<String> toStringListByKey(Object keywords, String key) {
 		List<String> kws = new ArrayList<>();
 		if (keywords != null && keywords instanceof List) {
@@ -62,7 +63,7 @@ public class Helper {
 		dd = dd - mm * 100;
 		return new StringBuilder().append(year).append(splitter).append(mm).append(splitter).append(dd).toString();
 	}
-	
+
 	/**
 	 * yyyyMMdd string to format string
 	 * 
@@ -70,9 +71,9 @@ public class Helper {
 	 */
 	public static String toDateString(String date, String splitter) {
 		try {
-			return toDateString(Long.valueOf(date),splitter);
-			
-		}catch(Exception e) {
+			return toDateString(Long.valueOf(date), splitter);
+
+		} catch (Exception e) {
 			return "";
 		}
 	}

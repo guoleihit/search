@@ -1,5 +1,10 @@
 package com.hiekn.service;
 
+import static com.hiekn.service.Helper.getStringListFromNameOrgObject;
+import static com.hiekn.service.Helper.toStringListByKey;
+import static com.hiekn.service.Helper.toDateString;
+import static com.hiekn.service.Helper.toStringList;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,8 +14,9 @@ import org.elasticsearch.search.SearchHit;
 
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
+import com.hiekn.search.bean.result.PatentItem;
 
-public class PatentService extends Helper {
+public class PatentService {
 
 	@SuppressWarnings("rawtypes")
 	public static ItemBean extractPatentDetail(SearchHit hit) {
@@ -33,6 +39,12 @@ public class PatentService extends Helper {
 			item.setAgencies(agencies);
 		}
 
+		Object agents = source.get("agents");
+		List<String> agentList = toStringList(agents);
+		if (!agentList.isEmpty()) {
+			item.setAgents(agentList);
+		}
+
 		if (source.get("application_number") != null) {
 			item.setApplicationNumber(source.get("application_number").toString());
 		}
@@ -40,7 +52,7 @@ public class PatentService extends Helper {
 			item.setPublicationNumber(source.get("publication_number").toString());
 		}
 		if (source.get("application_date") != null) {
-			item.setApplicationNumber(toDateString(source.get("application_date").toString(), "-"));
+			item.setApplicationDate(toDateString(source.get("application_date").toString(), "-"));
 		}
 		if (source.get("earliest_publication_date") != null) {
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
@@ -103,6 +115,45 @@ public class PatentService extends Helper {
 			}
 		} catch (Exception e) {
 			item.setPages(0);
+		}
+		return item;
+	}
+
+
+	@SuppressWarnings("rawtypes")
+	public static ItemBean extractPatentItem(SearchHit hit) {
+		PatentItem item = new PatentItem();
+		Map<String, Object> source = hit.getSource();
+		// use application_number.lowercase as doc id for detail search
+		item.setDocId(hit.getId().toString());
+
+		Object titleObj = source.get("title");
+		if (titleObj != null && titleObj instanceof Map) {
+			item.setTitle(((Map) titleObj).get("original") != null ? ((Map) titleObj).get("original").toString() : "");
+		}
+		Object absObj = source.get("abstract");
+		if (absObj != null && absObj instanceof Map) {
+			item.setAbs(((Map) absObj).get("original") != null ? ((Map) absObj).get("original").toString() : "");
+		}
+		Object agenciesObj = source.get("agencies");
+		List<String> agencies = toStringList(agenciesObj);
+		if (!agencies.isEmpty()) {
+			item.setAgencies(agencies);
+		}
+
+		Object applicantsObj = source.get("applicants");
+		List<String> applicants = getStringListFromNameOrgObject(applicantsObj);
+		if (!applicants.isEmpty()) {
+			item.setApplicants(applicants);
+		}
+
+		Object inventorsObj = source.get("inventors");
+		List<String> inventors = getStringListFromNameOrgObject(inventorsObj);
+		if (!inventors.isEmpty()) {
+			item.setAuthors(inventors);
+		}
+		if (source.get("earliest_publication_date") != null) {
+			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
 		}
 		return item;
 	}
