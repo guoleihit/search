@@ -37,7 +37,7 @@ public class AuthenticationRestApi implements InitializingBean{
 
 	private static Logger log = LoggerFactory.getLogger(AuthenticationRestApi.class);
 
-	@Value("#{'${users}'.split(',')}")
+	//@Value("#{'${users}'.split(',')}")
 	private List<String> users;
 	
 	private Map<String,String> userMap;

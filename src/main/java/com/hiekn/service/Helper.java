@@ -1,7 +1,10 @@
 package com.hiekn.service;
 
+import org.elasticsearch.common.text.Text;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 public class Helper {
@@ -49,6 +52,17 @@ public class Helper {
 			}
 		}
 		return inventors;
+	}
+
+	public static void setHighlightElements(Text[] highlightFrags, ListIterator<String> itr) {
+		for (Text txt : highlightFrags) {
+			while (itr.hasNext()) {
+				String applicant = itr.next().toString();
+				if (txt.string().indexOf(applicant) > 0) {
+					itr.set(txt.string());
+				}
+			}
+		}
 	}
 
 	/**

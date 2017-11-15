@@ -1,19 +1,18 @@
 package com.hiekn.service;
 
-import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.toDateString;
-import static com.hiekn.service.Helper.toStringList;
-import static com.hiekn.service.Helper.toStringListByKey;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import org.elasticsearch.search.SearchHit;
-
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PaperDetail;
 import com.hiekn.search.bean.result.PaperItem;
+import org.elasticsearch.common.text.Text;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+
+import static com.hiekn.service.Helper.*;
 
 public class PaperService {
 
@@ -91,6 +90,38 @@ public class PaperService {
 		}
 		if (source.get("earliest_publication_date") != null) {
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
+		}
+
+
+		//highlight
+		if (hit.getHighlightFields() != null) {
+			for (Map.Entry<String, HighlightField> entry : hit.getHighlightFields().entrySet()) {
+				Text[] frags = entry.getValue().getFragments();
+				switch (entry.getKey()) {
+					case "title":
+						if (frags != null && frags.length > 0) {
+							item.setTitle(frags[0].string());
+						}
+						break;
+					case "abs":
+						if (frags != null && frags.length > 0) {
+							item.setAbs(frags[0].string());
+						}
+						break;
+					case "keywords.keyword":
+						if (frags != null && frags.length > 0) {
+							ListIterator<String> itr = item.getKeywords().listIterator();
+							setHighlightElements(frags, itr);
+						}
+						break;
+					case "persons.name.keyword":
+						if (frags != null && frags.length > 0) {
+							ListIterator<String> itr = item.getAuthors().listIterator();
+							setHighlightElements(frags, itr);
+						}
+						break;
+				}
+			}
 		}
 		return item;
 	}
