@@ -3,18 +3,23 @@ package com.hiekn.service;
 import static com.hiekn.service.Helper.toDateString;
 import static com.hiekn.service.Helper.toStringList;
 import static com.hiekn.service.Helper.getString;
+import static com.hiekn.service.Helper.makeFilters;
 
 import java.util.List;
 import java.util.Map;
 
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 
+import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PictureDetail;
 import com.hiekn.search.bean.result.PictureItem;
 
 public class PictureService {
-	public static ItemBean extractPictureDetail(SearchHit hit) {
+	public ItemBean extractPictureDetail(SearchHit hit) {
 		PictureDetail item = new PictureDetail();
 
 		Map<String, Object> source = hit.getSource();
@@ -60,7 +65,7 @@ public class PictureService {
 		return item;
 	}
 
-	public static ItemBean extractPictureItem(SearchHit hit) {
+	public ItemBean extractPictureItem(SearchHit hit) {
 		PictureItem item = new PictureItem();
 
 		Map<String, Object> source = hit.getSource();
@@ -91,5 +96,26 @@ public class PictureService {
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
 		}
 		return item;
+	}
+	
+	public BoolQueryBuilder buildQueryPicture(QueryRequest request) {
+		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+		makeFilters(request, boolQuery);
+
+		TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(2);
+		TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons", request.getKw()).boost(1.5f);
+		TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords", request.getKw()).boost(1.5f);
+		TermQueryBuilder classificationTerm = QueryBuilders.termQuery("categories", request.getKw()).boost(1.5f);
+
+		BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+		termQuery.should(titleTerm);
+		termQuery.should(authorTerm);
+		termQuery.should(kwsTerm);
+		termQuery.should(classificationTerm);
+
+		boolQuery.must(termQuery);
+		boolQuery.filter(QueryBuilders.termQuery("_type", "picture_data"));
+		return boolQuery;
 	}
 }

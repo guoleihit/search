@@ -1,9 +1,14 @@
 package com.hiekn.service;
 
+import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
 import com.hiekn.search.bean.result.PatentItem;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
@@ -14,7 +19,7 @@ import static com.hiekn.service.Helper.*;
 public class PatentService {
 
     @SuppressWarnings("rawtypes")
-    public static ItemBean extractPatentDetail(SearchHit hit) {
+    public ItemBean extractPatentDetail(SearchHit hit) {
         PatentDetail item = new PatentDetail();
 
         Map<String, Object> source = hit.getSource();
@@ -116,7 +121,7 @@ public class PatentService {
 
 
     @SuppressWarnings("rawtypes")
-    public static ItemBean extractPatentItem(SearchHit hit) {
+    public ItemBean extractPatentItem(SearchHit hit) {
         PatentItem item = new PatentItem();
         Map<String, Object> source = hit.getSource();
         // use application_number.lowercase as doc id for detail search
@@ -183,5 +188,52 @@ public class PatentService {
             }
         }
         return item;
+    }
+
+    public BoolQueryBuilder buildQueryPatent(QueryRequest request) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        makeFilters(request, boolQuery);
+
+        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(1.5f);
+        TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abstract.original", request.getKw());
+        TermQueryBuilder inventorTerm = QueryBuilders.termQuery("inventors.name.original.keyword", request.getKw())
+                .boost(2);
+        TermQueryBuilder applicantTerm = QueryBuilders.termQuery("applicants.name.original.keyword", request.getKw())
+                .boost(1.5f);
+        TermQueryBuilder agenciesTerm = QueryBuilders.termQuery("agencies_standerd.agency", request.getKw())
+                .boost(1.5f);
+        TermQueryBuilder annotationTagTerm = QueryBuilders.termQuery("annotation_tag.name", request.getKw())
+                .boost(1.5f);
+
+        BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        if (request.getKwType() == null || request.getKwType() == 0) {
+            termQuery.should(titleTerm);
+            termQuery.should(abstractTerm);
+            termQuery.should(inventorTerm);
+            termQuery.should(agenciesTerm);
+            termQuery.should(applicantTerm);
+            termQuery.should(annotationTagTerm);
+            if (!StringUtils.isEmpty(request.getOtherKw())) {
+                termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+            }
+        } else if (request.getKwType() == 1) {
+            termQuery.should(inventorTerm);
+            termQuery.should(applicantTerm);
+            if (!StringUtils.isEmpty(request.getOtherKw())) {
+                termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+            }
+        } else if (request.getKwType() == 2) {
+            termQuery.should(agenciesTerm);
+            termQuery.should(applicantTerm);
+        } else if (request.getKwType() == 3) {
+            termQuery.should(titleTerm);
+            termQuery.should(abstractTerm);
+            termQuery.should(annotationTagTerm);
+        }
+
+        boolQuery.must(termQuery);
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
+        return boolQuery;
     }
 }

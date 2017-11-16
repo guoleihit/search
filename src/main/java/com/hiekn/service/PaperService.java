@@ -1,9 +1,13 @@
 package com.hiekn.service;
 
+import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PaperDetail;
 import com.hiekn.search.bean.result.PaperItem;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
@@ -16,7 +20,7 @@ import static com.hiekn.service.Helper.*;
 
 public class PaperService {
 
-	public static ItemBean extractPaperDetail(SearchHit hit) {
+	public ItemBean extractPaperDetail(SearchHit hit) {
 		PaperDetail item = new PaperDetail();
 		Map<String, Object> source = hit.getSource();
 		item.setDocId(hit.getId().toString());
@@ -57,7 +61,7 @@ public class PaperService {
 	}
 
 	@SuppressWarnings("rawtypes")
-	public static PaperItem extractPaperItem(SearchHit hit) {
+	public PaperItem extractPaperItem(SearchHit hit) {
 		PaperItem item = new PaperItem();
 		Map<String, Object> source = hit.getSource();
 		item.setDocId(hit.getId().toString());
@@ -125,4 +129,31 @@ public class PaperService {
 		}
 		return item;
 	}
+
+
+    public BoolQueryBuilder buildQueryPaper(QueryRequest request) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        makeFilters(request, boolQuery);
+
+        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(2);
+        TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
+        TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons.name.keyword", request.getKw()).boost(1.5f);
+        TermQueryBuilder orgsTerm = QueryBuilders.termQuery("persons.orgs.name.keyword", request.getKw()).boost(1.5f);
+        TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords.keyword", request.getKw()).boost(1.5f);
+        TermQueryBuilder annotationTagTerm = QueryBuilders.termQuery("annotation_tag.name", request.getKw())
+                .boost(1.5f);
+
+        BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        termQuery.should(titleTerm);
+        termQuery.should(abstractTerm);
+        termQuery.should(authorTerm);
+        termQuery.should(kwsTerm);
+        termQuery.should(orgsTerm);
+        termQuery.should(annotationTagTerm);
+
+        boolQuery.must(termQuery);
+        boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data"));
+        return boolQuery;
+    }
 }
