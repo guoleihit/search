@@ -21,7 +21,7 @@ public class StandardService {
         Map<String, Object> source = hit.getSource();
         item.setDocId(hit.getId().toString());
 
-        Object titleObj = source.get("title");
+        Object titleObj = source.get("name");
         if (titleObj != null) {
             item.setTitle(titleObj.toString());
         }
@@ -75,7 +75,7 @@ public class StandardService {
         Map<String, Object> source = hit.getSource();
         item.setDocId(hit.getId().toString());
 
-        Object titleObj = source.get("title");
+        Object titleObj = source.get("name");
         if (titleObj != null) {
             item.setTitle(titleObj.toString());
         }
@@ -118,7 +118,7 @@ public class StandardService {
 
         makeFilters(request, boolQuery);
 
-        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(2);
+        TermQueryBuilder titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
         TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
         TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons.keyword", request.getKw()).boost(1.5f);
         TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords", request.getKw()).boost(1.5f);

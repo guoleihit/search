@@ -8,10 +8,7 @@ import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
-import com.hiekn.service.PaperService;
-import com.hiekn.service.PatentService;
-import com.hiekn.service.PictureService;
-import com.hiekn.service.StandardService;
+import com.hiekn.service.*;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -20,7 +17,6 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -40,7 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.hiekn.service.Helper.*;
+import static com.hiekn.service.Helper.getString;
 
 @Controller
 @Path("/p")
@@ -70,6 +66,7 @@ public class SearchRestApi {
 	private PatentService patentService = new PatentService();
 	private PictureService pictureService = new PictureService();
 	private StandardService standardService = new StandardService();
+	private BaikeService baikeService = new BaikeService();
 
 	@GET
 	@Path("/detail")
@@ -134,7 +131,7 @@ public class SearchRestApi {
 		}
 		SearchResultBean result = new SearchResultBean(baike);
 
-		BoolQueryBuilder baikeQuery = buildQueryBaike(baike);
+		BoolQueryBuilder baikeQuery = baikeService.buildQueryBaike(baike);
 		QueryRequest request = new QueryRequest();
 		request.setKw(baike);
 		request.setPageNo(pageNo);
@@ -142,7 +139,7 @@ public class SearchRestApi {
 		SearchResponse baikeResp = searchBaikeIndex(request, baikeQuery);
 		if (baikeResp.getHits().getHits().length > 0) {
 			SearchHit hit = baikeResp.getHits().getAt(0);
-			BaikeItem item = extractBaikeItem(hit);
+			BaikeItem item = baikeService.extractBaikeItem(hit);
 			result.getRsData().add(item);
 		}
 		return new RestResp<>(result, request.getTt());
@@ -196,23 +193,9 @@ public class SearchRestApi {
 
 		assert response != null;
 		result.setRsCount(response.getHits().totalHits);
-		for (SearchHit hit : response.getHits()) {
-			ItemBean item;
-			if (hit.getType().equals("patent_data"))
-				item = patentService.extractPatentItem(hit);
-			else if (hit.getType().equals("paper_data"))
-				item = paperService.extractPaperItem(hit);
-			else if (hit.getType().equals("standard_data"))
-				item = standardService.extractStandardItem(hit);
-			else if (hit.getType().equals("picture_data"))
-				item = pictureService.extractPictureItem(hit);
-			else {
-				continue;
-			}
-			result.getRsData().add(item);
-		}
+        setResultData(result, response);
 
-		Histogram yearAgg = response.getAggregations().get("publication_year");
+        Histogram yearAgg = response.getAggregations().get("publication_year");
 		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
 		yearFilter.setD("发表年份");
 		yearFilter.setK("earliest_publication_date");
@@ -238,16 +221,19 @@ public class SearchRestApi {
 		docTypeFilter.setV(docMap);
 		result.getFilters().add(docTypeFilter);
 
-		Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
-		KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
-		knowledgeClassFilter.setD("知识体系");
-		knowledgeClassFilter.setK(getAnnotationFieldName(request));
-		Map<String, Long> knowledgeMap = new HashMap<>();
-		for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
-			knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
-		}
-		knowledgeClassFilter.setV(knowledgeMap);
-		result.getFilters().add(knowledgeClassFilter);
+		String annotation = getAnnotationFieldName(request);
+		if (annotation != null) {
+            Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
+            KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
+            knowledgeClassFilter.setD("知识体系");
+            knowledgeClassFilter.setK(annotation);
+            Map<String, Long> knowledgeMap = new HashMap<>();
+            for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
+                knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+            }
+            knowledgeClassFilter.setV(knowledgeMap);
+            result.getFilters().add(knowledgeClassFilter);
+        }
 
 		return new RestResp<>(result, request.getTt());
 	}
@@ -256,22 +242,6 @@ public class SearchRestApi {
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 		boolQuery.must(QueryBuilders.idsQuery().addIds(docId));
 		return boolQuery;
-	}
-
-	@SuppressWarnings("unchecked")
-	private BaikeItem extractBaikeItem(SearchHit hit) {
-		Map<String, Object> source = hit.getSource();
-		BaikeItem item = new BaikeItem();
-		item.setTitle(getString(source.get("title")));
-		item.seteTitle(getString(source.get("etitle")));
-		item.setPyTitle(getString(source.get("pinyinTitle")));
-		Object contentsObj = source.get("content");
-		if (contentsObj instanceof List) {
-			for (Object content : (List<Object>) contentsObj) {
-				item.getContents().add(getString(content));
-			}
-		}
-		return item;
 	}
 
 	private SearchResponse searchBaikeIndex(QueryRequest request, BoolQueryBuilder boolQuery)
@@ -299,8 +269,10 @@ public class SearchRestApi {
 		srb.addAggregation(docTypes);
 
 		String annotationField = getAnnotationFieldName(request);
-		AggregationBuilder knowledge = AggregationBuilders.terms("knowledge_class").field(annotationField);
-		srb.addAggregation(knowledge);
+		if (annotationField != null) {
+            AggregationBuilder knowledge = AggregationBuilders.terms("knowledge_class").field(annotationField);
+            srb.addAggregation(knowledge);
+        }
 
 		System.out.println(srb.toString());
 		return srb.execute().get();
@@ -316,21 +288,12 @@ public class SearchRestApi {
 				} else if ("annotation_2.name".equals(filter.getK())) {
 					annotationField = "annotation_3.name";
 					break;
-				}
+				} else if ("annotation_3.name".equals(filter.getK())) {
+                    return null;
+                }
 			}
 		}
 		return annotationField;
-	}
-
-	private BoolQueryBuilder buildQueryBaike(String baike) {
-		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-		TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", baike);
-		TermQueryBuilder etitleTerm = QueryBuilders.termQuery("etitle", baike);
-		TermQueryBuilder pytitleTerm = QueryBuilders.termQuery("pinyintitle", baike);
-		boolQuery.should(titleTerm);
-		boolQuery.should(etitleTerm);
-		boolQuery.should(pytitleTerm);
-		return boolQuery;
 	}
 
 	private boolean isChinese(String words) {
@@ -398,4 +361,75 @@ public class SearchRestApi {
 		schema.setTypes(this.generalSSEService.getAllTypes(kgName));
 		return new RestResp<>(schema, tt);
 	}
+
+
+    @POST
+    @Path("/kw2")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
+    @ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败") })
+    public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") QueryRequest request)
+            throws InterruptedException, ExecutionException {
+        if (StringUtils.isEmpty(request.getKw()) || request.getDocType() == null) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        log.info(com.hiekn.util.JSONUtils.toJson(request));
+
+        SearchResultBean result = new SearchResultBean(request.getKw());
+
+        SearchResponse response;
+        BoolQueryBuilder boolQuery;
+        String index;
+        if (DocType.PATENT.equals(request.getDocType())) {
+            boolQuery = patentService.buildQueryPatent(request);
+            index = PATENT_INDEX;
+        } else if (DocType.PAPER.equals(request.getDocType())) {
+            boolQuery = paperService.buildQueryPaper(request);
+            index = PAPER_INDEX;
+        } else if (DocType.STANDARD.equals(request.getDocType())) {
+            boolQuery = standardService.buildQueryStandard(request);
+            index = STANDARD_INDEX;
+        } else if (DocType.PICTURE.equals(request.getDocType())) {
+            boolQuery = pictureService.buildQueryPicture(request);
+            index = PICTURE_INDEX;
+        } else {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+
+        response = searchIndexes2(request, boolQuery, Arrays.asList(new String[] { index }));
+        result.setRsCount(response.getHits().totalHits);
+        setResultData(result, response);
+
+        return new RestResp<>(result, request.getTt());
+    }
+
+    private SearchResponse searchIndexes2(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
+            throws InterruptedException, ExecutionException {
+        SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[] {}));
+        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
+                .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
+                .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+                .setSize(request.getPageSize());
+        return srb.execute().get();
+    }
+
+    private void setResultData(SearchResultBean result, SearchResponse response) {
+        for (SearchHit hit : response.getHits()) {
+            ItemBean item;
+            if (hit.getType().equals("patent_data"))
+                item = patentService.extractPatentItem(hit);
+            else if (hit.getType().equals("paper_data"))
+                item = paperService.extractPaperItem(hit);
+            else if (hit.getType().equals("standard_data"))
+                item = standardService.extractStandardItem(hit);
+            else if (hit.getType().equals("picture_data"))
+                item = pictureService.extractPictureItem(hit);
+            else {
+                continue;
+            }
+            result.getRsData().add(item);
+        }
+    }
 }
