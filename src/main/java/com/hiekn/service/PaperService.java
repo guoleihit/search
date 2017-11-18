@@ -4,23 +4,34 @@ import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PaperDetail;
 import com.hiekn.search.bean.result.PaperItem;
+import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.util.CommonResource;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
 
-public class PaperService {
+public class PaperService extends AbstractService{
 
-	public ItemBean extractPaperDetail(SearchHit hit) {
+	public PaperService (TransportClient client) {
+		esClient = client;
+	}
+
+	public ItemBean extractDetail(SearchHit hit) {
 		PaperDetail item = new PaperDetail();
 		Map<String, Object> source = hit.getSource();
 		item.setDocId(hit.getId().toString());
@@ -61,7 +72,7 @@ public class PaperService {
 	}
 
 	@SuppressWarnings("rawtypes")
-	public PaperItem extractPaperItem(SearchHit hit) {
+	public PaperItem extractItem(SearchHit hit) {
 		PaperItem item = new PaperItem();
 		Map<String, Object> source = hit.getSource();
 		item.setDocId(hit.getId().toString());
@@ -131,7 +142,7 @@ public class PaperService {
 	}
 
 
-    public BoolQueryBuilder buildQueryPaper(QueryRequest request) {
+    public BoolQueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -156,4 +167,21 @@ public class PaperService {
         boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data"));
         return boolQuery;
     }
+
+	@Override
+	public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
+		BoolQueryBuilder boolQuery = buildQuery(request);
+		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PAPER_INDEX);
+		HighlightBuilder highlighter = new HighlightBuilder().field("title");
+		srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+				.setSize(request.getPageSize());
+		SearchResponse response =  srb.execute().get();
+		SearchResultBean result = new SearchResultBean(request.getKw());
+		result.setRsCount(response.getHits().totalHits);
+		for (SearchHit hit : response.getHits()) {
+			ItemBean item = extractItem(hit);
+			result.getRsData().add(item);
+		}
+		return result;
+	}
 }

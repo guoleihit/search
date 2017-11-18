@@ -4,22 +4,33 @@ import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
 import com.hiekn.search.bean.result.PatentItem;
+import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
 
-public class PatentService {
+public class PatentService extends AbstractService{
+
+    public PatentService (TransportClient client) {
+        esClient = client;
+    }
 
     @SuppressWarnings("rawtypes")
-    public ItemBean extractPatentDetail(SearchHit hit) {
+    public ItemBean extractDetail(SearchHit hit) {
         PatentDetail item = new PatentDetail();
 
         Map<String, Object> source = hit.getSource();
@@ -121,7 +132,7 @@ public class PatentService {
 
 
     @SuppressWarnings("rawtypes")
-    public ItemBean extractPatentItem(SearchHit hit) {
+    public ItemBean extractItem(SearchHit hit) {
         PatentItem item = new PatentItem();
         Map<String, Object> source = hit.getSource();
         // use application_number.lowercase as doc id for detail search
@@ -190,7 +201,7 @@ public class PatentService {
         return item;
     }
 
-    public BoolQueryBuilder buildQueryPatent(QueryRequest request) {
+    public BoolQueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -235,5 +246,22 @@ public class PatentService {
         boolQuery.must(termQuery);
         boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
         return boolQuery;
+    }
+
+    @Override
+    public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
+        BoolQueryBuilder boolQuery = buildQuery(request);
+        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PATENT_INDEX);
+        HighlightBuilder highlighter = new HighlightBuilder().field("name");
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+                .setSize(request.getPageSize());
+        SearchResponse response =  srb.execute().get();
+        SearchResultBean result = new SearchResultBean(request.getKw());
+        result.setRsCount(response.getHits().totalHits);
+        for (SearchHit hit : response.getHits()) {
+            ItemBean item = extractItem(hit);
+            result.getRsData().add(item);
+        }
+        return result;
     }
 }

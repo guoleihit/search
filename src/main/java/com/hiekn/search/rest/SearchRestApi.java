@@ -25,6 +25,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
@@ -37,192 +38,191 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.hiekn.service.Helper.getString;
+import static com.hiekn.util.CommonResource.BAIKE_INDEX;
+import static com.hiekn.util.CommonResource.PAPER_INDEX;
+import static com.hiekn.util.CommonResource.PATENT_INDEX;
+import static com.hiekn.util.CommonResource.PROMPT_INDEX;
+import static com.hiekn.util.CommonResource.PICTURE_INDEX;
+import static com.hiekn.util.CommonResource.STANDARD_INDEX;
 
 @Controller
 @Path("/p")
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
-@Api(tags = { "搜索" })
-public class SearchRestApi {
+@Api(tags = {"搜索"})
+public class SearchRestApi implements InitializingBean{
 
-	@Value("${kg_name}")
-	private String kgName;
-	@Resource
-	private IGeneralSSEService generalSSEService;
+    @Value("${kg_name}")
+    private String kgName;
+    @Resource
+    private IGeneralSSEService generalSSEService;
 
-	private static final String PROMPT_INDEX = "gw_prompt";
-	private static final String STANDARD_INDEX = "gw_standard";
-	private static final String PATENT_INDEX = "gw_patent";
-	private static final String PAPER_INDEX = "gw_paper";
-	private static final String BAIKE_INDEX = "gw_baike";
-	private static final String PICTURE_INDEX = "gw_picture";
+    private static Logger log = LoggerFactory.getLogger(SearchRestApi.class);
 
-	private static Logger log = LoggerFactory.getLogger(SearchRestApi.class);
+    @Resource
+    private TransportClient esClient;
 
-	@Resource
-	private TransportClient esClient;
+    private PaperService paperService = null;
+    private PatentService patentService = null;
+    private PictureService pictureService = null;
+    private StandardService standardService = null;
+    private BaikeService baikeService = new BaikeService();
 
-	private PaperService paperService = new PaperService();
-	private PatentService patentService = new PatentService();
-	private PictureService pictureService = new PictureService();
-	private StandardService standardService = new StandardService();
-	private BaikeService baikeService = new BaikeService();
+    @GET
+    @Path("/detail")
+    @ApiOperation(value = "")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> detail(@QueryParam("docId") String docId, @QueryParam("docType") DocType docType,
+                                             @QueryParam("tt") Long tt) throws Exception {
+        log.info("docId=" + docId + ",docType" + docType);
+        if (StringUtils.isEmpty(docId)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        SearchResultBean result = new SearchResultBean(docId);
+        BoolQueryBuilder docQuery = buildQueryDetail(docId);
+        String index = PATENT_INDEX;
+        if (DocType.PICTURE.equals(docType)) {
+            index = PICTURE_INDEX;
+        } else if (DocType.PAPER.equals(docType)) {
+            index = PAPER_INDEX;
+        } else if (DocType.STANDARD.equals(docType)) {
+            index = STANDARD_INDEX;
+        }
+        SearchRequestBuilder srb = esClient.prepareSearch(index);
+        System.out.println(srb.toString());
+        srb.setQuery(docQuery).setFrom(0).setSize(1);
+        SearchResponse docResp = srb.get();
+        if (docResp.getHits().getHits().length > 0) {
+            SearchHit hit = docResp.getHits().getAt(0);
+            ItemBean item = extractDetail(hit, docType);
+            result.getRsData().add(item);
+        }
+        return new RestResp<>(result, tt);
+    }
 
-	@GET
-	@Path("/detail")
-	@ApiOperation(value = "")
-	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<SearchResultBean> detail(@QueryParam("docId") String docId, @QueryParam("docType") DocType docType,
-			@QueryParam("tt") Long tt) throws Exception {
-		log.info("docId=" + docId + ",docType" + docType);
-		if (StringUtils.isEmpty(docId)) {
-			throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
-		}
-		SearchResultBean result = new SearchResultBean(docId);
-		BoolQueryBuilder docQuery = buildQueryDetail(docId);
-		String index = PATENT_INDEX;
-		if (DocType.PICTURE.equals(docType)) {
-			index = PICTURE_INDEX;
-		} else if (DocType.PAPER.equals(docType)) {
-			index = PAPER_INDEX;
-		} else if (DocType.STANDARD.equals(docType)) {
-			index = STANDARD_INDEX;
-		}
-		SearchRequestBuilder srb = esClient.prepareSearch(index);
-		System.out.println(srb.toString());
-		srb.setQuery(docQuery).setFrom(0).setSize(1);
-		SearchResponse docResp = srb.get();
-		if (docResp.getHits().getHits().length > 0) {
-			SearchHit hit = docResp.getHits().getAt(0);
-			ItemBean item = extractDetail(hit, docType);
-			result.getRsData().add(item);
-		}
-		return new RestResp<>(result, tt);
-	}
+    private ItemBean extractDetail(SearchHit hit, DocType docType) {
+        switch (docType) {
+            case PICTURE:
+                return pictureService.extractDetail(hit);
+            case PAPER:
+                return paperService.extractDetail(hit);
+            case STANDARD:
+                return standardService.extractDetail(hit);
+            case PATENT:
+            default:
+                return patentService.extractDetail(hit);
+        }
+    }
 
-	private ItemBean extractDetail(SearchHit hit, DocType docType) {
-		switch (docType) {
-		case PICTURE:
-			return pictureService.extractPictureDetail(hit);
-		case PAPER:
-			return paperService.extractPaperDetail(hit);
-		case STANDARD:
-			return standardService.extractStandardDetail(hit);
-		case PATENT:
-		default:
-			return patentService.extractPatentDetail(hit);
-		}
-	}
+    @GET
+    @Path("/baike")
+    @ApiOperation(value = "搜索百科")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> baike(@QueryParam("baike") String baike, @QueryParam("pageNo") Integer pageNo,
+                                            @QueryParam("pageSize") Integer pageSize, @QueryParam("tt") Long tt) throws Exception {
+        log.info("search baike item:" + baike);
+        if (pageNo == null) {
+            pageNo = 1;
+        }
+        if (pageSize == null) {
+            pageSize = 10;
+        }
+        SearchResultBean result = new SearchResultBean(baike);
 
-	@GET
-	@Path("/baike")
-	@ApiOperation(value = "搜索百科")
-	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<SearchResultBean> baike(@QueryParam("baike") String baike, @QueryParam("pageNo") Integer pageNo,
-			@QueryParam("pageSize") Integer pageSize, @QueryParam("tt") Long tt) throws Exception {
-		log.info("search baike item:" + baike);
-		if (pageNo == null) {
-			pageNo = 1;
-		}
-		if (pageSize == null) {
-			pageSize = 10;
-		}
-		SearchResultBean result = new SearchResultBean(baike);
+        BoolQueryBuilder baikeQuery = baikeService.buildQuery(baike);
+        QueryRequest request = new QueryRequest();
+        request.setKw(baike);
+        request.setPageNo(pageNo);
+        request.setPageSize(pageSize);
+        SearchResponse baikeResp = searchBaikeIndex(request, baikeQuery);
+        if (baikeResp.getHits().getHits().length > 0) {
+            SearchHit hit = baikeResp.getHits().getAt(0);
+            BaikeItem item = baikeService.extractItem(hit);
+            result.getRsData().add(item);
+        }
+        return new RestResp<>(result, request.getTt());
+    }
 
-		BoolQueryBuilder baikeQuery = baikeService.buildQueryBaike(baike);
-		QueryRequest request = new QueryRequest();
-		request.setKw(baike);
-		request.setPageNo(pageNo);
-		request.setPageSize(pageSize);
-		SearchResponse baikeResp = searchBaikeIndex(request, baikeQuery);
-		if (baikeResp.getHits().getHits().length > 0) {
-			SearchHit hit = baikeResp.getHits().getAt(0);
-			BaikeItem item = baikeService.extractBaikeItem(hit);
-			result.getRsData().add(item);
-		}
-		return new RestResp<>(result, request.getTt());
-	}
+    @POST
+    @Path("/kw")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
+            throws InterruptedException, ExecutionException {
+        if (StringUtils.isEmpty(request.getKw())) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        log.info(com.hiekn.util.JSONUtils.toJson(request));
 
-	@POST
-	@Path("/kw")
-	@Consumes(MediaType.APPLICATION_JSON)
-	@ApiOperation(value = "搜索", notes = "搜索过滤及排序")
-	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
-			throws InterruptedException, ExecutionException {
-		if (StringUtils.isEmpty(request.getKw())) {
-			throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
-		}
-		log.info(com.hiekn.util.JSONUtils.toJson(request));
+        SearchResultBean result = new SearchResultBean(request.getKw());
+        String[] kws = request.getKw().trim().split(" ");
+        if (kws.length > 1) {
+            request.setKw(kws[0]);
+            request.setOtherKw(kws[1]);
+        }
+        SearchResponse response = null;
+        if (request.getDocType() == null) {
+            BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+            BoolQueryBuilder patentQuery = patentService.buildQuery(request);
+            BoolQueryBuilder paperQuery = paperService.buildQuery(request);
+            BoolQueryBuilder standardQuery = standardService.buildQuery(request);
+            BoolQueryBuilder pictureQuery = pictureService.buildQuery(request);
+            boolQuery.should(paperQuery);
+            boolQuery.should(patentQuery);
+            boolQuery.should(standardQuery);
+            boolQuery.should(pictureQuery);
+            response = searchIndexes(request, boolQuery,
+                    Arrays.asList(new String[]{PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, PICTURE_INDEX}));
+        } else if (DocType.PATENT.equals(request.getDocType())) {
+            BoolQueryBuilder boolQuery = patentService.buildQuery(request);
+            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PATENT_INDEX}));
+        } else if (DocType.PAPER.equals(request.getDocType())) {
+            BoolQueryBuilder boolQuery = paperService.buildQuery(request);
+            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PAPER_INDEX}));
+        } else if (DocType.STANDARD.equals(request.getDocType())) {
+            BoolQueryBuilder boolQuery = standardService.buildQuery(request);
+            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{STANDARD_INDEX}));
+        } else if (DocType.PICTURE.equals(request.getDocType())) {
+            BoolQueryBuilder boolQuery = pictureService.buildQuery(request);
+            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PICTURE_INDEX}));
+        }
 
-		SearchResultBean result = new SearchResultBean(request.getKw());
-		String[] kws = request.getKw().trim().split(" ");
-		if (kws.length > 1) {
-			request.setKw(kws[0]);
-			request.setOtherKw(kws[1]);
-		}
-		SearchResponse response = null;
-		if (request.getDocType() == null) {
-			BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-			BoolQueryBuilder patentQuery = patentService.buildQueryPatent(request);
-			BoolQueryBuilder paperQuery = paperService.buildQueryPaper(request);
-			BoolQueryBuilder standardQuery = standardService.buildQueryStandard(request);
-			BoolQueryBuilder pictureQuery = pictureService.buildQueryPicture(request);
-			boolQuery.should(paperQuery);
-			boolQuery.should(patentQuery);
-			boolQuery.should(standardQuery);
-			boolQuery.should(pictureQuery);
-			response = searchIndexes(request, boolQuery,
-					Arrays.asList(new String[] { PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, PICTURE_INDEX }));
-		} else if (DocType.PATENT.equals(request.getDocType())) {
-			BoolQueryBuilder boolQuery = patentService.buildQueryPatent(request);
-			response = searchIndexes(request, boolQuery, Arrays.asList(new String[] { PATENT_INDEX }));
-		} else if (DocType.PAPER.equals(request.getDocType())) {
-			BoolQueryBuilder boolQuery = paperService.buildQueryPaper(request);
-			response = searchIndexes(request, boolQuery, Arrays.asList(new String[] { PAPER_INDEX }));
-		} else if (DocType.STANDARD.equals(request.getDocType())) {
-			BoolQueryBuilder boolQuery = standardService.buildQueryStandard(request);
-			response = searchIndexes(request, boolQuery, Arrays.asList(new String[] { STANDARD_INDEX }));
-		} else if (DocType.PICTURE.equals(request.getDocType())) {
-			BoolQueryBuilder boolQuery = pictureService.buildQueryPicture(request);
-			response = searchIndexes(request, boolQuery, Arrays.asList(new String[] { PICTURE_INDEX }));
-		}
-
-		assert response != null;
-		result.setRsCount(response.getHits().totalHits);
+        assert response != null;
+        result.setRsCount(response.getHits().totalHits);
         setResultData(result, response);
 
         Histogram yearAgg = response.getAggregations().get("publication_year");
-		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
-		yearFilter.setD("发表年份");
-		yearFilter.setK("earliest_publication_date");
-		Map<String, Long> yearMap = new HashMap<>();
-		for (Histogram.Bucket bucket : yearAgg.getBuckets()) {
-			if (bucket.getKey() instanceof Number) {
-				Double year = Double.valueOf(bucket.getKeyAsString());
-				year = year / 10000;
-				yearMap.put(String.valueOf(year.intValue()), bucket.getDocCount());
-			}
-		}
-		yearFilter.setV(yearMap);
-		result.getFilters().add(yearFilter);
+        KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
+        yearFilter.setD("发表年份");
+        yearFilter.setK("earliest_publication_date");
+        Map<String, Long> yearMap = new HashMap<>();
+        for (Histogram.Bucket bucket : yearAgg.getBuckets()) {
+            if (bucket.getKey() instanceof Number) {
+                Double year = Double.valueOf(bucket.getKeyAsString());
+                year = year / 10000;
+                yearMap.put(String.valueOf(year.intValue()), bucket.getDocCount());
+            }
+        }
+        yearFilter.setV(yearMap);
+        result.getFilters().add(yearFilter);
 
-		Terms docTypes = response.getAggregations().get("document_type");
-		KVBean<String, Map<String, ? extends Object>> docTypeFilter = new KVBean<>();
-		docTypeFilter.setD("资源类型");
-		docTypeFilter.setK("_type");
-		Map<String, Long> docMap = new HashMap<>();
-		for (Terms.Bucket bucket : docTypes.getBuckets()) {
-			docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
-		}
-		docTypeFilter.setV(docMap);
-		result.getFilters().add(docTypeFilter);
+        Terms docTypes = response.getAggregations().get("document_type");
+        KVBean<String, Map<String, ? extends Object>> docTypeFilter = new KVBean<>();
+        docTypeFilter.setD("资源类型");
+        docTypeFilter.setK("_type");
+        Map<String, Long> docMap = new HashMap<>();
+        for (Terms.Bucket bucket : docTypes.getBuckets()) {
+            docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+        }
+        docTypeFilter.setV(docMap);
+        result.getFilters().add(docTypeFilter);
 
-		String annotation = getAnnotationFieldName(request);
-		if (annotation != null) {
+        String annotation = getAnnotationFieldName(request);
+        if (annotation != null) {
             Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
             KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
             knowledgeClassFilter.setD("知识体系");
@@ -235,201 +235,194 @@ public class SearchRestApi {
             result.getFilters().add(knowledgeClassFilter);
         }
 
-		return new RestResp<>(result, request.getTt());
-	}
+        return new RestResp<>(result, request.getTt());
+    }
 
-	private BoolQueryBuilder buildQueryDetail(String docId) {
-		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-		boolQuery.must(QueryBuilders.idsQuery().addIds(docId));
-		return boolQuery;
-	}
+    private BoolQueryBuilder buildQueryDetail(String docId) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        boolQuery.must(QueryBuilders.idsQuery().addIds(docId));
+        return boolQuery;
+    }
 
-	private SearchResponse searchBaikeIndex(QueryRequest request, BoolQueryBuilder boolQuery)
-			throws InterruptedException, ExecutionException {
-		SearchRequestBuilder srb = esClient.prepareSearch(BAIKE_INDEX);
-		srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
-		SearchResponse response = srb.execute().get();
-		return response;
-	}
+    private SearchResponse searchBaikeIndex(QueryRequest request, BoolQueryBuilder boolQuery)
+            throws InterruptedException, ExecutionException {
+        SearchRequestBuilder srb = esClient.prepareSearch(BAIKE_INDEX);
+        srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
+        SearchResponse response = srb.execute().get();
+        return response;
+    }
 
-	private SearchResponse searchIndexes(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
-			throws InterruptedException, ExecutionException {
-		SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[] {}));
-		HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
-				.field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
-				.field("applicants.name.original.keyword").field("inventors.name.original.keyword");
-		srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
-				.setSize(request.getPageSize());
+    private SearchResponse searchIndexes(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
+            throws InterruptedException, ExecutionException {
+        SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[]{}));
+        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
+                .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
+                .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+                .setSize(request.getPageSize());
 
-		AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
-				.field("earliest_publication_date").interval(10000);
-		srb.addAggregation(aggYear);
+        AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
+                .field("earliest_publication_date").interval(10000);
+        srb.addAggregation(aggYear);
 
-		AggregationBuilder docTypes = AggregationBuilders.terms("document_type").field("_type");
-		srb.addAggregation(docTypes);
+        AggregationBuilder docTypes = AggregationBuilders.terms("document_type").field("_type");
+        srb.addAggregation(docTypes);
 
-		String annotationField = getAnnotationFieldName(request);
-		if (annotationField != null) {
+        String annotationField = getAnnotationFieldName(request);
+        if (annotationField != null) {
             AggregationBuilder knowledge = AggregationBuilders.terms("knowledge_class").field(annotationField);
             srb.addAggregation(knowledge);
         }
 
-		System.out.println(srb.toString());
-		return srb.execute().get();
-	}
+        System.out.println(srb.toString());
+        return srb.execute().get();
+    }
 
-	private String getAnnotationFieldName(QueryRequest request) {
-		String annotationField = "annotation_1.name";
-		if (request.getFilters() != null) {
-			for (KVBean<String, List<String>> filter : request.getFilters()) {
-				if ("annotation_1.name".equals(filter.getK())) {
-					annotationField = "annotation_2.name";
-					break;
-				} else if ("annotation_2.name".equals(filter.getK())) {
-					annotationField = "annotation_3.name";
-					break;
-				} else if ("annotation_3.name".equals(filter.getK())) {
+    private String getAnnotationFieldName(QueryRequest request) {
+        String annotationField = "annotation_1.name";
+        if (request.getFilters() != null) {
+            for (KVBean<String, List<String>> filter : request.getFilters()) {
+                if ("annotation_1.name".equals(filter.getK())) {
+                    annotationField = "annotation_2.name";
+                    break;
+                } else if ("annotation_2.name".equals(filter.getK())) {
+                    annotationField = "annotation_3.name";
+                    break;
+                } else if ("annotation_3.name".equals(filter.getK())) {
                     return null;
                 }
-			}
-		}
-		return annotationField;
-	}
+            }
+        }
+        return annotationField;
+    }
 
-	private boolean isChinese(String words) {
-		Pattern chinesePattern = Pattern.compile("[\\u4E00-\\u9FA5]+");
-		Matcher matcherResult = chinesePattern.matcher(words);
-		return matcherResult.find();
-	}
+    private boolean isChinese(String words) {
+        Pattern chinesePattern = Pattern.compile("[\\u4E00-\\u9FA5]+");
+        Matcher matcherResult = chinesePattern.matcher(words);
+        return matcherResult.find();
+    }
 
-	@POST
-	@Path("/prompt")
-	@Consumes(MediaType.APPLICATION_JSON)
-	@ApiOperation(value = "提示", notes = "关键词提示")
-	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<List<PromptBean>> prompt(@ApiParam(value = "提示请求") QueryRequest request) throws Exception {
-		// TODO validation check
-		log.info(com.hiekn.util.JSONUtils.toJson(request));
-		if (StringUtils.isEmpty(request.getKw())) {
-			throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
-		}
-		QueryBuilder titleTerm;
-		if (!isChinese(request.getKw())) {
-			titleTerm = QueryBuilders.prefixQuery("name.pinyin", request.getKw()).boost(2);
-		} else {
-			titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
-		}
+    @POST
+    @Path("/prompt")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "提示", notes = "关键词提示")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<List<PromptBean>> prompt(@ApiParam(value = "提示请求") QueryRequest request) throws Exception {
+        // TODO validation check
+        log.info(com.hiekn.util.JSONUtils.toJson(request));
+        if (StringUtils.isEmpty(request.getKw())) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        QueryBuilder titleTerm;
+        if (!isChinese(request.getKw())) {
+            titleTerm = QueryBuilders.prefixQuery("name.pinyin", request.getKw()).boost(2);
+        } else {
+            titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
+        }
 
-		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-		boolQuery.should(titleTerm);
-		if (request.getKwType() != null && request.getKwType() > 0) {
-			boolQuery.filter(QueryBuilders.termQuery("type", request.getKwType()));
-		}
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        boolQuery.should(titleTerm);
+        if (request.getKwType() != null && request.getKwType() > 0) {
+            boolQuery.filter(QueryBuilders.termQuery("type", request.getKwType()));
+        }
 
-		SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
-		srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
-		log.info(srb.toString());
-		SearchResponse response = srb.execute().get();
-		List<PromptBean> promptList = new ArrayList<>();
-		for (SearchHit hit : response.getHits()) {
-			Map<String, Object> source = hit.getSource();
-			Object nameObj = source.get("name");
-			Object typeObj = source.get("type");
-			Object descObj = source.get("description");
-			PromptBean bean = new PromptBean();
-			if (typeObj != null)
-				bean.setType(Integer.valueOf(getString(typeObj)));
-			bean.setName(getString(nameObj));
-			bean.setDescription(getString(descObj));
+        SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
+        srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
+        log.info(srb.toString());
+        SearchResponse response = srb.execute().get();
+        List<PromptBean> promptList = new ArrayList<>();
+        for (SearchHit hit : response.getHits()) {
+            Map<String, Object> source = hit.getSource();
+            Object nameObj = source.get("name");
+            Object typeObj = source.get("type");
+            Object descObj = source.get("description");
+            PromptBean bean = new PromptBean();
+            if (typeObj != null)
+                bean.setType(Integer.valueOf(getString(typeObj)));
+            bean.setName(getString(nameObj));
+            bean.setDescription(getString(descObj));
 
-			if (bean.getName() != null && promptList.indexOf(bean) < 0) {
-				promptList.add(bean);
-			}
-		}
+            if (bean.getName() != null && promptList.indexOf(bean) < 0) {
+                promptList.add(bean);
+            }
+        }
 
-		return new RestResp<List<PromptBean>>(promptList, request.getTt());
-	}
+        return new RestResp<List<PromptBean>>(promptList, request.getTt());
+    }
 
-	@POST
-	@Path("/schema")
-	@ApiOperation(value = "schema")
-	@ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-			@ApiResponse(code = 500, message = "失败") })
-	public RestResp<SchemaBean> schema(@QueryParam("tt") Long tt) {
-		SchemaBean schema = generalSSEService.getAllAtts(kgName);
-		schema.setTypes(this.generalSSEService.getAllTypes(kgName));
-		return new RestResp<>(schema, tt);
-	}
+    @POST
+    @Path("/schema")
+    @ApiOperation(value = "schema")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SchemaBean> schema(@QueryParam("tt") Long tt) {
+        SchemaBean schema = generalSSEService.getAllAtts(kgName);
+        schema.setTypes(this.generalSSEService.getAllTypes(kgName));
+        return new RestResp<>(schema, tt);
+    }
 
 
     @POST
     @Path("/kw2")
     @Consumes(MediaType.APPLICATION_JSON)
     @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
-    @ApiResponses(value = { @ApiResponse(code = 200, message = "成功", response = RestResp.class),
-            @ApiResponse(code = 500, message = "失败") })
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") QueryRequest request)
-            throws InterruptedException, ExecutionException {
+            throws Exception {
         if (StringUtils.isEmpty(request.getKw()) || request.getDocType() == null) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
         log.info(com.hiekn.util.JSONUtils.toJson(request));
 
-        SearchResultBean result = new SearchResultBean(request.getKw());
-
-        SearchResponse response;
-        BoolQueryBuilder boolQuery;
-        String index;
-        if (DocType.PATENT.equals(request.getDocType())) {
-            boolQuery = patentService.buildQueryPatent(request);
-            index = PATENT_INDEX;
-        } else if (DocType.PAPER.equals(request.getDocType())) {
-            boolQuery = paperService.buildQueryPaper(request);
-            index = PAPER_INDEX;
-        } else if (DocType.STANDARD.equals(request.getDocType())) {
-            boolQuery = standardService.buildQueryStandard(request);
-            index = STANDARD_INDEX;
-        } else if (DocType.PICTURE.equals(request.getDocType())) {
-            boolQuery = pictureService.buildQueryPicture(request);
-            index = PICTURE_INDEX;
-        } else {
-            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        AbstractService service;
+        switch (request.getDocType()) {
+            case STANDARD:
+                service = standardService;
+                break;
+            case PAPER:
+                service = paperService;
+                break;
+            case PATENT:
+                service = patentService;
+                break;
+            case PICTURE:
+                service = pictureService;
+                break;
+            default:
+                throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
 
-        response = searchIndexes2(request, boolQuery, Arrays.asList(new String[] { index }));
-        result.setRsCount(response.getHits().totalHits);
-        setResultData(result, response);
+        SearchResultBean result = service.doSearch(request);
 
         return new RestResp<>(result, request.getTt());
     }
 
-    private SearchResponse searchIndexes2(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
-            throws InterruptedException, ExecutionException {
-        SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[] {}));
-        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
-                .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
-                .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
-        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
-                .setSize(request.getPageSize());
-        return srb.execute().get();
-    }
 
     private void setResultData(SearchResultBean result, SearchResponse response) {
         for (SearchHit hit : response.getHits()) {
             ItemBean item;
             if (hit.getType().equals("patent_data"))
-                item = patentService.extractPatentItem(hit);
+                item = patentService.extractItem(hit);
             else if (hit.getType().equals("paper_data"))
-                item = paperService.extractPaperItem(hit);
+                item = paperService.extractItem(hit);
             else if (hit.getType().equals("standard_data"))
-                item = standardService.extractStandardItem(hit);
+                item = standardService.extractItem(hit);
             else if (hit.getType().equals("picture_data"))
-                item = pictureService.extractPictureItem(hit);
+                item = pictureService.extractItem(hit);
             else {
                 continue;
             }
             result.getRsData().add(item);
         }
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        paperService = new PaperService(esClient);
+        patentService = new PatentService(esClient);
+        pictureService = new PictureService(esClient);
+        standardService = new StandardService(esClient);
     }
 }

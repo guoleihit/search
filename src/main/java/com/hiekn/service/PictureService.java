@@ -3,11 +3,16 @@ package com.hiekn.service;
 import static com.hiekn.service.Helper.toDateString;
 import static com.hiekn.service.Helper.toStringList;
 import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.makeFilters;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
+import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.util.CommonResource;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
@@ -17,9 +22,15 @@ import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PictureDetail;
 import com.hiekn.search.bean.result.PictureItem;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 
-public class PictureService {
-	public ItemBean extractPictureDetail(SearchHit hit) {
+public class PictureService extends AbstractService{
+
+    public PictureService(TransportClient client){
+        esClient = client;
+    }
+
+	public ItemBean extractDetail(SearchHit hit) {
 		PictureDetail item = new PictureDetail();
 
 		Map<String, Object> source = hit.getSource();
@@ -65,7 +76,7 @@ public class PictureService {
 		return item;
 	}
 
-	public ItemBean extractPictureItem(SearchHit hit) {
+	public ItemBean extractItem(SearchHit hit) {
 		PictureItem item = new PictureItem();
 
 		Map<String, Object> source = hit.getSource();
@@ -98,7 +109,7 @@ public class PictureService {
 		return item;
 	}
 	
-	public BoolQueryBuilder buildQueryPicture(QueryRequest request) {
+	public BoolQueryBuilder buildQuery(QueryRequest request) {
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
 		makeFilters(request, boolQuery);
@@ -117,5 +128,22 @@ public class PictureService {
 		boolQuery.must(termQuery);
 		boolQuery.filter(QueryBuilders.termQuery("_type", "picture_data"));
 		return boolQuery;
+	}
+
+	@Override
+	public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
+		BoolQueryBuilder boolQuery = buildQuery(request);
+		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PICTURE_INDEX);
+		HighlightBuilder highlighter = new HighlightBuilder().field("title");
+		srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+				.setSize(request.getPageSize());
+		SearchResponse response =  srb.execute().get();
+		SearchResultBean result = new SearchResultBean(request.getKw());
+		result.setRsCount(response.getHits().totalHits);
+		for (SearchHit hit : response.getHits()) {
+			ItemBean item = extractItem(hit);
+			result.getRsData().add(item);
+		}
+		return result;
 	}
 }

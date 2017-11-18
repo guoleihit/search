@@ -3,6 +3,13 @@ package com.hiekn.util;
 import java.util.Properties;
 
 public final class CommonResource {
+	public static final String PROMPT_INDEX = "gw_prompt";
+	public static final String STANDARD_INDEX = "gw_standard";
+	public static final String PATENT_INDEX = "gw_patent";
+	public static final String PAPER_INDEX = "gw_paper";
+	public static final String BAIKE_INDEX = "gw_baike";
+	public static final String PICTURE_INDEX = "gw_picture";
+
 	private static Properties props = PropertiesUtil.loadPropties("meta_ws.properties");
 
 	public static final String swagger_base_path = props.getProperty("swagger_base_path");;
