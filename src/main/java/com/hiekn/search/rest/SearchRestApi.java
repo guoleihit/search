@@ -10,6 +10,7 @@ import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.service.*;
 import io.swagger.annotations.*;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -50,7 +51,7 @@ import static com.hiekn.util.CommonResource.STANDARD_INDEX;
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"搜索"})
-public class SearchRestApi implements InitializingBean{
+public class SearchRestApi implements InitializingBean {
 
     @Value("${kg_name}")
     private String kgName;
@@ -153,7 +154,10 @@ public class SearchRestApi implements InitializingBean{
             @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
             throws InterruptedException, ExecutionException {
-        if (StringUtils.isEmpty(request.getKw())) {
+        if (StringUtils.isEmpty(request.getKw()) && StringUtils.isEmpty(request.getAndKwList())
+                && StringUtils.isEmpty(request.getAtLeastOneKw())
+                && StringUtils.isEmpty(request.getExactKwList())
+                && StringUtils.isEmpty(request.getNoneKwList())) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
         log.info(com.hiekn.util.JSONUtils.toJson(request));
@@ -164,32 +168,25 @@ public class SearchRestApi implements InitializingBean{
             request.setKw(kws[0]);
             request.setOtherKw(kws[1]);
         }
-        SearchResponse response = null;
-        if (request.getDocType() == null) {
-            BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-            BoolQueryBuilder patentQuery = patentService.buildQuery(request);
-            BoolQueryBuilder paperQuery = paperService.buildQuery(request);
-            BoolQueryBuilder standardQuery = standardService.buildQuery(request);
-            BoolQueryBuilder pictureQuery = pictureService.buildQuery(request);
-            boolQuery.should(paperQuery);
-            boolQuery.should(patentQuery);
-            boolQuery.should(standardQuery);
-            boolQuery.should(pictureQuery);
-            response = searchIndexes(request, boolQuery,
-                    Arrays.asList(new String[]{PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, PICTURE_INDEX}));
-        } else if (DocType.PATENT.equals(request.getDocType())) {
-            BoolQueryBuilder boolQuery = patentService.buildQuery(request);
-            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PATENT_INDEX}));
-        } else if (DocType.PAPER.equals(request.getDocType())) {
-            BoolQueryBuilder boolQuery = paperService.buildQuery(request);
-            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PAPER_INDEX}));
-        } else if (DocType.STANDARD.equals(request.getDocType())) {
-            BoolQueryBuilder boolQuery = standardService.buildQuery(request);
-            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{STANDARD_INDEX}));
-        } else if (DocType.PICTURE.equals(request.getDocType())) {
-            BoolQueryBuilder boolQuery = pictureService.buildQuery(request);
-            response = searchIndexes(request, boolQuery, Arrays.asList(new String[]{PICTURE_INDEX}));
+
+        List<String> indices = new ArrayList<>();
+        List<AbstractService> services = new ArrayList<>();
+        if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
+            services.addAll(Arrays.asList(new AbstractService[]{patentService, paperService, standardService, pictureService}));
+            indices.addAll(Arrays.asList(new String[]{PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, PICTURE_INDEX}));
+        } else if(request.getDocType()!=null) {
+            setSearchResource(request.getDocType(),services,indices);
+        }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
+            for (DocType doc: request.getDocTypeList()) {
+                setSearchResource(doc,services,indices);
+            }
         }
+
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        for (AbstractService service: services) {
+            boolQuery.should(service.buildQuery(request));
+        }
+        SearchResponse response = searchIndexes(request,boolQuery,indices);
 
         assert response != null;
         result.setRsCount(response.getHits().totalHits);
@@ -238,6 +235,22 @@ public class SearchRestApi implements InitializingBean{
         return new RestResp<>(result, request.getTt());
     }
 
+    private void setSearchResource(DocType docType, List<AbstractService> services, List<String> indices){
+        if (DocType.PATENT.equals(docType)) {
+            services.add(patentService);
+            indices.add(PATENT_INDEX);
+        } else if (DocType.PAPER.equals(docType)) {
+            services.add(paperService);
+            indices.add(PAPER_INDEX);
+        } else if (DocType.STANDARD.equals(docType)) {
+            services.add(standardService);
+            indices.add(STANDARD_INDEX);
+        } else if (DocType.PICTURE.equals(docType)) {
+            services.add(pictureService);
+            indices.add(PICTURE_INDEX);
+        }
+
+    }
     private BoolQueryBuilder buildQueryDetail(String docId) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         boolQuery.must(QueryBuilders.idsQuery().addIds(docId));

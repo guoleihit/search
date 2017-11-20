@@ -1,15 +1,11 @@
 package com.hiekn.service;
 
-import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.QueryRequest;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+
+import org.elasticsearch.common.text.Text;
 
 public class Helper {
 

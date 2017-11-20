@@ -45,6 +45,22 @@ public class QueryRequest {
 	@ApiParam("过滤条件，比如 [{k: 'earliest_publication_date', v: ['2017'], d: '发表年份'}]")
 	private List<KVBean<String,List<String>>> filters = new ArrayList<>();
 
+	private List<DocType> docTypeList;
+
+	private String andKwList;
+
+	private String exactKwList;
+
+	private String atLeastOneKw;
+
+	private String noneKwList;
+
+    @ApiParam("关键词出现位置，无限制=0，标题=1")
+    @DefaultValue("0")
+	private Integer position = 0;
+
+    private String language;
+
 	private String otherKw;
 
 	public String getOtherKw() {
@@ -119,4 +135,60 @@ public class QueryRequest {
 	public void setTt(Long tt) {
 		this.tt = tt;
 	}
+
+    public List<DocType> getDocTypeList() {
+        return docTypeList;
+    }
+
+    public void setDocTypeList(List<DocType> docTypeList) {
+        this.docTypeList = docTypeList;
+    }
+
+    public String getAndKwList() {
+        return andKwList;
+    }
+
+    public void setAndKwList(String andKwList) {
+        this.andKwList = andKwList;
+    }
+
+    public String getExactKwList() {
+        return exactKwList;
+    }
+
+    public void setExactKwList(String exactKwList) {
+        this.exactKwList = exactKwList;
+    }
+
+    public String getAtLeastOneKw() {
+        return atLeastOneKw;
+    }
+
+    public void setAtLeastOneKw(String atLeastOneKw) {
+        this.atLeastOneKw = atLeastOneKw;
+    }
+
+    public String getNoneKwList() {
+        return noneKwList;
+    }
+
+    public void setNoneKwList(String noneKwList) {
+        this.noneKwList = noneKwList;
+    }
+
+    public Integer getPosition() {
+        return position;
+    }
+
+    public void setPosition(Integer position) {
+        this.position = position;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
 }

@@ -1,11 +1,13 @@
 package com.hiekn.service;
 
-import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.ItemBean;
-import com.hiekn.search.bean.result.SearchResultBean;
-import com.hiekn.search.bean.result.StandardItem;
-import com.hiekn.search.bean.result.StandardDetail;
-import com.hiekn.util.CommonResource;
+import static com.hiekn.service.Helper.getString;
+import static com.hiekn.service.Helper.toDateString;
+import static com.hiekn.service.Helper.toStringList;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -15,12 +17,12 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 
-import javax.naming.directory.SearchResult;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-
-import static com.hiekn.service.Helper.*;
+import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.result.ItemBean;
+import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.search.bean.result.StandardDetail;
+import com.hiekn.search.bean.result.StandardItem;
+import com.hiekn.util.CommonResource;
 
 public class StandardService extends AbstractService{
 
@@ -78,6 +80,12 @@ public class StandardService extends AbstractService{
         item.setPage(getString(source.get("page")));
         item.setPdfPage(getString(source.get("Pdf_page")));
         item.setPrice(getString(source.get("price")));
+        item.setCcs(getString(source.get("css")));
+        item.setSubNum(getString(source.get("sub_num")));
+        item.setNum(getString(source.get("num")));
+        item.setInterNum(getString(source.get("inter_num")));
+        item.setInterName(getString(source.get("inter_name")));
+        item.setYield(getString(source.get("yield")));
         return item;
     }
 
@@ -96,7 +104,7 @@ public class StandardService extends AbstractService{
             item.setAbs(absObj.toString());
         }
 
-        Object inventorsObj = source.get("persons");
+        Object inventorsObj = source.get("author");
         List<String> inventors = toStringList(inventorsObj);
         if (!inventors.isEmpty()) {
             item.setAuthors(inventors);
@@ -112,7 +120,9 @@ public class StandardService extends AbstractService{
         item.setIcs(getString(source.get("ics")));
         item.setNum(getString(source.get("num")));
         item.seteName(getString(source.get("e_name")));
-        item.setCarryonDate(getString(source.get("carryon_date")));
+        if (source.get("carryon_date")!=null) {
+        		item.setCarryonDate(getString(toDateString(source.get("carryon_date").toString(), "-")));
+        }
         item.setManageDep(getString(source.get("manage_dep")));
         item.setState(getString(source.get("state")));
         item.setAuthorDep(getString(source.get("author_dep")));
@@ -120,7 +130,9 @@ public class StandardService extends AbstractService{
         item.setInterNum(getString(source.get("inter_num")));
         item.setInterName(getString(source.get("inter_name")));
         item.setConsistent(getString(source.get("consistent")));
-
+        item.setPubDep(getString(source.get("pub_dep")));
+        item.setRelation(getString(source.get("relation")));
+        
         return item;
     }
 
@@ -131,7 +143,7 @@ public class StandardService extends AbstractService{
 
         TermQueryBuilder titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
         TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
-        TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons.keyword", request.getKw()).boost(1.5f);
+        TermQueryBuilder authorTerm = QueryBuilders.termQuery("author.keyword", request.getKw()).boost(1.5f);
         TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords", request.getKw()).boost(1.5f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);

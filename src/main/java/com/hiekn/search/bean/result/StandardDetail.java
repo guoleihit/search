@@ -8,14 +8,6 @@ public class StandardDetail extends StandardItem{
         setDocType(DocType.STANDARD);
     }
 
-    public String getNum() {
-        return num;
-    }
-
-    public void setNum(String num) {
-        this.num = num;
-    }
-
     public String geteName() {
         return eName;
     }
@@ -48,22 +40,6 @@ public class StandardDetail extends StandardItem{
         this.authorDep = authorDep;
     }
 
-    public String getInterNum() {
-        return interNum;
-    }
-
-    public void setInterNum(String interNum) {
-        this.interNum = interNum;
-    }
-
-    public String getInterName() {
-        return interName;
-    }
-
-    public void setInterName(String interName) {
-        this.interName = interName;
-    }
-
     public String getConsistent() {
         return consistent;
     }
@@ -81,15 +57,9 @@ public class StandardDetail extends StandardItem{
         this.carryonDate = carryonDate;
     }
 
-    /**
-     * 标准号
-     */
-    private String num;
-
     private String eName;
 
     /**
-
      * 实施时间
      */
     private String carryonDate;
@@ -108,16 +78,6 @@ public class StandardDetail extends StandardItem{
      * 起草单位
      */
     private String authorDep;
-
-    /**
-     * 采用国际标准号
-     */
-    private String interNum;
-
-    /**
-     * 采用国际标准名称
-     */
-    private String interName;
 
     /**
      * 一致性

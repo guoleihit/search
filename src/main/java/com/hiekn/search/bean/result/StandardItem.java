@@ -2,15 +2,59 @@ package com.hiekn.search.bean.result;
 
 import java.util.List;
 
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+
 import com.hiekn.search.bean.DocType;
 
+
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class StandardItem extends ItemBean{
 
 	public StandardItem() {
 		setDocType(DocType.STANDARD);
 	}
 
-    public String getType() {
+    public String getNum() {
+		return num;
+	}
+
+	public void setNum(String num) {
+		this.num = num;
+	}
+
+	public String getInterNum() {
+		return interNum;
+	}
+
+	public void setInterNum(String interNum) {
+		this.interNum = interNum;
+	}
+
+	public String getInterName() {
+		return interName;
+	}
+
+	public void setInterName(String interName) {
+		this.interName = interName;
+	}
+
+	public String getConsistent() {
+		return consistent;
+	}
+
+	public void setConsistent(String consistent) {
+		this.consistent = consistent;
+	}
+
+	public String getRelation() {
+		return relation;
+	}
+
+	public void setRelation(String relation) {
+		this.relation = relation;
+	}
+
+	public String getType() {
         return type;
     }
 
@@ -197,7 +241,19 @@ public class StandardItem extends ItemBean{
      * 代替标准
      */
 	private String subNum;
+	
+	/**
+	 * 标准号
+	 */
+	private String num;
 
+
+	private String interNum;
+	
+	private String interName;
+	
+    private String consistent;
+    
     /**
      * 范围
      */
@@ -237,4 +293,6 @@ public class StandardItem extends ItemBean{
     private String pdfPage;
 
     private String price;
+    
+    private String relation;
 }

@@ -152,6 +152,7 @@ public class KGRestApi {
         if (StringUtils.isEmpty(kw)) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
+        log.info("kw+"+kw+",tt:"+tt);
         List<Long> allowAttList = null;
         List<Long> allowTypeList = null;
 

@@ -37,4 +37,6 @@ public abstract class AbstractService {
     }
 
     public abstract SearchResultBean doSearch(QueryRequest request) throws Exception;
+
+    public abstract BoolQueryBuilder buildQuery(QueryRequest request);
 }
