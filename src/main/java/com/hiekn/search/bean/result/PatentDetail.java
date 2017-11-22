@@ -17,10 +17,10 @@ public class PatentDetail extends ItemBean {
 	private List<Map<String, Object>> applicants;
 	private List<String> agencies;
 	private List<String> agents;
-	private List<String> priorities;
+
 	private String mainIPC;
 	private List<String> ipces;
-
+	private List<String> priorities;
 	private Integer pages;
 	
 	public PatentDetail() {

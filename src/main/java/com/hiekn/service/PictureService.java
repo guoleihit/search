@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.alibaba.fastjson.JSONObject;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.elasticsearch.action.search.SearchRequestBuilder;

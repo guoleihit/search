@@ -1,5 +1,9 @@
 package com.hiekn.service;
 
+import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
+import com.hiekn.search.bean.request.PatentQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
@@ -15,19 +19,36 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
 
-public class PatentService extends AbstractService{
+public class PatentService extends AbstractService {
 
-    public PatentService (TransportClient client) {
+    public PatentService(TransportClient client) {
         esClient = client;
+        patentTypeNameMap = new ConcurrentHashMap<>();
+        patentTypeNameMap.put("1", "发明专利");
+        patentTypeNameMap.put("2", "实用新型");
+        patentTypeNameMap.put("3", "外观专利");
+
+        patentNameTypeMap = new ConcurrentHashMap<>();
+        patentNameTypeMap.put("发明专利", 1);
+        patentNameTypeMap.put("实用新型", 2);
+        patentNameTypeMap.put("外观专利", 3);
     }
+
+    private Map<String, String> patentTypeNameMap;
+
+    private Map<String, Integer> patentNameTypeMap;
 
     @SuppressWarnings("rawtypes")
     public ItemBean extractDetail(SearchHit hit) {
@@ -146,10 +167,22 @@ public class PatentService extends AbstractService{
         if (absObj != null && absObj instanceof Map) {
             item.setAbs(((Map) absObj).get("original") != null ? ((Map) absObj).get("original").toString() : "");
         }
+
+        Object mainIpcObj = source.get("main_ipc");
+        if (mainIpcObj != null && mainIpcObj instanceof Map) {
+            item.setMainIPC(String.valueOf(((Map) mainIpcObj).get("ipc")));
+        }
+
         Object agenciesObj = source.get("agencies");
         List<String> agencies = toStringList(agenciesObj);
         if (!agencies.isEmpty()) {
             item.setAgencies(agencies);
+        }
+
+        Object agents = source.get("agents");
+        List<String> agentList = toStringList(agents);
+        if (!agentList.isEmpty()) {
+            item.setAgents(agentList);
         }
 
         Object applicantsObj = source.get("applicants");
@@ -162,6 +195,16 @@ public class PatentService extends AbstractService{
         List<String> inventors = getStringListFromNameOrgObject(inventorsObj);
         if (!inventors.isEmpty()) {
             item.setAuthors(inventors);
+        }
+
+        if (source.get("application_number") != null) {
+            item.setApplicationNumber(source.get("application_number").toString());
+        }
+        if (source.get("publication_number") != null) {
+            item.setPublicationNumber(source.get("publication_number").toString());
+        }
+        if (source.get("application_date") != null) {
+            item.setApplicationDate(toDateString(source.get("application_date").toString(), "-"));
         }
         if (source.get("earliest_publication_date") != null) {
             item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
@@ -246,22 +289,146 @@ public class PatentService extends AbstractService{
         boolQuery.must(termQuery);
         boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
         return boolQuery;
+
+    }
+
+    public BoolQueryBuilder buildEnhancedQuery(PatentQueryRequest request) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        makePatentFilter(request, boolQuery);
+
+        if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
+            for (CompositeRequestItem reqItem: request.getConditions()) {
+                String key = null;
+                if(reqItem.getKv()!=null) {
+                    key = reqItem.getKv().getK();
+                }
+
+                String dateKey = null;
+                if(reqItem.getKvDate()!=null) {
+                    dateKey = reqItem.getKvDate().getK();
+                }
+
+                if ("appNum".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "application_number.keyword", false, true);
+                }else if ("pubNum".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "publication_number.keyword", false, true);
+                } else if ("title".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "title.original", false,false);
+                }else if ("ipc".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
+                }else if ("author".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "inventors.name.original.keyword", false,false);
+                }else if ("applicant".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "applicants.name.original.keyword", false,false);
+                }else if ("abs".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "abstract.original", false,false);
+                }else if ("type".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "type", false,false, toPatentTypes(reqItem.getKv().getV()));
+                }else if ("appDate".equals(dateKey)) {
+                    doBuildDateCondition(boolQuery, reqItem, "application_date");
+                }else if ("pubDate".equals(dateKey)) {
+                    doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
+                }else if ("all".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "title.original", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "abstract.original", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
+                    buildQueryCondition(boolQuery, reqItem, "inventors.name.original.keyword", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "applicants.name.original.keyword", false,false);
+                }
+            }
+        }
+
+        return boolQuery;
+
+    }
+
+    public void makePatentFilter(QueryRequest request, BoolQueryBuilder boolQuery) {
+        if (request.getFilters() != null) {
+            List<KVBean<String, List<String>>> filters = request.getFilters();
+            for (KVBean<String, List<String>> filter : filters) {
+                if ("type".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery(filter.getK(), patentNameTypeMap.get(v)));
+                    }
+                    boolQuery.must(filterQuery);
+                } else if ("main_ipc".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery("main_ipc.ipc.keyword",v));
+                    }
+                    boolQuery.must(filterQuery);
+                }
+            }
+        }
     }
 
     @Override
     public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildQuery(request);
+        BoolQueryBuilder boolQuery = buildEnhancedQuery((PatentQueryRequest) request);
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PATENT_INDEX);
-        HighlightBuilder highlighter = new HighlightBuilder().field("name");
+
+        HighlightBuilder highlighter = new HighlightBuilder().field("title.original")
+                .field("abstract.original")
+                .field("applicants.name.original.keyword")
+                .field("inventors.name.original.keyword");
+
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
-        SearchResponse response =  srb.execute().get();
+
+        // 专利类型
+        AggregationBuilder docTypes = AggregationBuilders.terms("patent_type").field("type");
+        srb.addAggregation(docTypes);
+
+        // IPC
+        AggregationBuilder ipcs = AggregationBuilders.terms("main_ipc").field("main_ipc.ipc.keyword");
+        srb.addAggregation(ipcs);
+
+        SearchResponse response = srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
         result.setRsCount(response.getHits().totalHits);
         for (SearchHit hit : response.getHits()) {
             ItemBean item = extractItem(hit);
             result.getRsData().add(item);
         }
+
+        Terms patentTypes = response.getAggregations().get("patent_type");
+        KVBean<String, Map<String, ? extends Object>> patentTypeFilter = new KVBean<>();
+        patentTypeFilter.setD("专类类型");
+        patentTypeFilter.setK("type");
+        Map<String, Long> patentMap = new HashMap<>();
+        for (Terms.Bucket bucket : patentTypes.getBuckets()) {
+            String key = patentTypeNameMap.get(bucket.getKeyAsString());
+            if (key != null) {
+                patentMap.put(key, bucket.getDocCount());
+            }
+        }
+        patentTypeFilter.setV(patentMap);
+        result.getFilters().add(patentTypeFilter);
+
+        Terms mainIpcTypes = response.getAggregations().get("main_ipc");
+        KVBean<String, Map<String, ? extends Object>> mainIpcTypeFilter = new KVBean<>();
+        mainIpcTypeFilter.setD("IPC分类");
+        mainIpcTypeFilter.setK("main_ipc");
+        Map<String, Long> ipcMap = new HashMap<>();
+        for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
+            ipcMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+        }
+        mainIpcTypeFilter.setV(ipcMap);
+        result.getFilters().add(mainIpcTypeFilter);
+
         return result;
+    }
+
+
+    private List<Object> toPatentTypes(List<String> names){
+        List<Integer> types = new ArrayList<>();
+        for (String name: names) {
+            Integer type = this.patentNameTypeMap.get(name);
+            if (type != null)
+            types.add(type);
+        }
+        return Arrays.asList(types.toArray());
     }
 }

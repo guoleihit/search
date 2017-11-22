@@ -10,12 +10,14 @@ import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 
 import io.swagger.annotations.ApiParam;
+import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 /**
  * 检索请求
  * @author leiguo
  *
  */
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class QueryRequest {
 
 	@ApiParam(value="搜索词")

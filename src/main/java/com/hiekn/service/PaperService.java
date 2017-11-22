@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.alibaba.fastjson.JSONObject;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PaperDetail;
@@ -168,7 +169,6 @@ public class PaperService extends AbstractService{
         return boolQuery;
     }
 
-	@Override
 	public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildQuery(request);
 		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PAPER_INDEX);

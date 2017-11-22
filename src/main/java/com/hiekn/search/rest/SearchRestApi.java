@@ -1,16 +1,24 @@
 package com.hiekn.search.rest;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.DefaultJSONParser;
+import com.alibaba.fastjson.parser.ParserConfig;
+import com.alibaba.fastjson.parser.deserializer.ObjectDeserializer;
+import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.prompt.PromptBean;
+import com.hiekn.search.bean.request.PatentQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.StandardQueryRequest;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.service.*;
+import com.hiekn.util.JSONUtils;
 import io.swagger.annotations.*;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -33,18 +41,14 @@ import org.springframework.stereotype.Controller;
 import javax.annotation.Resource;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.hiekn.service.Helper.getString;
-import static com.hiekn.util.CommonResource.BAIKE_INDEX;
-import static com.hiekn.util.CommonResource.PAPER_INDEX;
-import static com.hiekn.util.CommonResource.PATENT_INDEX;
-import static com.hiekn.util.CommonResource.PROMPT_INDEX;
-import static com.hiekn.util.CommonResource.PICTURE_INDEX;
-import static com.hiekn.util.CommonResource.STANDARD_INDEX;
+import static com.hiekn.util.CommonResource.*;
 
 @Controller
 @Path("/p")
@@ -382,34 +386,44 @@ public class SearchRestApi implements InitializingBean {
     @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") QueryRequest request)
+    public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") JSONObject request)
             throws Exception {
-        if (StringUtils.isEmpty(request.getKw()) || request.getDocType() == null) {
+        if (request.get("docType") == null) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
-        log.info(com.hiekn.util.JSONUtils.toJson(request));
+
+        String requestStr = JSONUtils.toJson(request);
+        log.info(requestStr);
 
         AbstractService service;
-        switch (request.getDocType()) {
+        QueryRequest req;
+        switch (DocType.valueOf(request.getString("docType"))) {
             case STANDARD:
                 service = standardService;
+                req = JSONUtils.fromJson(requestStr, StandardQueryRequest.class);
                 break;
             case PAPER:
                 service = paperService;
+                req = JSONUtils.fromJson(requestStr, QueryRequest.class);
                 break;
             case PATENT:
                 service = patentService;
+                req = JSONUtils.fromJson(requestStr, PatentQueryRequest.class);
                 break;
             case PICTURE:
                 service = pictureService;
+                req = JSONUtils.fromJson(requestStr, QueryRequest.class);
                 break;
             default:
                 throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
 
-        SearchResultBean result = service.doSearch(request);
+        if (req == null) throw new BaseException(Code.JSON_ERROR.getCode());
 
-        return new RestResp<>(result, request.getTt());
+        SearchResultBean result = service.doSearch(req);
+
+        Long tt = request.get("tt") == null ? 0l : request.getLong("tt");
+        return new RestResp<>(result, tt);
     }
 
 

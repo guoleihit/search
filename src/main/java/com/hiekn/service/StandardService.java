@@ -1,17 +1,21 @@
 package com.hiekn.service;
 
-import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.toDateString;
-import static com.hiekn.service.Helper.toStringList;
-
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import com.alibaba.fastjson.JSONObject;
+import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
+import com.hiekn.search.bean.request.StandardQueryRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -23,6 +27,10 @@ import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.bean.result.StandardDetail;
 import com.hiekn.search.bean.result.StandardItem;
 import com.hiekn.util.CommonResource;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+
+import static com.hiekn.service.Helper.*;
+import static com.hiekn.service.Helper.setHighlightElements;
 
 public class StandardService extends AbstractService{
 
@@ -86,6 +94,27 @@ public class StandardService extends AbstractService{
         item.setInterNum(getString(source.get("inter_num")));
         item.setInterName(getString(source.get("inter_name")));
         item.setYield(getString(source.get("yield")));
+
+
+
+        //highlight
+        if (hit.getHighlightFields() != null) {
+            for (Map.Entry<String, HighlightField> entry : hit.getHighlightFields().entrySet()) {
+                Text[] frags = entry.getValue().getFragments();
+                switch (entry.getKey()) {
+                    case "name":
+                        if (frags != null && frags.length > 0) {
+                            item.setTitle(frags[0].string());
+                        }
+                        break;
+                    case "num":
+                        if (frags != null && frags.length > 0) {
+                            item.setNum(frags[0].string());
+                        }
+                        break;
+                }
+            }
+        }
         return item;
     }
 
@@ -157,13 +186,49 @@ public class StandardService extends AbstractService{
         return boolQuery;
     }
 
+    public BoolQueryBuilder buildEnhancedQuery(StandardQueryRequest request) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+        if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
+            for (CompositeRequestItem reqItem: request.getConditions()) {
+                String key = null;
+                if(reqItem.getKv()!=null) {
+                    key = reqItem.getKv().getK();
+                }
+
+                String dateKey = null;
+                if(reqItem.getKvDate()!=null) {
+                    dateKey = reqItem.getKvDate().getK();
+                }
+
+
+                if ("standardNum".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "num", false, false);
+                }else if ("title".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "name", false,false);
+                }else if ("all".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "num", false, false);
+                    buildQueryCondition(boolQuery, reqItem, "name", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "num", true,true);
+                }else if ("standardType".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "num", true,true);
+                }else if ("pubDate".equals(dateKey)) {
+                    doBuildDateCondition(boolQuery,reqItem, "earliest_publication_date");
+                }
+            }
+        }
+        return boolQuery;
+    }
+
     @Override
     public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildQuery(request);
+        BoolQueryBuilder boolQuery = buildEnhancedQuery((StandardQueryRequest) request);
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("name");
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
+
+        System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
         result.setRsCount(response.getHits().totalHits);

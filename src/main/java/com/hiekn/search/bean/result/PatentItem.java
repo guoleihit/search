@@ -1,6 +1,7 @@
 package com.hiekn.search.bean.result;
 
 import java.util.List;
+import java.util.Map;
 
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
@@ -12,6 +13,10 @@ public class PatentItem extends ItemBean {
 	private List<String> agencies;
 	private List<String> applicants;
 	private String applicationDate;
+	private String applicationNumber;
+	private String publicationNumber;
+	private List<String> agents;
+	private String mainIPC;
 
 	public PatentItem() {
 		setDocType(DocType.PATENT);
@@ -39,4 +44,36 @@ public class PatentItem extends ItemBean {
 	public void setApplicationDate(String applicationDate) {
 		this.applicationDate = applicationDate;
 	}
+
+    public String getApplicationNumber() {
+        return applicationNumber;
+    }
+
+    public void setApplicationNumber(String applicationNumber) {
+        this.applicationNumber = applicationNumber;
+    }
+
+    public String getPublicationNumber() {
+        return publicationNumber;
+    }
+
+    public void setPublicationNumber(String publicationNumber) {
+        this.publicationNumber = publicationNumber;
+    }
+
+    public List<String> getAgents() {
+        return agents;
+    }
+
+    public void setAgents(List<String> agents) {
+        this.agents = agents;
+    }
+
+    public String getMainIPC() {
+        return mainIPC;
+    }
+
+    public void setMainIPC(String mainIPC) {
+        this.mainIPC = mainIPC;
+    }
 }
