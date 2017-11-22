@@ -279,7 +279,7 @@ public class SearchRestApi implements InitializingBean {
                 .setSize(request.getPageSize());
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
-                .field("earliest_publication_date").interval(10000);
+                .field("earliest_publication_date").interval(10000).minDocCount(1);
         srb.addAggregation(aggYear);
 
         AggregationBuilder docTypes = AggregationBuilders.terms("document_type").field("_type");

@@ -210,7 +210,9 @@ public class PatentService extends AbstractService {
             item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
         }
 
-
+        if (source.get("type") != null) {
+            item.setType(patentTypeNameMap.get(source.get("type").toString()));
+        }
         //highlight
         if (hit.getHighlightFields() != null) {
             for (Map.Entry<String, HighlightField> entry : hit.getHighlightFields().entrySet()) {

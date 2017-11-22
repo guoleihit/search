@@ -18,7 +18,17 @@ public class PatentItem extends ItemBean {
 	private List<String> agents;
 	private String mainIPC;
 
-	public PatentItem() {
+	private String type;
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public PatentItem() {
 		setDocType(DocType.PATENT);
 	}
 	public List<String> getAgencies() {
