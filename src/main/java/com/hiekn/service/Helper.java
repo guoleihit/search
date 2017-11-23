@@ -1,11 +1,13 @@
 package com.hiekn.service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
+import java.util.*;
 
+import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.result.SearchResultBean;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 
 public class Helper {
 
@@ -54,6 +56,38 @@ public class Helper {
 		return inventors;
 	}
 
+	public static String getAnnotationFieldName(QueryRequest request) {
+		String annotationField = "annotation_1.name";
+		if (request.getFilters() != null) {
+			for (KVBean<String, List<String>> filter : request.getFilters()) {
+				if ("annotation_1.name".equals(filter.getK())) {
+					annotationField = "annotation_2.name";
+					break;
+				} else if ("annotation_2.name".equals(filter.getK())) {
+					annotationField = "annotation_3.name";
+					break;
+				} else if ("annotation_3.name".equals(filter.getK())) {
+					return null;
+				}
+			}
+		}
+		return annotationField;
+	}
+
+    public static void setKnowledgeAggResult(SearchResponse response, SearchResultBean result, String annotation) {
+        if (annotation != null) {
+            Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
+            KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
+            knowledgeClassFilter.setD("知识体系");
+            knowledgeClassFilter.setK(annotation);
+            Map<String, Long> knowledgeMap = new HashMap<>();
+            for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
+                knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+            }
+            knowledgeClassFilter.setV(knowledgeMap);
+            result.getFilters().add(knowledgeClassFilter);
+        }
+    }
 	public static void setHighlightElements(Text[] highlightFrags, ListIterator<String> itr) {
 		for (Text txt : highlightFrags) {
 			while (itr.hasNext()) {

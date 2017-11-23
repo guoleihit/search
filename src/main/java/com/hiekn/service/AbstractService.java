@@ -1,6 +1,7 @@
 package com.hiekn.service;
 
 import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
@@ -40,7 +41,7 @@ public abstract class AbstractService {
         }
     }
 
-    public abstract SearchResultBean doSearch(QueryRequest request) throws Exception;
+    public abstract SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws Exception;
 
     public abstract BoolQueryBuilder buildQuery(QueryRequest request);
 

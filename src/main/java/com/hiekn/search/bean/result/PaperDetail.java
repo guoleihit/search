@@ -4,17 +4,9 @@ import java.util.List;
 
 public class PaperDetail extends PaperItem {
 
-	private String journal;
+
 	private List<String> categories;
 	private String citeCount;
-
-	public String getJournal() {
-		return journal;
-	}
-
-	public void setJournal(String journal) {
-		this.journal = journal;
-	}
 
 	public List<String> getCategories() {
 		return categories;

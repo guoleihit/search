@@ -47,22 +47,23 @@ public class QueryRequest {
 	@ApiParam("过滤条件，比如 [{k: 'earliest_publication_date', v: ['2017'], d: '发表年份'}]")
 	private List<KVBean<String,List<String>>> filters = new ArrayList<>();
 
+
 	private List<DocType> docTypeList;
+    /*
+        private String andKwList;
 
-	private String andKwList;
+        private String exactKwList;
 
-	private String exactKwList;
+        private String atLeastOneKw;
 
-	private String atLeastOneKw;
+        private String noneKwList;
 
-	private String noneKwList;
+        @ApiParam("关键词出现位置，无限制=0，标题=1")
+        @DefaultValue("0")
+        private Integer position = 0;
 
-    @ApiParam("关键词出现位置，无限制=0，标题=1")
-    @DefaultValue("0")
-	private Integer position = 0;
-
-    private String language;
-
+        private String language;
+    */
 	private String otherKw;
 
 	public String getOtherKw() {
@@ -138,6 +139,7 @@ public class QueryRequest {
 		this.tt = tt;
 	}
 
+
     public List<DocType> getDocTypeList() {
         return docTypeList;
     }
@@ -146,6 +148,7 @@ public class QueryRequest {
         this.docTypeList = docTypeList;
     }
 
+    /*
     public String getAndKwList() {
         return andKwList;
     }
@@ -192,5 +195,5 @@ public class QueryRequest {
 
     public void setLanguage(String language) {
         this.language = language;
-    }
+    }*/
 }

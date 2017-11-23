@@ -1,9 +1,8 @@
 package com.hiekn.service;
 
 import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.PatentQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
@@ -24,6 +23,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +56,7 @@ public class PatentService extends AbstractService {
         PatentDetail item = new PatentDetail();
 
         Map<String, Object> source = hit.getSource();
-        item.setDocId(hit.getId().toString());
+        item.setDocId(hit.getId());
 
         Object titleObj = source.get("title");
         if (titleObj != null && titleObj instanceof Map) {
@@ -157,7 +158,7 @@ public class PatentService extends AbstractService {
         PatentItem item = new PatentItem();
         Map<String, Object> source = hit.getSource();
         // use application_number.lowercase as doc id for detail search
-        item.setDocId(hit.getId().toString());
+        item.setDocId(hit.getId());
 
         Object titleObj = source.get("title");
         if (titleObj != null && titleObj instanceof Map) {
@@ -294,7 +295,7 @@ public class PatentService extends AbstractService {
 
     }
 
-    public BoolQueryBuilder buildEnhancedQuery(PatentQueryRequest request) {
+    public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makePatentFilter(request, boolQuery);
@@ -345,7 +346,7 @@ public class PatentService extends AbstractService {
 
     }
 
-    public void makePatentFilter(QueryRequest request, BoolQueryBuilder boolQuery) {
+    private void makePatentFilter(QueryRequest request, BoolQueryBuilder boolQuery) {
         if (request.getFilters() != null) {
             List<KVBean<String, List<String>>> filters = request.getFilters();
             for (KVBean<String, List<String>> filter : filters) {
@@ -367,8 +368,8 @@ public class PatentService extends AbstractService {
     }
 
     @Override
-    public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildEnhancedQuery((PatentQueryRequest) request);
+    public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
+        BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PATENT_INDEX);
 
         HighlightBuilder highlighter = new HighlightBuilder().field("title.original")
@@ -387,6 +388,10 @@ public class PatentService extends AbstractService {
         AggregationBuilder ipcs = AggregationBuilders.terms("main_ipc").field("main_ipc.ipc.keyword");
         srb.addAggregation(ipcs);
 
+        if (Integer.valueOf(1).equals(request.getSort())) {
+            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+        }
+
         SearchResponse response = srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
         result.setRsCount(response.getHits().totalHits);
@@ -396,7 +401,7 @@ public class PatentService extends AbstractService {
         }
 
         Terms patentTypes = response.getAggregations().get("patent_type");
-        KVBean<String, Map<String, ? extends Object>> patentTypeFilter = new KVBean<>();
+        KVBean<String, Map<String, ?>> patentTypeFilter = new KVBean<>();
         patentTypeFilter.setD("专类类型");
         patentTypeFilter.setK("type");
         Map<String, Long> patentMap = new HashMap<>();
@@ -410,7 +415,7 @@ public class PatentService extends AbstractService {
         result.getFilters().add(patentTypeFilter);
 
         Terms mainIpcTypes = response.getAggregations().get("main_ipc");
-        KVBean<String, Map<String, ? extends Object>> mainIpcTypeFilter = new KVBean<>();
+        KVBean<String, Map<String, ?>> mainIpcTypeFilter = new KVBean<>();
         mainIpcTypeFilter.setD("IPC分类");
         mainIpcTypeFilter.setK("main_ipc");
         Map<String, Long> ipcMap = new HashMap<>();

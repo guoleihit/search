@@ -1,19 +1,12 @@
 package com.hiekn.search.rest;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.DefaultJSONParser;
-import com.alibaba.fastjson.parser.ParserConfig;
-import com.alibaba.fastjson.parser.deserializer.ObjectDeserializer;
-import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.prompt.PromptBean;
-import com.hiekn.search.bean.request.PatentQueryRequest;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.request.StandardQueryRequest;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.service.*;
@@ -41,13 +34,14 @@ import org.springframework.stereotype.Controller;
 import javax.annotation.Resource;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
-import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.hiekn.service.Helper.getString;
+import static com.hiekn.service.Helper.getAnnotationFieldName;
+import static com.hiekn.service.Helper.setKnowledgeAggResult;
 import static com.hiekn.util.CommonResource.*;
 
 @Controller
@@ -158,10 +152,7 @@ public class SearchRestApi implements InitializingBean {
             @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
             throws InterruptedException, ExecutionException {
-        if (StringUtils.isEmpty(request.getKw()) && StringUtils.isEmpty(request.getAndKwList())
-                && StringUtils.isEmpty(request.getAtLeastOneKw())
-                && StringUtils.isEmpty(request.getExactKwList())
-                && StringUtils.isEmpty(request.getNoneKwList())) {
+        if (StringUtils.isEmpty(request.getKw())) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
         log.info(com.hiekn.util.JSONUtils.toJson(request));
@@ -176,8 +167,8 @@ public class SearchRestApi implements InitializingBean {
         List<String> indices = new ArrayList<>();
         List<AbstractService> services = new ArrayList<>();
         if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
-            services.addAll(Arrays.asList(new AbstractService[]{patentService, paperService, standardService, pictureService}));
-            indices.addAll(Arrays.asList(new String[]{PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, PICTURE_INDEX}));
+            services.addAll(Arrays.asList(patentService, paperService, standardService));
+            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX));
         } else if(request.getDocType()!=null) {
             setSearchResource(request.getDocType(),services,indices);
         }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
@@ -212,7 +203,7 @@ public class SearchRestApi implements InitializingBean {
         result.getFilters().add(yearFilter);
 
         Terms docTypes = response.getAggregations().get("document_type");
-        KVBean<String, Map<String, ? extends Object>> docTypeFilter = new KVBean<>();
+        KVBean<String, Map<String, ?>> docTypeFilter = new KVBean<>();
         docTypeFilter.setD("资源类型");
         docTypeFilter.setK("_type");
         Map<String, Long> docMap = new HashMap<>();
@@ -223,18 +214,7 @@ public class SearchRestApi implements InitializingBean {
         result.getFilters().add(docTypeFilter);
 
         String annotation = getAnnotationFieldName(request);
-        if (annotation != null) {
-            Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
-            KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
-            knowledgeClassFilter.setD("知识体系");
-            knowledgeClassFilter.setK(annotation);
-            Map<String, Long> knowledgeMap = new HashMap<>();
-            for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
-                knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
-            }
-            knowledgeClassFilter.setV(knowledgeMap);
-            result.getFilters().add(knowledgeClassFilter);
-        }
+        setKnowledgeAggResult(response,result,annotation);
 
         return new RestResp<>(result, request.getTt());
     }
@@ -249,9 +229,6 @@ public class SearchRestApi implements InitializingBean {
         } else if (DocType.STANDARD.equals(docType)) {
             services.add(standardService);
             indices.add(STANDARD_INDEX);
-        } else if (DocType.PICTURE.equals(docType)) {
-            services.add(pictureService);
-            indices.add(PICTURE_INDEX);
         }
 
     }
@@ -265,8 +242,7 @@ public class SearchRestApi implements InitializingBean {
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(BAIKE_INDEX);
         srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
-        SearchResponse response = srb.execute().get();
-        return response;
+        return srb.execute().get();
     }
 
     private SearchResponse searchIndexes(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
@@ -293,24 +269,6 @@ public class SearchRestApi implements InitializingBean {
 
         System.out.println(srb.toString());
         return srb.execute().get();
-    }
-
-    private String getAnnotationFieldName(QueryRequest request) {
-        String annotationField = "annotation_1.name";
-        if (request.getFilters() != null) {
-            for (KVBean<String, List<String>> filter : request.getFilters()) {
-                if ("annotation_1.name".equals(filter.getK())) {
-                    annotationField = "annotation_2.name";
-                    break;
-                } else if ("annotation_2.name".equals(filter.getK())) {
-                    annotationField = "annotation_3.name";
-                    break;
-                } else if ("annotation_3.name".equals(filter.getK())) {
-                    return null;
-                }
-            }
-        }
-        return annotationField;
     }
 
     private boolean isChinese(String words) {
@@ -383,12 +341,12 @@ public class SearchRestApi implements InitializingBean {
     @POST
     @Path("/kw2")
     @Consumes(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
+    @ApiOperation(value = "2级搜索", notes = "搜索过滤及排序")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") JSONObject request)
+    public RestResp<SearchResultBean> kw2(@ApiParam(value = "检索请求") CompositeQueryRequest request)
             throws Exception {
-        if (request.get("docType") == null) {
+        if (request.getDocType() == null) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
 
@@ -396,34 +354,29 @@ public class SearchRestApi implements InitializingBean {
         log.info(requestStr);
 
         AbstractService service;
-        QueryRequest req;
-        switch (DocType.valueOf(request.getString("docType"))) {
+        //QueryRequest req;
+        switch (request.getDocType()) {
             case STANDARD:
                 service = standardService;
-                req = JSONUtils.fromJson(requestStr, StandardQueryRequest.class);
                 break;
             case PAPER:
                 service = paperService;
-                req = JSONUtils.fromJson(requestStr, QueryRequest.class);
                 break;
             case PATENT:
                 service = patentService;
-                req = JSONUtils.fromJson(requestStr, PatentQueryRequest.class);
                 break;
             case PICTURE:
                 service = pictureService;
-                req = JSONUtils.fromJson(requestStr, QueryRequest.class);
                 break;
             default:
                 throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
 
-        if (req == null) throw new BaseException(Code.JSON_ERROR.getCode());
+       // if (req == null) throw new BaseException(Code.JSON_ERROR.getCode());
 
-        SearchResultBean result = service.doSearch(req);
+        SearchResultBean result = service.doCompositeSearch(request);
 
-        Long tt = request.get("tt") == null ? 0l : request.getLong("tt");
-        return new RestResp<>(result, tt);
+        return new RestResp<>(result, request.getTt());
     }
 
 

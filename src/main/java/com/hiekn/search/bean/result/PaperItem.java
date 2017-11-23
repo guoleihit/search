@@ -15,6 +15,16 @@ public class PaperItem extends ItemBean {
 
 	private List<String> keywords;
 
+	private String journal;
+
+    public String getJournal() {
+        return journal;
+    }
+
+    public void setJournal(String journal) {
+        this.journal = journal;
+    }
+
 	public List<String> getKeywords() {
 		return keywords;
 	}

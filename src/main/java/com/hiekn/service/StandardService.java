@@ -1,36 +1,29 @@
 package com.hiekn.service;
 
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-
-import com.alibaba.fastjson.JSONObject;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.StandardQueryRequest;
-import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.bean.result.StandardDetail;
 import com.hiekn.search.bean.result.StandardItem;
 import com.hiekn.util.CommonResource;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.text.Text;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
 import static com.hiekn.service.Helper.*;
-import static com.hiekn.service.Helper.setHighlightElements;
 
 public class StandardService extends AbstractService{
 
@@ -186,7 +179,7 @@ public class StandardService extends AbstractService{
         return boolQuery;
     }
 
-    public BoolQueryBuilder buildEnhancedQuery(StandardQueryRequest request) {
+    public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
@@ -221,8 +214,8 @@ public class StandardService extends AbstractService{
     }
 
     @Override
-    public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildEnhancedQuery((StandardQueryRequest) request);
+    public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
+        BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("name");
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)

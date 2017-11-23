@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import com.alibaba.fastjson.JSONObject;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -132,7 +133,7 @@ public class PictureService extends AbstractService{
 	}
 
 	@Override
-	public SearchResultBean doSearch(QueryRequest request) throws ExecutionException, InterruptedException {
+	public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildQuery(request);
 		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PICTURE_INDEX);
 		HighlightBuilder highlighter = new HighlightBuilder().field("title");
