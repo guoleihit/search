@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.QueryRequest;
@@ -8,6 +9,7 @@ import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.bean.result.StandardDetail;
 import com.hiekn.search.bean.result.StandardItem;
 import com.hiekn.util.CommonResource;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -16,9 +18,13 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -182,6 +188,7 @@ public class StandardService extends AbstractService{
     public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
+        makeStandardFilters(request, boolQuery);
         if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
             for (CompositeRequestItem reqItem: request.getConditions()) {
                 String key = null;
@@ -213,14 +220,40 @@ public class StandardService extends AbstractService{
         return boolQuery;
     }
 
+    private void makeStandardFilters(CompositeQueryRequest request, BoolQueryBuilder boolQuery) {
+        if (request.getFilters() != null) {
+            System.out.println(request.getFilters());
+            List<KVBean<String, List<String>>> filters = request.getFilters();
+            for (KVBean<String, List<String>> filter : filters) {
+                if ("base_class".equals(filter.getK()) || filter.getK().startsWith("class_")) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery(filter.getK(), v));
+                    }
+                    boolQuery.must(filterQuery);
+                }
+            }
+        }
+    }
+
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
         BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
-        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX);
+        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX+"_170");
         HighlightBuilder highlighter = new HighlightBuilder().field("name");
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
 
+        // 标准基础分类
+        AggregationBuilder baseClasses = AggregationBuilders.terms("base_class").field("base_class");
+        srb.addAggregation(baseClasses);
+
+        // 标准技术分类
+        String className = getClassFieldName(request);
+        if (!StringUtils.isEmpty(className)) {
+            AggregationBuilder classes = AggregationBuilders.terms(className).field(className);
+            srb.addAggregation(classes);
+        }
         System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
@@ -229,6 +262,44 @@ public class StandardService extends AbstractService{
             ItemBean item = extractItem(hit);
             result.getRsData().add(item);
         }
+
+        Terms baseClassAggs = response.getAggregations().get("base_class");
+        KVBean<String, Map<String, ?>> baseClassFilter = new KVBean<>();
+        baseClassFilter.setD("标准技术基础分类");
+        baseClassFilter.setK("base_class");
+        Map<String, Long> baseClassValueMap = new HashMap<>();
+        for (Terms.Bucket bucket : baseClassAggs.getBuckets()) {
+            baseClassValueMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+        }
+        baseClassFilter.setV(baseClassValueMap);
+        result.getFilters().add(baseClassFilter);
+
+        if (!StringUtils.isEmpty(className)) {
+            Terms classAggs = response.getAggregations().get(className);
+            KVBean<String, Map<String, ?>> classFilter = new KVBean<>();
+            classFilter.setD("标准技术专业分类");
+            classFilter.setK(className);
+            Map<String, Long> classValueMap = new HashMap<>();
+            for (Terms.Bucket bucket : classAggs.getBuckets()) {
+                classValueMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+            }
+            classFilter.setV(classValueMap);
+            result.getFilters().add(classFilter);
+        }
         return result;
+    }
+
+    public static String getClassFieldName(QueryRequest request) {
+        String annotationField = "class_1";
+        if (request.getFilters() != null) {
+            for (KVBean<String, List<String>> filter : request.getFilters()) {
+                if ("class_1".equals(filter.getK())) {
+                    annotationField = "class_2";
+                } else if ("class_2".equals(filter.getK())) {
+                    return null;
+                }
+            }
+        }
+        return annotationField;
     }
 }
