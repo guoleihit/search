@@ -61,6 +61,9 @@ public class StandardService extends AbstractService{
             item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
         }
 
+        if (source.get("carryon_date")!=null) {
+            item.setCarryonDate(getString(toDateString(source.get("carryon_date").toString(), "-")));
+        }
 
         item.setYield(getString(source.get("yield")));
 
@@ -93,7 +96,7 @@ public class StandardService extends AbstractService{
         item.setInterNum(getString(source.get("inter_num")));
         item.setInterName(getString(source.get("inter_name")));
         item.setYield(getString(source.get("yield")));
-
+        item.setState(getString(source.get("state")));
 
 
         //highlight

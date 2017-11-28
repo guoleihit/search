@@ -295,4 +295,30 @@ public class StandardItem extends ItemBean{
     private String price;
     
     private String relation;
+
+    /**
+     * 实施时间
+     */
+    private String carryonDate;
+
+    /**
+     * 发布单位
+     */
+    private String issueDep;
+
+    public String getCarryonDate() {
+        return carryonDate;
+    }
+
+    public void setCarryonDate(String carryonDate) {
+        this.carryonDate = carryonDate;
+    }
+
+    public String getIssueDep() {
+        return issueDep;
+    }
+
+    public void setIssueDep(String issueDep) {
+        this.issueDep = issueDep;
+    }
 }

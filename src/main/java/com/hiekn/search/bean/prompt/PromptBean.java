@@ -23,6 +23,16 @@ public class PromptBean {
 	
 	private String description;
 
+	private String graphId;
+
+	public String getGraphId() {
+		return graphId;
+	}
+
+	public void setGraphId(String graphId) {
+		this.graphId = graphId;
+	}
+
 	public String getDescription() {
 		return description;
 	}

@@ -6,6 +6,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +25,25 @@ public class BaikeService {
             for (Object content : (List<Object>) contentsObj) {
                 item.getContents().add(getString(content));
             }
+        }
+
+        Object picturesObj = source.get("pictures");
+        if (picturesObj != null && picturesObj instanceof  List) {
+            Map<String, String> image = new HashMap<>();
+            for (Object picture: (List<Object>)picturesObj) {
+                if(picture instanceof Map){
+                    Map<String, Object> imageData = (Map<String, Object>) picture;
+                    if(imageData.get("title")!=null)
+                        image.put("title", imageData.get("title").toString());
+                    if(imageData.get("picdesc")!=null)
+                        image.put("picdesc", imageData.get("picdesc").toString());
+                    if(imageData.get("inndernum")!=null)
+                        image.put("inndernum", imageData.get("inndernum").toString());
+                    if(imageData.get("displaynum")!=null)
+                        image.put("displaynum", imageData.get("displaynum").toString());
+                }
+            }
+            item.getPictures().add(image);
         }
         return item;
     }

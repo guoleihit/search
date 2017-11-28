@@ -22,8 +22,27 @@ public class PatentDetail extends ItemBean {
 	private List<String> ipces;
 	private List<String> priorities;
 	private Integer pages;
-	
-	public PatentDetail() {
+	private List<String> countries;
+
+	private String legalStatus;
+
+    public String getLegalStatus() {
+        return legalStatus;
+    }
+
+    public void setLegalStatus(String legalStatus) {
+        this.legalStatus = legalStatus;
+    }
+
+    public List<String> getCountries() {
+        return countries;
+    }
+
+    public void setCountries(List<String> countries) {
+        this.countries = countries;
+    }
+
+    public PatentDetail() {
 		setDocType(DocType.PATENT);
 	}
 

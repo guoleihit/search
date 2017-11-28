@@ -1,11 +1,11 @@
 package com.hiekn.search.bean.result;
 
-import java.util.LinkedList;
-import java.util.List;
-
+import com.hiekn.search.bean.DocType;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
-import com.hiekn.search.bean.DocType;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class BaikeItem extends ItemBean {
@@ -13,13 +13,23 @@ public class BaikeItem extends ItemBean {
 	private String eTitle;
 	private String pyTitle;
 	private List<String> contents;
+	private List<Map<String, String>> pictures;
 
 	public BaikeItem() {
 		contents = new LinkedList<>();
+		pictures = new LinkedList<>();
 		setDocType(DocType.BAIKE);
 	}
 
-	public String geteTitle() {
+    public List<Map<String, String>> getPictures() {
+        return pictures;
+    }
+
+    public void setPictures(List<Map<String, String>> pictures) {
+        this.pictures = pictures;
+    }
+
+    public String geteTitle() {
 		return eTitle;
 	}
 

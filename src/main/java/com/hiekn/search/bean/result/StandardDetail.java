@@ -16,14 +16,6 @@ public class StandardDetail extends StandardItem{
         this.eName = eName;
     }
 
-    public String getIssueDep() {
-        return issueDep;
-    }
-
-    public void setIssueDep(String issueDep) {
-        this.issueDep = issueDep;
-    }
-
     public String getManageDep() {
         return manageDep;
     }
@@ -48,26 +40,9 @@ public class StandardDetail extends StandardItem{
         this.consistent = consistent;
     }
 
-    public String getCarryonDate() {
-        return carryonDate;
-
-    }
-
-    public void setCarryonDate(String carryonDate) {
-        this.carryonDate = carryonDate;
-    }
-
     private String eName;
 
-    /**
-     * 实施时间
-     */
-    private String carryonDate;
 
-    /**
-     * 发布单位
-     */
-    private String issueDep;
 
     /**
      * 归口单位

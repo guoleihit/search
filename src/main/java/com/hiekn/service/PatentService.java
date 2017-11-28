@@ -78,6 +78,14 @@ public class PatentService extends AbstractService {
             item.setAgents(agentList);
         }
 
+        Object countries = source.get("countries");
+        List<String> countryList = toStringList(countries);
+        if (!countryList.isEmpty()) {
+            item.setCountries(countryList);
+        }
+
+        item.setLegalStatus(getString(source.get("legal_status")));
+
         if (source.get("application_number") != null) {
             item.setApplicationNumber(source.get("application_number").toString());
         }
@@ -362,6 +370,12 @@ public class PatentService extends AbstractService {
                         filterQuery.should(QueryBuilders.termQuery("main_ipc.ipc.keyword",v));
                     }
                     boolQuery.must(filterQuery);
+                } else if (filter.getK()!=null && filter.getK().startsWith("ipc_")) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery(filter.getK(),v));
+                    }
+                    boolQuery.must(filterQuery);
                 }
             }
         }
@@ -385,6 +399,12 @@ public class PatentService extends AbstractService {
         srb.addAggregation(docTypes);
 
         // IPC
+        String ipcField = getIPCFieldName(request);
+        if (ipcField != null) {
+            AggregationBuilder ipcs = AggregationBuilders.terms(ipcField).field(ipcField);
+            srb.addAggregation(ipcs);
+        }
+
         AggregationBuilder ipcs = AggregationBuilders.terms("main_ipc").field("main_ipc.ipc.keyword");
         srb.addAggregation(ipcs);
 
@@ -414,9 +434,23 @@ public class PatentService extends AbstractService {
         patentTypeFilter.setV(patentMap);
         result.getFilters().add(patentTypeFilter);
 
+        String ipcName = getIPCFieldName(request);
+        if(ipcName != null) {
+            Terms mainIpcTypes = response.getAggregations().get(ipcName);
+            KVBean<String, Map<String, ?>> mainIpcTypeFilter = new KVBean<>();
+            mainIpcTypeFilter.setD("IPC分类");
+            mainIpcTypeFilter.setK(ipcName);
+            Map<String, Long> ipcMap = new HashMap<>();
+            for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
+                ipcMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+            }
+            mainIpcTypeFilter.setV(ipcMap);
+            result.getFilters().add(mainIpcTypeFilter);
+        }
+
         Terms mainIpcTypes = response.getAggregations().get("main_ipc");
         KVBean<String, Map<String, ?>> mainIpcTypeFilter = new KVBean<>();
-        mainIpcTypeFilter.setD("IPC分类");
+        mainIpcTypeFilter.setD("主IPC分类");
         mainIpcTypeFilter.setK("main_ipc");
         Map<String, Long> ipcMap = new HashMap<>();
         for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
@@ -437,5 +471,21 @@ public class PatentService extends AbstractService {
             types.add(type);
         }
         return Arrays.asList(types.toArray());
+    }
+
+    public static String getIPCFieldName(QueryRequest request) {
+        String annotationField = "ipc_1";
+        if (request.getFilters() != null) {
+            for (KVBean<String, List<String>> filter : request.getFilters()) {
+                if ("ipc_1".equals(filter.getK())) {
+                    annotationField = "ipc_2";
+                } else if ("ipc_2".equals(filter.getK())) {
+                    annotationField = "ipc_3";
+                }else if ("ipc_3".equals(filter.getK())) {
+                    return null;
+                }
+            }
+        }
+        return annotationField;
     }
 }

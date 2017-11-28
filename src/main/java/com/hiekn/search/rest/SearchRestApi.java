@@ -301,6 +301,7 @@ public class SearchRestApi implements InitializingBean {
         if (request.getKwType() != null && request.getKwType() > 0) {
             boolQuery.filter(QueryBuilders.termQuery("type", request.getKwType()));
         }
+        boolQuery.should(QueryBuilders.existsQuery("description").boost(2));
 
         SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
         srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
@@ -317,6 +318,7 @@ public class SearchRestApi implements InitializingBean {
                 bean.setType(Integer.valueOf(getString(typeObj)));
             bean.setName(getString(nameObj));
             bean.setDescription(getString(descObj));
+            bean.setGraphId(getString(source.get("graphId")));
 
             if (bean.getName() != null && promptList.indexOf(bean) < 0) {
                 promptList.add(bean);
