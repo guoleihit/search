@@ -6,6 +6,9 @@ import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
+import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -47,6 +50,16 @@ public abstract class AbstractService {
 
     public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
 
+    protected List<AnalyzeResponse.AnalyzeToken> esSegment(String kw, String index){
+        //利用es分词
+        IndicesAdminClient indicesClient = this.esClient.admin().indices();
+        AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(kw);
+        arb.setIndex(index);
+        arb.setAnalyzer("ik_max_word");
+        AnalyzeResponse response = arb.execute().actionGet();
+        List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
+        return segList;
+    }
     /**
      *
      * @param boolQuery
@@ -80,12 +93,22 @@ public abstract class AbstractService {
                 doBuildQueryCondition(reqItem, esField, needPrefix, termQuery, value);
             }
         }
-        if (Operator.OR.equals(reqItem.getOp())) {
+        if (Operator.OR.equals(reqItem.getOp()) || "all".equals(reqItem.getKv().getK())) {
             boolQuery.should(termQuery);
         } else if (Operator.AND.equals(reqItem.getOp())){
             boolQuery.must(termQuery);
         } else if (Operator.NOT.equals(reqItem.getOp())) {
             boolQuery.mustNot(termQuery);
+        }
+    }
+
+    protected void setOperator(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, BoolQueryBuilder allQueryBuilder) {
+        if (Operator.AND.equals(reqItem.getOp())) {
+            boolQuery.must(allQueryBuilder);
+        }else if (Operator.OR.equals(reqItem.getOp())) {
+            boolQuery.should(allQueryBuilder);
+        }else {
+            boolQuery.mustNot(allQueryBuilder);
         }
     }
 
@@ -100,13 +123,13 @@ public abstract class AbstractService {
     }
 
     protected void doBuildDateCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField) {
-        Map<String,Integer> dates = reqItem.getKvDate().getV();
+        Map<String,String> dates = reqItem.getKvDate().getV();
         BoolQueryBuilder appDateQuery = QueryBuilders.boolQuery();
-        for (Map.Entry<String,Integer> entry: dates.entrySet()) {
+        for (Map.Entry<String,String> entry: dates.entrySet()) {
             if ("start".equalsIgnoreCase(entry.getKey())) {
-                appDateQuery.must(QueryBuilders.rangeQuery(esField).gt(entry.getValue() * 10000));
+                appDateQuery.must(QueryBuilders.rangeQuery(esField).gte(Helper.fromDateString(entry.getValue())));
             }else if ("end".equalsIgnoreCase(entry.getKey())) {
-                appDateQuery.must(QueryBuilders.rangeQuery(esField).lt(entry.getValue() * 10000));
+                appDateQuery.must(QueryBuilders.rangeQuery(esField).lte(Helper.fromDateString(entry.getValue())));
             }
         }
 

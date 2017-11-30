@@ -123,4 +123,30 @@ public class Helper {
 			return "";
 		}
 	}
+
+
+    /**
+     * yyyy-MM-dd string to long
+     *
+     * @return
+     */
+    public static Long fromDateString(String dataStr) {
+        return fromDateString(dataStr, "-");
+    }
+
+    public static Long fromDateString(String dateStr, String splitter) {
+        if(dateStr.indexOf(splitter)<0){
+            return Long.valueOf(dateStr) * 10000;
+        }
+        String year = dateStr.substring(0, dateStr.indexOf(splitter));
+        dateStr = dateStr.substring(dateStr.indexOf(splitter) + 1);
+        if (dateStr.indexOf(splitter) < 0) {
+            return Long.valueOf(year) * 10000 + Long.valueOf(dateStr) * 100;
+        }
+
+        String month = dateStr.substring(0, dateStr.indexOf(splitter));
+        String dateS = dateStr.substring(dateStr.indexOf(splitter) + 1);
+
+        return Long.valueOf(year) * 10000 + Long.valueOf(month) * 100 + Long.valueOf(dateS);
+    }
 }

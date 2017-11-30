@@ -215,9 +215,11 @@ public class StandardService extends AbstractService{
                 }else if ("title".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "name", false,false);
                 }else if ("all".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "num", false, false);
-                    buildQueryCondition(boolQuery, reqItem, "name", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "num", true,true);
+                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+                    buildQueryCondition(allQueryBuilder, reqItem, "num", false, false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "name", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "num", true,true);
+                    setOperator(boolQuery,reqItem, allQueryBuilder);
                 }else if ("standardType".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "num", true,true);
                 }else if ("pubDate".equals(dateKey)) {

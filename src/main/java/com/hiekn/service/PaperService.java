@@ -1,14 +1,16 @@
 package com.hiekn.service;
 
-import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PaperDetail;
 import com.hiekn.search.bean.result.PaperItem;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -19,16 +21,19 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.PAPER_INDEX;
 
 public class PaperService extends AbstractService{
 
@@ -153,7 +158,27 @@ public class PaperService extends AbstractService{
 
         makeFilters(request, boolQuery);
 
-        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(2);
+        List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request.getKw(),PAPER_INDEX);
+        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title", request.getKw()).boost(4);
+        BoolQueryBuilder boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+
+        List<String> oneWordList = new ArrayList<>();
+        for(AnalyzeResponse.AnalyzeToken token:tokens){
+            String t = token.getTerm();
+            if(t.equals(request.getKw())){
+                continue;
+            }
+
+            if(t.length() == 1){
+                oneWordList.add(t);
+            }else {
+                boolTitleQuery.should(QueryBuilders.termQuery("title", t));
+            }
+        }
+        if(oneWordList.size() == tokens.size()){
+            boolTitleQuery.should(QueryBuilders.termsQuery("title", oneWordList));
+        }
+
         TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
         TermQueryBuilder authorTerm = QueryBuilders.termQuery("persons.name.keyword", request.getKw()).boost(1.5f);
         TermQueryBuilder orgsTerm = QueryBuilders.termQuery("persons.orgs.name.keyword", request.getKw()).boost(1.5f);
@@ -163,6 +188,7 @@ public class PaperService extends AbstractService{
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         termQuery.should(titleTerm);
+        termQuery.should(boolTitleQuery);
         termQuery.should(abstractTerm);
         termQuery.should(authorTerm);
         termQuery.should(kwsTerm);
@@ -212,15 +238,19 @@ public class PaperService extends AbstractService{
 				}else if ("pubDate".equals(dateKey)) {
 					doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
 				}else if ("all".equals(key)) {
-					buildQueryCondition(boolQuery, reqItem, "title", false,false);
-					buildQueryCondition(boolQuery, reqItem, "abs", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "annotation_1.name", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "annotation_2.name", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "annotation_3.name", false,false);
-					buildQueryCondition(boolQuery, reqItem, "annotation_tag.name", false,true);
-					buildQueryCondition(boolQuery, reqItem, "keywords.keyword", false,false);
-					buildQueryCondition(boolQuery, reqItem, "persons.name.keyword", false,false);
-				}
+                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+
+					buildQueryCondition(allQueryBuilder, reqItem, "title", false,false);
+					buildQueryCondition(allQueryBuilder, reqItem, "abs", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_1.name", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_2.name", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_3.name", false,false);
+					buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true);
+					buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false);
+					buildQueryCondition(allQueryBuilder, reqItem, "persons.name.keyword", false,false);
+
+                    setOperator(boolQuery, reqItem, allQueryBuilder);
+                }
 			}
 		}
 
@@ -228,9 +258,9 @@ public class PaperService extends AbstractService{
 
 	}
 
-	public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
+    public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
-		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PAPER_INDEX);
+		SearchRequestBuilder srb = esClient.prepareSearch(PAPER_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abs")
                 .field("keywords.keyword").field("persons.name.keyword");
 

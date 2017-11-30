@@ -9,18 +9,18 @@ public class CompositeRequestItem {
 
     private KVBean<String, List<String>> kv;
 
-    private KVBean<String, Map<String, Integer>> kvDate;
+    private KVBean<String, Map<String, String>> kvDate;
 
     /**
      * 1=精确，2=模糊
      */
     private Integer precision;
 
-    public KVBean<String, Map<String, Integer>> getKvDate() {
+    public KVBean<String, Map<String, String>> getKvDate() {
         return kvDate;
     }
 
-    public void setKvDate(KVBean<String, Map<String, Integer>> kvDate) {
+    public void setKvDate(KVBean<String, Map<String, String>> kvDate) {
         this.kvDate = kvDate;
     }
 

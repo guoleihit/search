@@ -3,6 +3,7 @@ package com.hiekn.service;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PatentDetail;
@@ -10,6 +11,7 @@ import com.hiekn.search.bean.result.PatentItem;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -34,6 +36,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.PAPER_INDEX;
 import static com.hiekn.util.CommonResource.PATENT_INDEX;
 
 public class PatentService extends AbstractService {
@@ -284,7 +287,28 @@ public class PatentService extends AbstractService {
 
         makeFilters(request, boolQuery);
 
-        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(1.5f);
+        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(4f);
+        List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request.getKw(),PATENT_INDEX);
+        BoolQueryBuilder boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+
+        List<String> oneWordList = new ArrayList<>();
+        for(AnalyzeResponse.AnalyzeToken token:tokens){
+            String t = token.getTerm();
+            if(t.equals(request.getKw())){
+                continue;
+            }
+
+            if(t.length() == 1){
+                oneWordList.add(t);
+            }else {
+                boolTitleQuery.should(QueryBuilders.termQuery("title.original", t));
+            }
+        }
+        if(oneWordList.size() == tokens.size()){
+            boolTitleQuery.should(QueryBuilders.termsQuery("title.original", oneWordList));
+        }
+
+
         TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abstract.original", request.getKw());
         TermQueryBuilder inventorTerm = QueryBuilders.termQuery("inventors.name.original.keyword", request.getKw())
                 .boost(2);
@@ -298,6 +322,7 @@ public class PatentService extends AbstractService {
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             termQuery.should(titleTerm);
+            termQuery.should(boolTitleQuery);
             termQuery.should(abstractTerm);
             termQuery.should(inventorTerm);
             termQuery.should(agenciesTerm);
@@ -367,11 +392,13 @@ public class PatentService extends AbstractService {
                 }else if ("pubDate".equals(dateKey)) {
                     doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
                 }else if ("all".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "title.original", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "abstract.original", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
-                    buildQueryCondition(boolQuery, reqItem, "inventors.name.original.keyword", false,false);
-                    buildQueryCondition(boolQuery, reqItem, "applicants.name.original.keyword", false,false);
+                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+                    buildQueryCondition(allQueryBuilder, reqItem, "title.original", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "abstract.original", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true);
+                    buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false);
+                    setOperator(boolQuery,reqItem,allQueryBuilder);
                 }
             }
         }
