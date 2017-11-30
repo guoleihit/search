@@ -133,6 +133,11 @@ public class PictureService extends AbstractService{
 	}
 
 	@Override
+	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
+
+	}
+
+	@Override
 	public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildQuery(request);
 		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PICTURE_INDEX);

@@ -15,6 +15,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -29,8 +30,11 @@ import org.elasticsearch.search.sort.SortOrder;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.PATENT_INDEX;
 
 public class PatentService extends AbstractService {
 
@@ -45,12 +49,27 @@ public class PatentService extends AbstractService {
         patentNameTypeMap.put("发明专利", 1);
         patentNameTypeMap.put("实用新型", 2);
         patentNameTypeMap.put("外观专利", 3);
+        
+        
+        legalStatusValueNameMap = new ConcurrentHashMap<>();
+        legalStatusValueNameMap.put("1", "公开");
+        legalStatusValueNameMap.put("2", "授权");
+        legalStatusValueNameMap.put("3", "实效");
+
+        legalStatusNameValueMap = new ConcurrentHashMap<>();
+        legalStatusNameValueMap.put("公开", 1);
+        legalStatusNameValueMap.put("授权", 2);
+        legalStatusNameValueMap.put("实效", 3);
     }
 
     private Map<String, String> patentTypeNameMap;
 
     private Map<String, Integer> patentNameTypeMap;
 
+    private Map<String, String> legalStatusValueNameMap;
+
+    private Map<String, Integer> legalStatusNameValueMap;
+    
     @SuppressWarnings("rawtypes")
     public ItemBean extractDetail(SearchHit hit) {
         PatentDetail item = new PatentDetail();
@@ -82,6 +101,10 @@ public class PatentService extends AbstractService {
         List<String> countryList = toStringList(countries);
         if (!countryList.isEmpty()) {
             item.setCountries(countryList);
+        }
+
+        if (source.get("legal_status") != null) {
+            item.setLegalStatus(legalStatusValueNameMap.get(source.get("legal_status").toString()));
         }
 
         item.setLegalStatus(getString(source.get("legal_status")));
@@ -222,6 +245,7 @@ public class PatentService extends AbstractService {
         if (source.get("type") != null) {
             item.setType(patentTypeNameMap.get(source.get("type").toString()));
         }
+
         //highlight
         if (hit.getHighlightFields() != null) {
             for (Map.Entry<String, HighlightField> entry : hit.getHighlightFields().entrySet()) {
@@ -328,6 +352,8 @@ public class PatentService extends AbstractService {
                     buildQueryCondition(boolQuery, reqItem, "title.original", false,false);
                 }else if ("ipc".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
+                }else if ("legal_status".equals(key)) {
+                	//TODO
                 }else if ("author".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "inventors.name.original.keyword", false,false);
                 }else if ("applicant".equals(key)) {
@@ -410,6 +436,8 @@ public class PatentService extends AbstractService {
 
         if (Integer.valueOf(1).equals(request.getSort())) {
             srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+        }else if (Integer.valueOf(2).equals(request.getSort())) {
+        		srb.addSort(SortBuilders.fieldSort("application_date").order(SortOrder.DESC));
         }
 
         SearchResponse response = srb.execute().get();
@@ -462,6 +490,78 @@ public class PatentService extends AbstractService {
         return result;
     }
 
+
+    public void searchSimilarData(String docId, SearchResultBean result) throws InterruptedException, ExecutionException {
+        String title = result.getRsData().get(0).getTitle();
+        QueryBuilder similarPatentsQuery = QueryBuilders.matchQuery("title.original",title).analyzer("ik_max_word");
+        SearchRequestBuilder spq = esClient.prepareSearch(PATENT_INDEX);
+        HighlightBuilder titleHighlighter = new HighlightBuilder().field("title.original");
+        spq.highlighter(titleHighlighter).setQuery(similarPatentsQuery).setFrom(0).setSize(6);
+        Future<SearchResponse> similarPatentFuture = spq.execute();
+
+        List<String> inventors = result.getRsData().get(0).getAuthors();
+        QueryBuilder inventorsPatentsQuery = QueryBuilders.termsQuery("inventors.name.original.keyword",inventors);
+        HighlightBuilder inventorHighlighter = new HighlightBuilder().field("inventors.name.original.keyword");
+        SearchRequestBuilder ipq = esClient.prepareSearch(PATENT_INDEX);
+        ipq.highlighter(inventorHighlighter).setQuery(inventorsPatentsQuery).setFrom(0).setSize(6);
+        Future<SearchResponse>  inventorsPatentFuture = ipq.execute();
+        //System.out.println(ipq.toString());
+
+        List<String> applicants = ((PatentDetail)result.getRsData().get(0)).getApplicants().stream().map((app)->{
+            return app.get("name")==null?"":app.get("name").toString();
+        }).collect(Collectors.toList());
+        QueryBuilder applicantPatentsQuery = QueryBuilders.termsQuery("applicants.name.original.keyword",applicants);
+        HighlightBuilder applicantsHighlighter = new HighlightBuilder().field("applicants.name.original.keyword");
+        SearchRequestBuilder apq = esClient.prepareSearch(PATENT_INDEX);
+        apq.highlighter(applicantsHighlighter).setQuery(applicantPatentsQuery).setFrom(0).setSize(6);
+        Future<SearchResponse> appPatentFuture = apq.execute();
+        //System.out.println(apq.toString());
+
+        SearchResponse similarPatentResp, inventorsPatentResp, appPatentResp = null;
+        if((similarPatentResp = similarPatentFuture.get())!=null
+                && (inventorsPatentResp = inventorsPatentFuture.get())!=null
+                && (appPatentResp = appPatentFuture.get())!=null){
+
+            KVBean<String, List<ItemBean>> similarPatents = new KVBean<>();
+            similarPatents.setD("相似专利");
+            similarPatents.setK("similarPatents");
+            similarPatents.setV(new ArrayList<>());
+            result.getSimilarData().add(similarPatents);
+            for (SearchHit hit : similarPatentResp.getHits()) {
+                ItemBean item = extractItem(hit);
+                if(docId.equals(item.getDocId())){
+                    continue;
+                }
+                similarPatents.getV().add(item);
+            }
+
+            KVBean<String, List<ItemBean>> inventorsPatents = new KVBean<>();
+            inventorsPatents.setD("发明人专利");
+            inventorsPatents.setK("inventorsPatents");
+            inventorsPatents.setV(new ArrayList<>());
+            result.getSimilarData().add(inventorsPatents);
+            for (SearchHit hit : inventorsPatentResp.getHits()) {
+                ItemBean item = extractItem(hit);
+                if(docId.equals(item.getDocId())){
+                    continue;
+                }
+                inventorsPatents.getV().add(item);
+            }
+
+            KVBean<String, List<ItemBean>> applicantsPatents = new KVBean<>();
+            applicantsPatents.setD("申请人专利");
+            applicantsPatents.setK("applicantsPatents");
+            applicantsPatents.setV(new ArrayList<>());
+            result.getSimilarData().add(applicantsPatents);
+            for (SearchHit hit : appPatentResp.getHits()) {
+                ItemBean item = extractItem(hit);
+                if(docId.equals(item.getDocId())){
+                    continue;
+                }
+                applicantsPatents.getV().add(item);
+            }
+        }
+    }
 
     private List<Object> toPatentTypes(List<String> names){
         List<Integer> types = new ArrayList<>();

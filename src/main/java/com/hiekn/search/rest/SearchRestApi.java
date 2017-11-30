@@ -1,17 +1,36 @@
 package com.hiekn.search.rest;
 
-import com.hiekn.plantdata.bean.graph.SchemaBean;
-import com.hiekn.plantdata.service.IGeneralSSEService;
-import com.hiekn.search.bean.DocType;
-import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.prompt.PromptBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.QueryRequest;
+import static com.hiekn.service.Helper.getAnnotationFieldName;
+import static com.hiekn.service.Helper.getString;
+import static com.hiekn.service.Helper.setKnowledgeAggResult;
+import static com.hiekn.util.CommonResource.BAIKE_INDEX;
+import static com.hiekn.util.CommonResource.PAPER_INDEX;
+import static com.hiekn.util.CommonResource.PATENT_INDEX;
+import static com.hiekn.util.CommonResource.PICTURE_INDEX;
+import static com.hiekn.util.CommonResource.PROMPT_INDEX;
+import static com.hiekn.util.CommonResource.STANDARD_INDEX;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.annotation.Resource;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+
 import com.hiekn.search.bean.result.*;
-import com.hiekn.search.exception.BaseException;
-import com.hiekn.service.*;
-import com.hiekn.util.JSONUtils;
-import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -31,18 +50,28 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
-import javax.annotation.Resource;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.alibaba.fastjson.JSONObject;
+import com.hiekn.plantdata.bean.graph.SchemaBean;
+import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.prompt.PromptBean;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
+import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.exception.BaseException;
+import com.hiekn.service.AbstractService;
+import com.hiekn.service.BaikeService;
+import com.hiekn.service.PaperService;
+import com.hiekn.service.PatentService;
+import com.hiekn.service.PictureService;
+import com.hiekn.service.StandardService;
+import com.hiekn.util.JSONUtils;
 
-import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.getAnnotationFieldName;
-import static com.hiekn.service.Helper.setKnowledgeAggResult;
-import static com.hiekn.util.CommonResource.*;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Controller
 @Path("/p")
@@ -89,13 +118,19 @@ public class SearchRestApi implements InitializingBean {
             index = STANDARD_INDEX;
         }
         SearchRequestBuilder srb = esClient.prepareSearch(index);
-        System.out.println(srb.toString());
         srb.setQuery(docQuery).setFrom(0).setSize(1);
         SearchResponse docResp = srb.get();
         if (docResp.getHits().getHits().length > 0) {
             SearchHit hit = docResp.getHits().getAt(0);
             ItemBean item = extractDetail(hit, docType);
             result.getRsData().add(item);
+        }
+
+        // 详情页推荐信息
+        if(result.getRsData().size() > 0){
+            if (DocType.PATENT.equals(docType)) {
+                patentService.searchSimilarData(docId, result);
+            }
         }
         return new RestResp<>(result, tt);
     }
@@ -230,8 +265,8 @@ public class SearchRestApi implements InitializingBean {
             services.add(standardService);
             indices.add(STANDARD_INDEX);
         }
-
     }
+
     private BoolQueryBuilder buildQueryDetail(String docId) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         boolQuery.must(QueryBuilders.idsQuery().addIds(docId));
@@ -241,7 +276,7 @@ public class SearchRestApi implements InitializingBean {
     private SearchResponse searchBaikeIndex(QueryRequest request, BoolQueryBuilder boolQuery)
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(BAIKE_INDEX);
-        srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
+        srb.setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize()).setSize(request.getPageSize());
         return srb.execute().get();
     }
 
@@ -251,7 +286,7 @@ public class SearchRestApi implements InitializingBean {
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
                 .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
-        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
@@ -300,8 +335,10 @@ public class SearchRestApi implements InitializingBean {
         boolQuery.should(titleTerm);
         if (request.getKwType() != null && request.getKwType() > 0) {
             boolQuery.filter(QueryBuilders.termQuery("type", request.getKwType()));
+//            if (request.getKwType() == 1 || request.getKwType() == 2) {
+//                boolQuery.should(QueryBuilders.existsQuery("description").boost(2));
+//            }
         }
-        boolQuery.should(QueryBuilders.existsQuery("description").boost(2));
 
         SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
         srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
@@ -379,6 +416,25 @@ public class SearchRestApi implements InitializingBean {
         SearchResultBean result = service.doCompositeSearch(request);
 
         return new RestResp<>(result, request.getTt());
+    }
+
+    @POST
+    @Path("/similar")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "详情页面相似信息推荐", notes = "相似度推荐")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> similar(@ApiParam(value = "检索请求") JSONObject request)
+            throws Exception {
+        if (request.get("docType") == null) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+
+        String requestStr = JSONUtils.toJson(request);
+        log.info(requestStr);
+
+
+        return new RestResp<>(new SearchResultBean(""), 0L);
     }
 
 

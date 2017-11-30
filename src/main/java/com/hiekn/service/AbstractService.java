@@ -45,6 +45,8 @@ public abstract class AbstractService {
 
     public abstract BoolQueryBuilder buildQuery(QueryRequest request);
 
+    public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
+
     /**
      *
      * @param boolQuery

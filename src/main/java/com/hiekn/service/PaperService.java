@@ -174,6 +174,11 @@ public class PaperService extends AbstractService{
         return boolQuery;
     }
 
+	@Override
+	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
+
+	}
+
 	public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
