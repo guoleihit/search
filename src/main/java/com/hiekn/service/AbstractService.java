@@ -50,15 +50,18 @@ public abstract class AbstractService {
 
     public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
 
-    protected List<AnalyzeResponse.AnalyzeToken> esSegment(String kw, String index){
+    protected List<AnalyzeResponse.AnalyzeToken> esSegment(QueryRequest request, String index){
         //利用es分词
-        IndicesAdminClient indicesClient = this.esClient.admin().indices();
-        AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(kw);
-        arb.setIndex(index);
-        arb.setAnalyzer("ik_max_word");
-        AnalyzeResponse response = arb.execute().actionGet();
-        List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
-        return segList;
+        if(request.getSegmentList() == null) {
+            IndicesAdminClient indicesClient = this.esClient.admin().indices();
+            AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(request.getKw());
+            arb.setIndex(index);
+            arb.setAnalyzer("ik_max_word");
+            AnalyzeResponse response = arb.execute().actionGet();
+            List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
+            request.setSegmentList(segList);
+        }
+        return request.getSegmentList();
     }
     /**
      *
@@ -72,16 +75,12 @@ public abstract class AbstractService {
         buildQueryCondition(boolQuery, reqItem, esField, needPrefix, ignoreStrCase, Arrays.asList(values.toArray()));
     }
 
-    /**
-     * Need provide values
-     * @param boolQuery
-     * @param reqItem
-     * @param esField
-     * @param needPrefix
-     * @param ignoreStrCase
-     * @param values
-     */
-    protected void buildQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField, boolean needPrefix, boolean ignoreStrCase, List<Object> values) {
+    protected void buildQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField, boolean needPrefix, boolean ignoreStrCase, Operator overrideOperator) {
+        List<String> values = reqItem.getKv().getV();
+        buildQueryCondition(boolQuery, reqItem, esField, needPrefix, ignoreStrCase, Arrays.asList(values.toArray()),overrideOperator);
+    }
+
+    protected void buildQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField, boolean needPrefix, boolean ignoreStrCase, List<Object> values, Operator overrideOperator) {
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         for (Object value : values) {
             if (ignoreStrCase) {
@@ -93,13 +92,30 @@ public abstract class AbstractService {
                 doBuildQueryCondition(reqItem, esField, needPrefix, termQuery, value);
             }
         }
-        if (Operator.OR.equals(reqItem.getOp()) || "all".equals(reqItem.getKv().getK())) {
+        Operator op = reqItem.getOp();
+        if (overrideOperator != null) {
+            op = overrideOperator;
+        }
+        if (Operator.OR.equals(op)) {
             boolQuery.should(termQuery);
         } else if (Operator.AND.equals(reqItem.getOp())){
             boolQuery.must(termQuery);
         } else if (Operator.NOT.equals(reqItem.getOp())) {
             boolQuery.mustNot(termQuery);
         }
+    }
+
+    /**
+     * Need provide values
+     * @param boolQuery
+     * @param reqItem
+     * @param esField
+     * @param needPrefix
+     * @param ignoreStrCase
+     * @param values
+     */
+    protected void buildQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField, boolean needPrefix, boolean ignoreStrCase, List<Object> values) {
+        buildQueryCondition(boolQuery, reqItem, esField, needPrefix, ignoreStrCase,values, null);
     }
 
     protected void setOperator(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, BoolQueryBuilder allQueryBuilder) {

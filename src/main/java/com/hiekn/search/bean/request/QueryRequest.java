@@ -11,6 +11,7 @@ import com.hiekn.search.bean.KVBean;
 
 import io.swagger.annotations.ApiParam;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 
 /**
  * 检索请求
@@ -47,31 +48,62 @@ public class QueryRequest {
 	@ApiParam("过滤条件，比如 [{k: 'earliest_publication_date', v: ['2017'], d: '发表年份'}]")
 	private List<KVBean<String,List<String>>> filters = new ArrayList<>();
 
+    private String id;
 
-	private List<DocType> docTypeList;
-    /*
-        private String andKwList;
+    public String getId() {
+        return id;
+    }
 
-        private String exactKwList;
+    public void setId(String id) {
+        this.id = id;
+    }
 
-        private String atLeastOneKw;
+    private List<DocType> docTypeList;
 
-        private String noneKwList;
+	private List<AnalyzeResponse.AnalyzeToken> segmentList;
 
-        @ApiParam("关键词出现位置，无限制=0，标题=1")
-        @DefaultValue("0")
-        private Integer position = 0;
+    public List<String> getUserSplitSegList() {
+        return userSplitSegList;
+    }
 
-        private String language;
-    */
-	private String otherKw;
+    public void setUserSplitSegList(List<String> userSplitSegList) {
+        this.userSplitSegList = userSplitSegList;
+    }
 
-	public String getOtherKw() {
-		return otherKw;
+    private List<String> userSplitSegList;
+
+
+	public List<AnalyzeResponse.AnalyzeToken> getSegmentList() {
+		return segmentList;
 	}
 
-	public void setOtherKw(String otherKw) {
-		this.otherKw = otherKw;
+	public void setSegmentList(List<AnalyzeResponse.AnalyzeToken> segmentList) {
+		this.segmentList = segmentList;
+	}
+
+	/*
+            private String andKwList;
+
+            private String exactKwList;
+
+            private String atLeastOneKw;
+
+            private String noneKwList;
+
+            @ApiParam("关键词出现位置，无限制=0，标题=1")
+            @DefaultValue("0")
+            private Integer position = 0;
+
+            private String language;
+        */
+	private String description;
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 
 	public List<KVBean<String, List<String>>> getFilters() {

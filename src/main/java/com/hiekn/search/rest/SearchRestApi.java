@@ -1,43 +1,32 @@
 package com.hiekn.search.rest;
 
-import static com.hiekn.service.Helper.getAnnotationFieldName;
-import static com.hiekn.service.Helper.getString;
-import static com.hiekn.service.Helper.setKnowledgeAggResult;
-import static com.hiekn.util.CommonResource.BAIKE_INDEX;
-import static com.hiekn.util.CommonResource.PAPER_INDEX;
-import static com.hiekn.util.CommonResource.PATENT_INDEX;
-import static com.hiekn.util.CommonResource.PICTURE_INDEX;
-import static com.hiekn.util.CommonResource.PROMPT_INDEX;
-import static com.hiekn.util.CommonResource.STANDARD_INDEX;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
-import javax.annotation.Resource;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-
+import com.alibaba.fastjson.JSONObject;
+import com.hiekn.plantdata.bean.graph.SchemaBean;
+import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.KVBean;
+import com.hiekn.search.bean.prompt.PromptBean;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
+import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.*;
+import com.hiekn.search.exception.BaseException;
+import com.hiekn.service.*;
+import com.hiekn.util.JSONUtils;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
+import org.bson.Document;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -50,28 +39,16 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
-import com.alibaba.fastjson.JSONObject;
-import com.hiekn.plantdata.bean.graph.SchemaBean;
-import com.hiekn.plantdata.service.IGeneralSSEService;
-import com.hiekn.search.bean.DocType;
-import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.prompt.PromptBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.exception.BaseException;
-import com.hiekn.service.AbstractService;
-import com.hiekn.service.BaikeService;
-import com.hiekn.service.PaperService;
-import com.hiekn.service.PatentService;
-import com.hiekn.service.PictureService;
-import com.hiekn.service.StandardService;
-import com.hiekn.util.JSONUtils;
+import javax.annotation.Resource;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.*;
 
 @Controller
 @Path("/p")
@@ -82,8 +59,16 @@ public class SearchRestApi implements InitializingBean {
 
     @Value("${kg_name}")
     private String kgName;
+    @Value("${kg_url}")
+    private String kgUrl;
+    @Value("${kg_port}")
+    private String kgPort;
     @Resource
     private IGeneralSSEService generalSSEService;
+
+    private MongoClient client = null;
+    private MongoDatabase dataBase = null;
+    private MongoCollection<Document> basicInfoCollection = null;
 
     private static Logger log = LoggerFactory.getLogger(SearchRestApi.class);
 
@@ -117,6 +102,9 @@ public class SearchRestApi implements InitializingBean {
         } else if (DocType.STANDARD.equals(docType)) {
             index = STANDARD_INDEX;
         }
+
+        //System.out.println(Helper.getItemFromHbase(docId, DocType.NEWS).toString());
+
         SearchRequestBuilder srb = esClient.prepareSearch(index);
         srb.setQuery(docQuery).setFrom(0).setSize(1);
         SearchResponse docResp = srb.get();
@@ -130,6 +118,8 @@ public class SearchRestApi implements InitializingBean {
         if(result.getRsData().size() > 0){
             if (DocType.PATENT.equals(docType)) {
                 patentService.searchSimilarData(docId, result);
+            }else if (DocType.PAPER.equals(docType)) {
+                paperService.searchSimilarData(docId, result);
             }
         }
         return new RestResp<>(result, tt);
@@ -194,9 +184,26 @@ public class SearchRestApi implements InitializingBean {
 
         SearchResultBean result = new SearchResultBean(request.getKw());
         String[] kws = request.getKw().trim().split(" ");
+        request.setUserSplitSegList(Arrays.asList(kws));
+
         if (kws.length > 1) {
             request.setKw(kws[0]);
-            request.setOtherKw(kws[1]);
+        }
+
+        if (!StringUtils.isEmpty(request.getId())) {
+            //TODO get graph data
+            try (MongoCursor<Document> dbCursor = basicInfoCollection.find(Filters.eq("_id", Long.valueOf(request.getId())))
+                    .limit(1).iterator()){
+                while (dbCursor.hasNext()) {
+                    Document doc = dbCursor.next();
+                    if(doc.get("meaning_tag")!=null){
+                        request.setDescription(doc.getString("meaning_tag"));
+                        break;
+                    }
+                }
+            }catch (Exception e){
+
+            }
         }
 
         List<String> indices = new ArrayList<>();
@@ -286,11 +293,9 @@ public class SearchRestApi implements InitializingBean {
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
                 .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
-        srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
-                .setSize(request.getPageSize());
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
-                .field("earliest_publication_date").interval(10000).minDocCount(1);
+                .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
         srb.addAggregation(aggYear);
 
         AggregationBuilder docTypes = AggregationBuilders.terms("document_type").field("_type");
@@ -301,6 +306,12 @@ public class SearchRestApi implements InitializingBean {
             AggregationBuilder knowledge = AggregationBuilders.terms("knowledge_class").field(annotationField);
             srb.addAggregation(knowledge);
         }
+
+
+        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(10);
+
+        srb.highlighter(highlighter).setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize())
+                .setSize(request.getPageSize());
 
         System.out.println(srb.toString());
         return srb.execute().get();
@@ -462,5 +473,9 @@ public class SearchRestApi implements InitializingBean {
         patentService = new PatentService(esClient);
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient);
+
+        client = new MongoClient(kgUrl, Integer.valueOf(kgPort));
+        dataBase = client.getDatabase(kgName);
+        basicInfoCollection = dataBase.getCollection("basic_info");
     }
 }

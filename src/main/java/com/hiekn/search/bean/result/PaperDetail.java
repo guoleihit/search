@@ -7,8 +7,7 @@ public class PaperDetail extends PaperItem {
 
 	private List<String> categories;
 	private String citeCount;
-
-	public List<String> getCategories() {
+    public List<String> getCategories() {
 		return categories;
 	}
 

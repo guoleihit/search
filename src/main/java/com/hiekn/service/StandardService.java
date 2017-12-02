@@ -3,6 +3,7 @@ package com.hiekn.service;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.SearchResultBean;
@@ -10,6 +11,7 @@ import com.hiekn.search.bean.result.StandardDetail;
 import com.hiekn.search.bean.result.StandardItem;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -24,12 +26,15 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.PATENT_INDEX;
+import static com.hiekn.util.CommonResource.STANDARD_INDEX;
 
 public class StandardService extends AbstractService{
 
@@ -172,6 +177,30 @@ public class StandardService extends AbstractService{
 
         makeFilters(request, boolQuery);
 
+        BoolQueryBuilder boolTitleQuery = null;
+
+        if (request.getKwType() != 1 && request.getKwType() != 2) {
+            List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, STANDARD_INDEX);
+            boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+
+            List<String> oneWordList = new ArrayList<>();
+            for (AnalyzeResponse.AnalyzeToken token : tokens) {
+                String t = token.getTerm();
+                if (t.equals(request.getKw())) {
+                    continue;
+                }
+
+                if (t.length() == 1) {
+                    oneWordList.add(t);
+                } else {
+                    boolTitleQuery.should(QueryBuilders.termQuery("name", t));
+                }
+            }
+            if (oneWordList.size() == tokens.size()) {
+                boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList));
+            }
+        }
+
         TermQueryBuilder titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
         TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
         TermQueryBuilder authorTerm = QueryBuilders.termQuery("author.keyword", request.getKw()).boost(1.5f);
@@ -182,6 +211,9 @@ public class StandardService extends AbstractService{
         termQuery.should(abstractTerm);
         termQuery.should(authorTerm);
         termQuery.should(kwsTerm);
+        if(boolTitleQuery!=null){
+            termQuery.should(boolTitleQuery);
+        }
 
         boolQuery.must(termQuery);
         boolQuery.filter(QueryBuilders.termQuery("_type", "standard_data"));
@@ -216,9 +248,9 @@ public class StandardService extends AbstractService{
                     buildQueryCondition(boolQuery, reqItem, "name", false,false);
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-                    buildQueryCondition(allQueryBuilder, reqItem, "num", false, false);
-                    buildQueryCondition(allQueryBuilder, reqItem, "name", false,false);
-                    buildQueryCondition(allQueryBuilder, reqItem, "num", true,true);
+                    buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "name", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, Operator.OR);
                     setOperator(boolQuery,reqItem, allQueryBuilder);
                 }else if ("standardType".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "num", true,true);

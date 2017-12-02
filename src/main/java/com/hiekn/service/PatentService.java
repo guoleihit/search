@@ -36,7 +36,6 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
-import static com.hiekn.util.CommonResource.PAPER_INDEX;
 import static com.hiekn.util.CommonResource.PATENT_INDEX;
 
 public class PatentService extends AbstractService {
@@ -288,54 +287,63 @@ public class PatentService extends AbstractService {
         makeFilters(request, boolQuery);
 
         TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(4f);
-        List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request.getKw(),PATENT_INDEX);
-        BoolQueryBuilder boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        BoolQueryBuilder boolTitleQuery = null;
 
-        List<String> oneWordList = new ArrayList<>();
-        for(AnalyzeResponse.AnalyzeToken token:tokens){
-            String t = token.getTerm();
-            if(t.equals(request.getKw())){
-                continue;
+        if (request.getKwType() != 1 && request.getKwType() != 2) {
+            List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, PATENT_INDEX);
+            boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+
+            List<String> oneWordList = new ArrayList<>();
+            for (AnalyzeResponse.AnalyzeToken token : tokens) {
+                String t = token.getTerm();
+                if (t.equals(request.getKw())) {
+                    continue;
+                }
+
+                if (t.length() == 1) {
+                    oneWordList.add(t);
+                } else {
+                    boolTitleQuery.should(QueryBuilders.termQuery("title.original", t));
+                }
             }
-
-            if(t.length() == 1){
-                oneWordList.add(t);
-            }else {
-                boolTitleQuery.should(QueryBuilders.termQuery("title.original", t));
+            if (oneWordList.size() == tokens.size()) {
+                //boolTitleQuery.should(QueryBuilders.termsQuery("title.original", oneWordList));
             }
         }
-        if(oneWordList.size() == tokens.size()){
-            boolTitleQuery.should(QueryBuilders.termsQuery("title.original", oneWordList));
-        }
 
-
-        TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abstract.original", request.getKw());
-        TermQueryBuilder inventorTerm = QueryBuilders.termQuery("inventors.name.original.keyword", request.getKw())
-                .boost(2);
-        TermQueryBuilder applicantTerm = QueryBuilders.termQuery("applicants.name.original.keyword", request.getKw())
-                .boost(1.5f);
-        TermQueryBuilder agenciesTerm = QueryBuilders.termQuery("agencies_standerd.agency", request.getKw())
-                .boost(1.5f);
-        TermQueryBuilder annotationTagTerm = QueryBuilders.termQuery("annotation_tag.name", request.getKw())
-                .boost(1.5f);
+        QueryBuilder abstractTerm = QueryBuilders.termsQuery("abstract.original", request.getUserSplitSegList());
+        QueryBuilder inventorTerm = QueryBuilders.termsQuery("inventors.name.original.keyword", request.getUserSplitSegList())
+                .boost(4);
+        QueryBuilder applicantTerm = QueryBuilders.termsQuery("applicants.name.original.keyword", request.getUserSplitSegList())
+                .boost(4f);
+        QueryBuilder agenciesTerm = QueryBuilders.termsQuery("agencies_standerd.agency", request.getUserSplitSegList())
+                .boost(4f);
+        QueryBuilder annotationTagTerm = QueryBuilders.termsQuery("annotation_tag.name", request.getUserSplitSegList())
+                .boost(4f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             termQuery.should(titleTerm);
-            termQuery.should(boolTitleQuery);
+            if(boolTitleQuery!=null) {
+                termQuery.should(boolTitleQuery);
+            }
             termQuery.should(abstractTerm);
             termQuery.should(inventorTerm);
             termQuery.should(agenciesTerm);
             termQuery.should(applicantTerm);
             termQuery.should(annotationTagTerm);
-            if (!StringUtils.isEmpty(request.getOtherKw())) {
-                termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+            if (!StringUtils.isEmpty(request.getDescription())) {
+                termQuery.should(QueryBuilders.termsQuery("applicants.name.original.keyword", request.getDescription().split(",")));
             }
         } else if (request.getKwType() == 1) {
-            termQuery.should(inventorTerm);
             termQuery.should(applicantTerm);
-            if (!StringUtils.isEmpty(request.getOtherKw())) {
-                termQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", request.getOtherKw()));
+            if (!StringUtils.isEmpty(request.getDescription())) {
+                BoolQueryBuilder desQuery = QueryBuilders.boolQuery()
+                        .must(QueryBuilders.termsQuery("applicants.name.original.keyword", request.getDescription().split(",")));
+                desQuery.must(inventorTerm);
+                termQuery.should(desQuery);
+            }else {
+                termQuery.should(inventorTerm);
             }
         } else if (request.getKwType() == 2) {
             termQuery.should(agenciesTerm);
@@ -344,6 +352,9 @@ public class PatentService extends AbstractService {
             termQuery.should(titleTerm);
             termQuery.should(abstractTerm);
             termQuery.should(annotationTagTerm);
+            if(boolTitleQuery!=null) {
+                termQuery.should(boolTitleQuery);
+            }
         }
 
         boolQuery.must(termQuery);
@@ -393,11 +404,11 @@ public class PatentService extends AbstractService {
                     doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-                    buildQueryCondition(allQueryBuilder, reqItem, "title.original", false,false);
-                    buildQueryCondition(allQueryBuilder, reqItem, "abstract.original", false,false);
-                    buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true);
-                    buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false);
-                    buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false);
+                    buildQueryCondition(allQueryBuilder, reqItem, "title.original", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "abstract.original", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false, Operator.OR);
                     setOperator(boolQuery,reqItem,allQueryBuilder);
                 }
             }
@@ -549,7 +560,7 @@ public class PatentService extends AbstractService {
                 && (inventorsPatentResp = inventorsPatentFuture.get())!=null
                 && (appPatentResp = appPatentFuture.get())!=null){
 
-            KVBean<String, List<ItemBean>> similarPatents = new KVBean<>();
+            KVBean<String, List<Object>> similarPatents = new KVBean<>();
             similarPatents.setD("相似专利");
             similarPatents.setK("similarPatents");
             similarPatents.setV(new ArrayList<>());
@@ -562,7 +573,7 @@ public class PatentService extends AbstractService {
                 similarPatents.getV().add(item);
             }
 
-            KVBean<String, List<ItemBean>> inventorsPatents = new KVBean<>();
+            KVBean<String, List<Object>> inventorsPatents = new KVBean<>();
             inventorsPatents.setD("发明人专利");
             inventorsPatents.setK("inventorsPatents");
             inventorsPatents.setV(new ArrayList<>());
@@ -575,7 +586,7 @@ public class PatentService extends AbstractService {
                 inventorsPatents.getV().add(item);
             }
 
-            KVBean<String, List<ItemBean>> applicantsPatents = new KVBean<>();
+            KVBean<String, List<Object>> applicantsPatents = new KVBean<>();
             applicantsPatents.setD("申请人专利");
             applicantsPatents.setK("applicantsPatents");
             applicantsPatents.setV(new ArrayList<>());

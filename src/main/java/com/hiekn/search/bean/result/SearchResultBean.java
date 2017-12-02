@@ -12,7 +12,7 @@ public class SearchResultBean {
 	private Long rsCount;
 	private List<ItemBean> rsData;
 	private List<KVBean<String,Map<String,? extends Object>>> filters;
-	private List<KVBean<String,List<ItemBean>>> similarData;
+	private List<KVBean<String,List<Object>>> similarData;
 	
 	public SearchResultBean(String kw) {
 		super();
@@ -23,12 +23,12 @@ public class SearchResultBean {
 	}
 
 	
-	public List<KVBean<String, List<ItemBean>>> getSimilarData() {
+	public List<KVBean<String, List<Object>>> getSimilarData() {
 		return similarData;
 	}
 
 
-	public void setSimilarData(List<KVBean<String, List<ItemBean>>> similarData) {
+	public void setSimilarData(List<KVBean<String, List<Object>>> similarData) {
 		this.similarData = similarData;
 	}
 

@@ -1,13 +1,22 @@
 package com.hiekn.service;
 
-import java.util.*;
-
+import com.alibaba.fastjson.JSONObject;
+import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.util.HttpClient;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import java.util.*;
 
 public class Helper {
 
@@ -149,4 +158,70 @@ public class Helper {
 
         return Long.valueOf(year) * 10000 + Long.valueOf(month) * 100 + Long.valueOf(dateS);
     }
+
+    public static JSONObject getItemFromHbase(String rowKey, DocType docType){
+        String table = getHBaseTableName(docType);
+        String response = HttpClient.sendGet("http://10.10.20.8:20550/"+table+"/"+rowKey,null,null);
+        System.out.println(response);
+        try {
+            SAXParser parser = SAXParserFactory.newInstance().newSAXParser();
+            HBaseResultHandler handler = new HBaseResultHandler();
+            parser.parse(new java.io.ByteArrayInputStream(response.getBytes()), handler);
+
+            if(handler.columns.get("f_big:col")!=null){
+                return com.alibaba.fastjson.JSON.parseObject(handler.columns.get("f_big:col"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public static String getHBaseTableName(DocType docType){
+        if(DocType.NEWS.equals(docType)){
+            return "json_beijixing_data_news";
+        }
+        return "";
+    }
+
+    static class HBaseResultHandler extends DefaultHandler{
+        Map<String, String> columns = new HashMap<>();
+        String columnName;
+        String columnValue;
+        boolean isCellStart = false;
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+            if ("Cell".equalsIgnoreCase(qName)) {
+                isCellStart = true;
+
+                for (int i = 0; i < attributes.getLength(); ++i) {
+                    String attrName = attributes.getQName(i);
+                    if ("column".equalsIgnoreCase(attrName)){
+                        String attrValue = attributes.getValue(i);
+                        columnName =  new String(Base64.getDecoder().decode(attrValue));
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void endElement(String uri, String localName, String qName) throws SAXException {
+            if ("Cell".equalsIgnoreCase(qName)) {
+                isCellStart = false;
+                if(!StringUtils.isEmpty(columnName) && !StringUtils.isEmpty(columnValue)){
+                    columns.put(columnName,columnValue);
+                }
+            }
+        }
+
+
+        @Override
+        public void characters(char[] ch, int start, int length) throws SAXException {
+            if (isCellStart) {
+                columnValue = new String(Base64.getDecoder().decode(new String(ch,start,length)));
+            }
+        }
+    }
+
 }
