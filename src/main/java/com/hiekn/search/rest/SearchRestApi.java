@@ -12,6 +12,8 @@ import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.service.*;
 import com.hiekn.util.JSONUtils;
+import com.hiekn.word2vector.Word2VEC;
+import com.hiekn.word2vector.WordEntry;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
@@ -20,6 +22,7 @@ import com.mongodb.client.model.Filters;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -46,6 +49,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
 import static com.hiekn.util.CommonResource.*;
@@ -63,12 +67,16 @@ public class SearchRestApi implements InitializingBean {
     private String kgUrl;
     @Value("${kg_port}")
     private String kgPort;
+    @Value("${word2vector_model_location}")
+    private String modelLocation;
+
     @Resource
     private IGeneralSSEService generalSSEService;
 
     private MongoClient client = null;
     private MongoDatabase dataBase = null;
     private MongoCollection<Document> basicInfoCollection = null;
+    private Word2VEC word2vec;
 
     private static Logger log = LoggerFactory.getLogger(SearchRestApi.class);
 
@@ -430,22 +438,35 @@ public class SearchRestApi implements InitializingBean {
     }
 
     @POST
-    @Path("/similar")
+    @Path("/segments")
     @Consumes(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "详情页面相似信息推荐", notes = "相似度推荐")
+    @ApiOperation(value = "分词", notes = "句子分词")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<SearchResultBean> similar(@ApiParam(value = "检索请求") JSONObject request)
+    public RestResp<Map<String,List<String>>> similar(@ApiParam(value = "检索请求") String request)
             throws Exception {
-        if (request.get("docType") == null) {
-            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+
+        List<AnalyzeResponse.AnalyzeToken> esSegments = Helper.esSegment(request,PATENT_INDEX,esClient);
+        List<String> words = new ArrayList<>();
+        for(AnalyzeResponse.AnalyzeToken token: esSegments){
+            String term = token.getTerm();
+            if(term.length() > 1){
+                words.add(term);
+            }
         }
 
-        String requestStr = JSONUtils.toJson(request);
-        log.info(requestStr);
+        words = words.stream().sorted((w1,w2)->w2.length() - w1.length()).collect(Collectors.toList());
 
+        log.info("es seg:" + words);
+        Map <String, List<String>> result = new HashMap<>();
+        Set<WordEntry> commonWords = word2vec.distance(words,10);
+        List<String> commons = commonWords.stream()
+                .map((w)->{return w.name;})
+                .collect(Collectors.toList());
 
-        return new RestResp<>(new SearchResultBean(""), 0L);
+        result.put("commonWords",commons);
+
+        return new RestResp<>(result, 0L);
     }
 
 
@@ -477,5 +498,8 @@ public class SearchRestApi implements InitializingBean {
         client = new MongoClient(kgUrl, Integer.valueOf(kgPort));
         dataBase = client.getDatabase(kgName);
         basicInfoCollection = dataBase.getCollection("basic_info");
+
+        word2vec = new Word2VEC();
+        //word2vec.loadJavaModel(modelLocation);
     }
 }

@@ -53,12 +53,7 @@ public abstract class AbstractService {
     protected List<AnalyzeResponse.AnalyzeToken> esSegment(QueryRequest request, String index){
         //利用es分词
         if(request.getSegmentList() == null) {
-            IndicesAdminClient indicesClient = this.esClient.admin().indices();
-            AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(request.getKw());
-            arb.setIndex(index);
-            arb.setAnalyzer("ik_max_word");
-            AnalyzeResponse response = arb.execute().actionGet();
-            List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
+            List<AnalyzeResponse.AnalyzeToken> segList = Helper.esSegment(request.getKw(),index,esClient);
             request.setSegmentList(segList);
         }
         return request.getSegmentList();

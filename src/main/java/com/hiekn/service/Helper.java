@@ -7,7 +7,11 @@ import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.HttpClient;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.IndicesAdminClient;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.xml.sax.Attributes;
@@ -104,6 +108,16 @@ public class Helper {
 				}
 			}
 		}
+	}
+
+	public static List<AnalyzeResponse.AnalyzeToken> esSegment(String input, String index, TransportClient esClient){
+		IndicesAdminClient indicesClient = esClient.admin().indices();
+		AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(input);
+		arb.setIndex(index);
+		arb.setAnalyzer("ik_max_word");
+		AnalyzeResponse response = arb.execute().actionGet();
+		List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
+		return segList;
 	}
 
 	/**
