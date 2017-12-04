@@ -36,6 +36,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -309,6 +311,11 @@ public class SearchRestApi implements InitializingBean {
 
         AggregationBuilder docTypes = AggregationBuilders.terms("document_type").field("_type");
         srb.addAggregation(docTypes);
+
+        if (request.getSort() != null) {
+            if(Integer.valueOf(1).equals(request.getSort()))
+                srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+        }
 
         String annotationField = getAnnotationFieldName(request);
         if (annotationField != null) {

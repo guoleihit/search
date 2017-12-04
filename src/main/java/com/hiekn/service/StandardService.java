@@ -25,6 +25,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -303,6 +305,12 @@ public class StandardService extends AbstractService{
             AggregationBuilder classes = AggregationBuilders.terms(className).field(className);
             srb.addAggregation(classes);
         }
+
+        if (request.getSort() != null) {
+            if(Integer.valueOf(1).equals(request.getSort()))
+                srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+        }
+
         System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());

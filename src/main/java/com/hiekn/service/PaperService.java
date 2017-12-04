@@ -150,7 +150,7 @@ public class PaperService extends AbstractService{
 							item.setTitle(frags[0].string());
 						}
 						break;
-					case "abs":
+					case "abstract":
 						if (frags != null && frags.length > 0) {
 							item.setAbs(frags[0].string());
 						}
@@ -161,7 +161,7 @@ public class PaperService extends AbstractService{
 							setHighlightElements(frags, itr);
 						}
 						break;
-					case "persons.name.keyword":
+					case "authors.name.keyword":
 						if (frags != null && frags.length > 0) {
 							ListIterator<String> itr = item.getAuthors().listIterator();
 							setHighlightElements(frags, itr);
@@ -210,7 +210,7 @@ public class PaperService extends AbstractService{
             }
         }
 
-        QueryBuilder abstractTerm = QueryBuilders.termsQuery("abs", request.getUserSplitSegList());
+        QueryBuilder abstractTerm = QueryBuilders.termsQuery("abstract", request.getUserSplitSegList());
         QueryBuilder authorTerm = QueryBuilders.termsQuery("authors.name.keyword", request.getUserSplitSegList()).boost(3f);
         QueryBuilder orgsTerm = QueryBuilders.termsQuery("authors.organization.name.keyword", request.getUserSplitSegList()).boost(3f);
         QueryBuilder kwsTerm = QueryBuilders.termsQuery("keywords.keyword", request.getUserSplitSegList()).boost(3f);
@@ -333,12 +333,12 @@ public class PaperService extends AbstractService{
 				if ("title".equals(key)) {
 					buildQueryCondition(boolQuery, reqItem, "title", false, false);
 				}else if ("abs".equals(key)) {
-					buildQueryCondition(boolQuery, reqItem, "abs", false, false);
+					buildQueryCondition(boolQuery, reqItem, "abstract", false, false);
 				} else if ("theme".equals(key)) {
 					BoolQueryBuilder themeQuery = QueryBuilders.boolQuery();
-                    buildQueryCondition(themeQuery, reqItem, "annotation_1.name", false,false, Operator.OR);
-                    buildQueryCondition(themeQuery, reqItem, "annotation_2.name", false,false, Operator.OR);
-                    buildQueryCondition(themeQuery, reqItem, "annotation_3.name", false,false, Operator.OR);
+                    buildQueryCondition(themeQuery, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
+                    buildQueryCondition(themeQuery, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
+                    buildQueryCondition(themeQuery, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);
 					buildQueryCondition(themeQuery, reqItem, "annotation_tag.name", false,false, Operator.OR);
                     buildQueryCondition(themeQuery, reqItem, "keywords.keyword", false,false, Operator.OR);
 					setOperator(boolQuery, reqItem, themeQuery);
@@ -352,10 +352,10 @@ public class PaperService extends AbstractService{
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
 
 					buildQueryCondition(allQueryBuilder, reqItem, "title", false,false, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "abs", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_1.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_2.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_3.name", false,false, Operator.OR);
+					buildQueryCondition(allQueryBuilder, reqItem, "abstract", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
+                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);
 					buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, Operator.OR);
 					buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, Operator.OR);
 					buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, Operator.OR);
