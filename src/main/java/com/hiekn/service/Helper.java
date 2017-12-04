@@ -70,14 +70,14 @@ public class Helper {
 	}
 
 	public static String getAnnotationFieldName(QueryRequest request) {
-		String annotationField = "annotation_1.name";
+		String annotationField = "_kg_annotation_1.name";
 		if (request.getFilters() != null) {
 			for (KVBean<String, List<String>> filter : request.getFilters()) {
-				if ("annotation_1.name".equals(filter.getK())) {
+				if ("_kg_annotation_1.name".equals(filter.getK())) {
 					annotationField = "annotation_2.name";
-				} else if ("annotation_2.name".equals(filter.getK())) {
+				} else if ("_kg_annotation_2.name".equals(filter.getK())) {
 					annotationField = "annotation_3.name";
-				} else if ("annotation_3.name".equals(filter.getK())) {
+				} else if ("_kg_annotation_3.name".equals(filter.getK())) {
 					return null;
 				}
 			}

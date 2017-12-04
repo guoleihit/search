@@ -286,9 +286,16 @@ public class PatentService extends AbstractService {
 
         makeFilters(request, boolQuery);
 
+        if (!StringUtils.isEmpty(request.getId())) {
+            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())));
+            boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
+            return boolQuery;
+        }
+
         TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(4f);
         BoolQueryBuilder boolTitleQuery = null;
 
+        boolean allOneWord = false;
         if (request.getKwType() != 1 && request.getKwType() != 2) {
             List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, PATENT_INDEX);
             boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -307,7 +314,7 @@ public class PatentService extends AbstractService {
                 }
             }
             if (oneWordList.size() == tokens.size()) {
-                //boolTitleQuery.should(QueryBuilders.termsQuery("title.original", oneWordList));
+                allOneWord = true;
             }
         }
 
@@ -324,7 +331,7 @@ public class PatentService extends AbstractService {
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             termQuery.should(titleTerm);
-            if(boolTitleQuery!=null) {
+            if(boolTitleQuery!=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
             termQuery.should(abstractTerm);
@@ -352,7 +359,7 @@ public class PatentService extends AbstractService {
             termQuery.should(titleTerm);
             termQuery.should(abstractTerm);
             termQuery.should(annotationTagTerm);
-            if(boolTitleQuery!=null) {
+            if(boolTitleQuery!=null && allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
         }

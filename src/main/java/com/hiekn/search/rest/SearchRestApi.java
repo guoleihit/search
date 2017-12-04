@@ -63,10 +63,10 @@ public class SearchRestApi implements InitializingBean {
 
     @Value("${kg_name}")
     private String kgName;
-    @Value("${kg_url}")
-    private String kgUrl;
-    @Value("${kg_port}")
-    private String kgPort;
+//    @Value("${kg_url}")
+//    private String kgUrl;
+//    @Value("${kg_port}")
+//    private String kgPort;
     @Value("${word2vector_model_location}")
     private String modelLocation;
 
@@ -200,7 +200,7 @@ public class SearchRestApi implements InitializingBean {
 
         if (!StringUtils.isEmpty(request.getId())) {
             //TODO get graph data
-            try (MongoCursor<Document> dbCursor = basicInfoCollection.find(Filters.eq("_id", Long.valueOf(request.getId())))
+            /*try (MongoCursor<Document> dbCursor = basicInfoCollection.find(Filters.eq("_id", Long.valueOf(request.getId())))
                     .limit(1).iterator()){
                 while (dbCursor.hasNext()) {
                     Document doc = dbCursor.next();
@@ -211,7 +211,8 @@ public class SearchRestApi implements InitializingBean {
                 }
             }catch (Exception e){
 
-            }
+            }*/
+
         }
 
         List<String> indices = new ArrayList<>();
@@ -298,8 +299,8 @@ public class SearchRestApi implements InitializingBean {
     private SearchResponse searchIndexes(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[]{}));
-        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abs")
-                .field("abstract.original").field("keywords.keyword").field("persons.name.keyword")
+        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abstract")
+                .field("abstract.original").field("keywords.keyword").field("authors.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
@@ -316,7 +317,7 @@ public class SearchRestApi implements InitializingBean {
         }
 
 
-        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(10);
+        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(1);
 
         srb.highlighter(highlighter).setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
@@ -495,9 +496,9 @@ public class SearchRestApi implements InitializingBean {
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient);
 
-        client = new MongoClient(kgUrl, Integer.valueOf(kgPort));
-        dataBase = client.getDatabase(kgName);
-        basicInfoCollection = dataBase.getCollection("basic_info");
+//        client = new MongoClient(kgUrl, Integer.valueOf(kgPort));
+//        dataBase = client.getDatabase(kgName);
+//        basicInfoCollection = dataBase.getCollection("basic_info");
 
         word2vec = new Word2VEC();
         //word2vec.loadJavaModel(modelLocation);

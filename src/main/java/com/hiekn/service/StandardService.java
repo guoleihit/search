@@ -177,8 +177,14 @@ public class StandardService extends AbstractService{
 
         makeFilters(request, boolQuery);
 
-        BoolQueryBuilder boolTitleQuery = null;
+        if (!StringUtils.isEmpty(request.getId())) {
+            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())));
+            boolQuery.filter(QueryBuilders.termQuery("_type", "standard_data")).boost(3f);
+            return boolQuery;
+        }
 
+        BoolQueryBuilder boolTitleQuery = null;
+        Boolean allOneWord = false;
         if (request.getKwType() != 1 && request.getKwType() != 2) {
             List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, STANDARD_INDEX);
             boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -197,7 +203,8 @@ public class StandardService extends AbstractService{
                 }
             }
             if (oneWordList.size() == tokens.size()) {
-                boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList));
+                //boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList));
+                allOneWord = true;
             }
         }
 
@@ -211,7 +218,7 @@ public class StandardService extends AbstractService{
         termQuery.should(abstractTerm);
         termQuery.should(authorTerm);
         termQuery.should(kwsTerm);
-        if(boolTitleQuery!=null){
+        if(boolTitleQuery!=null && !allOneWord){
             termQuery.should(boolTitleQuery);
         }
 

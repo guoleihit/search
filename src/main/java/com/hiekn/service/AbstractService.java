@@ -33,7 +33,7 @@ public abstract class AbstractService {
                                 .lt(Long.valueOf(v + "9999")));
                     }
                     boolQuery.must(filterQuery);
-                } else if ("_type".equals(filter.getK()) || filter.getK().startsWith("annotation_")) {
+                } else if ("_type".equals(filter.getK()) || filter.getK().startsWith("_kg_annotation_")) {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         filterQuery.should(QueryBuilders.termQuery(filter.getK(), v));

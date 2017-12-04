@@ -50,7 +50,7 @@ public class PaperService extends AbstractService{
 		if (titleObj != null) {
 			item.setTitle(titleObj.toString());
 		}
-		Object absObj = source.get("abs");
+		Object absObj = source.get("abstract");
 		if (absObj != null) {
 			item.setAbs(absObj.toString());
 		}
@@ -66,7 +66,7 @@ public class PaperService extends AbstractService{
 			item.setCategories(cts);
 		}
 
-        Object inventorsObj = source.get("persons");
+        Object inventorsObj = source.get("authors");
         List<String> inventors = new ArrayList<>();
         List<String> orgList = new ArrayList<>();
         extractAuthorData(inventorsObj, inventors, orgList);
@@ -93,8 +93,8 @@ public class PaperService extends AbstractService{
                     inventors.add(((Map) inventor).get("name").toString());
                 }
 
-                if (((Map) inventor).get("orgs") != null){
-                    List orgs = (List)((Map) inventor).get("orgs");
+                if (((Map) inventor).get("organization") != null){
+                    List orgs = (List)((Map) inventor).get("organization");
                     for (Object org: orgs) {
                         if(((Map)org).get("name")!=null){
                             orgList.add(((Map)org).get("name").toString());
@@ -115,7 +115,7 @@ public class PaperService extends AbstractService{
 		if (titleObj != null) {
 			item.setTitle(titleObj.toString());
 		}
-		Object absObj = source.get("abs");
+		Object absObj = source.get("abstract");
 		if (absObj != null) {
 			item.setAbs(absObj.toString());
 		}
@@ -125,7 +125,7 @@ public class PaperService extends AbstractService{
 			item.setKeywords(kws);
 		}
 
-		Object inventorsObj = source.get("persons");
+		Object inventorsObj = source.get("authors");
 		List<String> inventors = new ArrayList<>();
         List<String> orgList = new ArrayList<>();
         extractAuthorData(inventorsObj, inventors, orgList);
@@ -179,9 +179,16 @@ public class PaperService extends AbstractService{
 
         makeFilters(request, boolQuery);
 
+        if (!StringUtils.isEmpty(request.getId())) {
+            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())));
+            boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
+            return boolQuery;
+        }
+
 		QueryBuilder titleTerm = QueryBuilders.termsQuery("title", request.getUserSplitSegList()).boost(4);
 
         BoolQueryBuilder boolTitleQuery = null;
+        boolean allOneWord = false;
 		if (request.getKwType()!= 1 && request.getKwType() != 2) {
             List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, PAPER_INDEX);
             boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -199,13 +206,13 @@ public class PaperService extends AbstractService{
                 }
             }
             if (oneWordList.size() == tokens.size()) {
-                //boolTitleQuery.should(QueryBuilders.termsQuery("title", oneWordList));
+                allOneWord = true;
             }
         }
 
         QueryBuilder abstractTerm = QueryBuilders.termsQuery("abs", request.getUserSplitSegList());
-        QueryBuilder authorTerm = QueryBuilders.termsQuery("persons.name.keyword", request.getUserSplitSegList()).boost(3f);
-        QueryBuilder orgsTerm = QueryBuilders.termsQuery("persons.orgs.name.keyword", request.getUserSplitSegList()).boost(3f);
+        QueryBuilder authorTerm = QueryBuilders.termsQuery("authors.name.keyword", request.getUserSplitSegList()).boost(3f);
+        QueryBuilder orgsTerm = QueryBuilders.termsQuery("authors.organization.name.keyword", request.getUserSplitSegList()).boost(3f);
         QueryBuilder kwsTerm = QueryBuilders.termsQuery("keywords.keyword", request.getUserSplitSegList()).boost(3f);
         QueryBuilder annotationTagTerm = QueryBuilders.termsQuery("annotation_tag.name", request.getUserSplitSegList())
                 .boost(3f);
@@ -213,7 +220,7 @@ public class PaperService extends AbstractService{
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             termQuery.should(titleTerm);
-            if(boolTitleQuery !=null) {
+            if(boolTitleQuery !=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
             termQuery.should(abstractTerm);
@@ -225,7 +232,7 @@ public class PaperService extends AbstractService{
             if (!StringUtils.isEmpty(request.getDescription())) {
                 BoolQueryBuilder bool = QueryBuilders.boolQuery()
                         .must(authorTerm)
-                        .must(QueryBuilders.termsQuery("persons.orgs.name.keyword", request.getDescription().split(",")));
+                        .must(QueryBuilders.termsQuery("authors.organization.name.keyword", request.getDescription().split(",")));
                 termQuery.should(bool);
             }else {
                 termQuery.should(authorTerm);
@@ -234,7 +241,7 @@ public class PaperService extends AbstractService{
             termQuery.should(orgsTerm);
         } else if (request.getKwType() == 3) {
             termQuery.should(titleTerm);
-            if(boolTitleQuery !=null) {
+            if(boolTitleQuery !=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
             termQuery.should(abstractTerm);
@@ -258,10 +265,10 @@ public class PaperService extends AbstractService{
 
             spq.highlighter(titleHighlighter).setQuery(similarPapersQuery).setFrom(0).setSize(6);
 
-            AggregationBuilder relatedPersons = AggregationBuilders.terms("related_persons").field("persons.name.keyword");
+            AggregationBuilder relatedPersons = AggregationBuilders.terms("related_persons").field("authors.name.keyword");
             spq.addAggregation(relatedPersons);
 
-            AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("persons.orgs.name.keyword");
+            AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("authors.organization.name.keyword");
             spq.addAggregation(relatedOrgs);
 
             Future<SearchResponse> similarPaperFuture = spq.execute();
@@ -338,7 +345,7 @@ public class PaperService extends AbstractService{
 				}else if ("keyword".equals(key)) {
 					buildQueryCondition(boolQuery, reqItem, "keywords.keyword", false,false);
 				}else if ("author".equals(key)) {
-					buildQueryCondition(boolQuery, reqItem, "persons.name.keyword", false,false);
+					buildQueryCondition(boolQuery, reqItem, "authors.name.keyword", false,false);
 				}else if ("pubDate".equals(dateKey)) {
 					doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
 				}else if ("all".equals(key)) {
@@ -351,7 +358,7 @@ public class PaperService extends AbstractService{
                     buildQueryCondition(allQueryBuilder, reqItem, "annotation_3.name", false,false, Operator.OR);
 					buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, Operator.OR);
 					buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "persons.name.keyword", false,false, Operator.OR);
+					buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, Operator.OR);
 
                     setOperator(boolQuery, reqItem, allQueryBuilder);
                 }
@@ -365,8 +372,8 @@ public class PaperService extends AbstractService{
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
 		SearchRequestBuilder srb = esClient.prepareSearch(PAPER_INDEX);
-        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abs")
-                .field("keywords.keyword").field("persons.name.keyword");
+        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abstract")
+                .field("keywords.keyword").field("authors.name.keyword");
 
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
 				.setSize(request.getPageSize());
