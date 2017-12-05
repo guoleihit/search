@@ -1,6 +1,5 @@
 package com.hiekn.search.rest;
 
-import com.alibaba.fastjson.JSONObject;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
@@ -16,9 +15,7 @@ import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Filters;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
@@ -65,10 +62,6 @@ public class SearchRestApi implements InitializingBean {
 
     @Value("${kg_name}")
     private String kgName;
-//    @Value("${kg_url}")
-//    private String kgUrl;
-//    @Value("${kg_port}")
-//    private String kgPort;
     @Value("${word2vector_model_location}")
     private String modelLocation;
 
@@ -198,23 +191,6 @@ public class SearchRestApi implements InitializingBean {
 
         if (kws.length > 1) {
             request.setKw(kws[0]);
-        }
-
-        if (!StringUtils.isEmpty(request.getId())) {
-            //TODO get graph data
-            /*try (MongoCursor<Document> dbCursor = basicInfoCollection.find(Filters.eq("_id", Long.valueOf(request.getId())))
-                    .limit(1).iterator()){
-                while (dbCursor.hasNext()) {
-                    Document doc = dbCursor.next();
-                    if(doc.get("meaning_tag")!=null){
-                        request.setDescription(doc.getString("meaning_tag"));
-                        break;
-                    }
-                }
-            }catch (Exception e){
-
-            }*/
-
         }
 
         List<String> indices = new ArrayList<>();
@@ -463,14 +439,15 @@ public class SearchRestApi implements InitializingBean {
             }
         }
 
-        words = words.stream().sorted((w1,w2)->w2.length() - w1.length()).collect(Collectors.toList());
-
         log.info("es seg:" + words);
+        List<String> commons = words.stream().sorted((w1,w2)->w2.length() - w1.length()).flatMap((w)->{
+            Set<WordEntry> commonWords = word2vec.distance(w,2);
+            return commonWords.stream();
+        }).map((w)->{return w.name;}).collect(Collectors.toList());;
+
+
         Map <String, List<String>> result = new HashMap<>();
-        Set<WordEntry> commonWords = word2vec.distance(words,10);
-        List<String> commons = commonWords.stream()
-                .map((w)->{return w.name;})
-                .collect(Collectors.toList());
+
 
         result.put("commonWords",commons);
 
@@ -503,9 +480,6 @@ public class SearchRestApi implements InitializingBean {
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient);
 
-//        client = new MongoClient(kgUrl, Integer.valueOf(kgPort));
-//        dataBase = client.getDatabase(kgName);
-//        basicInfoCollection = dataBase.getCollection("basic_info");
 
         word2vec = new Word2VEC();
         //word2vec.loadJavaModel(modelLocation);

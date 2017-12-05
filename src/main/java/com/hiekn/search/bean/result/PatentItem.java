@@ -19,6 +19,15 @@ public class PatentItem extends ItemBean {
 	private String mainIPC;
 
 	private String type;
+    private String legalStatus;
+
+    public String getLegalStatus() {
+        return legalStatus;
+    }
+
+    public void setLegalStatus(String legalStatus) {
+        this.legalStatus = legalStatus;
+    }
 
     public String getType() {
         return type;

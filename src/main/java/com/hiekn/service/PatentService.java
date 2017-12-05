@@ -105,11 +105,16 @@ public class PatentService extends AbstractService {
             item.setCountries(countryList);
         }
 
+        Object priorities = source.get("priorities");
+        List<String> priorityList = toStringListByKey(priorities,"priority_number");
+        if (!priorityList.isEmpty()) {
+            item.setPriorities(priorityList);
+        }
+
         if (source.get("legal_status") != null) {
             item.setLegalStatus(legalStatusValueNameMap.get(source.get("legal_status").toString()));
         }
 
-        item.setLegalStatus(getString(source.get("legal_status")));
 
         if (source.get("application_number") != null) {
             item.setApplicationNumber(source.get("application_number").toString());
@@ -122,6 +127,9 @@ public class PatentService extends AbstractService {
         }
         if (source.get("earliest_publication_date") != null) {
             item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
+        }
+        if (source.get("earliest_priority_date") != null) {
+            item.setEarliestPrioritiesDate(toDateString(source.get("earliest_priority_date").toString(), "-"));
         }
         Object applicantsObj = source.get("applicants");
 
@@ -146,6 +154,19 @@ public class PatentService extends AbstractService {
                         app.put("address", ((Map) addressObj).get("original"));
                     } else {
                         app.put("address", addressObj);
+                    }
+                }
+                if (((Map) applicant).get("countries") != null) {
+                    Object countriesObj = ((Map) applicant).get("countries");
+                    if (countriesObj instanceof List) {
+                        List<String> c = toStringList((List)countriesObj);
+                        if(c!=null && !c.isEmpty()) {
+                            if (item.getCountries() != null && !item.getCountries().isEmpty()) {
+                                item.getCountries().addAll(c);
+                            }else{
+                                item.setCountries(c);
+                            }
+                        }
                     }
                 }
                 if (((Map) applicant).get("type") != null) {
@@ -182,6 +203,11 @@ public class PatentService extends AbstractService {
         } catch (Exception e) {
             item.setPages(0);
         }
+
+        if (source.get("type") != null) {
+            item.setType(patentTypeNameMap.get(source.get("type").toString()));
+        }
+
         return item;
     }
 
@@ -246,6 +272,10 @@ public class PatentService extends AbstractService {
 
         if (source.get("type") != null) {
             item.setType(patentTypeNameMap.get(source.get("type").toString()));
+        }
+
+        if (source.get("legal_status") != null) {
+            item.setLegalStatus(legalStatusValueNameMap.get(source.get("legal_status").toString()));
         }
 
         //highlight

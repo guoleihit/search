@@ -26,6 +26,26 @@ public class PatentDetail extends ItemBean {
 
 	private String legalStatus;
 
+	private String type;
+
+	private String earliestPrioritiesDate;
+
+    public String getEarliestPrioritiesDate() {
+        return earliestPrioritiesDate;
+    }
+
+    public void setEarliestPrioritiesDate(String earliestPrioritiesDate) {
+        this.earliestPrioritiesDate = earliestPrioritiesDate;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public String getLegalStatus() {
         return legalStatus;
     }
