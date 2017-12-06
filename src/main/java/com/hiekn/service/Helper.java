@@ -111,15 +111,18 @@ public class Helper {
 	}
 
 	public static List<AnalyzeResponse.AnalyzeToken> esSegment(String input, String index, TransportClient esClient){
+		return esSegment(input, index, esClient, "ik_max_word");
+	}
+
+	public static List<AnalyzeResponse.AnalyzeToken> esSegment(String input, String index, TransportClient esClient, String analyzer){
 		IndicesAdminClient indicesClient = esClient.admin().indices();
 		AnalyzeRequestBuilder arb = indicesClient.prepareAnalyze(input);
 		arb.setIndex(index);
-		arb.setAnalyzer("ik_max_word");
+		arb.setAnalyzer(analyzer);
 		AnalyzeResponse response = arb.execute().actionGet();
 		List<AnalyzeResponse.AnalyzeToken> segList = response.getTokens();
 		return segList;
 	}
-
 	/**
 	 * yyyyMMdd long to format string
 	 * 

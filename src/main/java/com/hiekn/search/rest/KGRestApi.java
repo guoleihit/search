@@ -1,9 +1,6 @@
 package com.hiekn.search.rest;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Resource;
@@ -19,11 +16,13 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 
+import com.hiekn.plantdata.bean.TypeBean;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.exception.BaseException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
@@ -57,7 +56,7 @@ import io.swagger.annotations.ApiResponses;
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"搜索"})
-public class KGRestApi {
+public class KGRestApi implements InitializingBean{
 
     @Value("${kg_name}")
     private String kgName;
@@ -185,14 +184,14 @@ public class KGRestApi {
             if (kwType != null && kwType > 0) {
                 if (kwType == 2) { // 机构
                     for (EntityBean entity : rsList) {
-                        if (entity.getClassId() == 2 && kw.equals(entity.getName())) {
+                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("机构")) && kw.equals(entity.getName())) {
                             entityId = entity.getId();
                             break;
                         }
                     }
                 } else if (kwType == 1) { // 人物
                     for (EntityBean entity : rsList) {
-                        if (entity.getClassId() == 1) {
+                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("人物"))) {
                             if (kws.length > 1 && !StringUtils.isEmpty(entity.getMeaningTag())) {
                                 if (kws[1].indexOf(entity.getMeaningTag()) >= 0 || (entity.getMeaningTag() != null
                                         || entity.getMeaningTag().indexOf(kws[1]) >= 0)) {
@@ -201,6 +200,14 @@ public class KGRestApi {
                                 }
                             }
 
+                        }
+                    }
+                } else if (kwType == 3) { // 知识点
+                    for (EntityBean entity : rsList) {
+                        if (entity.getClassId() != null && knowledgeIds.contains(entity.getClassId()) && kw.equals(entity.getName())) {
+                            entityId = entity.getId();
+                            log.info("found knowledge:"+entityId + ",classId:"+entity.getClassId());
+                            break;
                         }
                     }
                 }
@@ -260,5 +267,35 @@ public class KGRestApi {
         SchemaBean schema = generalSSEService.getAllAtts(kgName);
         schema.setTypes(this.generalSSEService.getAllTypes(kgName));
         return new RestResp<SchemaBean>(schema, tt);
+    }
+
+    Map<String,Long> types = new HashMap<>();
+    Set<Long> knowledgeIds = new HashSet<>();
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        try{
+            RestResp<SchemaBean> rest = kgSchema(0L);
+            for(SchemaBean bean :rest.getData().getRsData()){
+                log.info("begin to get knowledge...");
+                for(TypeBean type:bean.getTypes()){
+                    if("人物".equals(type.getV())){
+                        types.put("人物", type.getK());
+                    }else if ("机构".equals(type.getV())) {
+                        types.put("机构", type.getK());
+                    }else if ("知识点".equals(type.getV())) {
+                        types.put("知识点",type.getK());
+                        knowledgeIds.add(type.getK());
+                    }
+
+                    if (knowledgeIds.contains(type.getParentId())) {
+                        knowledgeIds.add(type.getK());
+                    }
+                }
+                log.info("get knowledge end."+knowledgeIds.size());
+                break;
+            }
+        }catch(Exception e){
+            log.error("initializing error:", e);
+        }
     }
 }

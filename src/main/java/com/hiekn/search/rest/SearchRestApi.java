@@ -1,5 +1,7 @@
 package com.hiekn.search.rest;
 
+import com.google.common.primitives.Floats;
+import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
@@ -315,6 +317,14 @@ public class SearchRestApi implements InitializingBean {
         return matcherResult.find();
     }
 
+    private boolean isNumber(String str) {
+        try{
+            Double.parseDouble(str);
+        }catch(Exception e){
+            return false;
+        }
+        return true;
+    }
     @POST
     @Path("/prompt")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -427,11 +437,11 @@ public class SearchRestApi implements InitializingBean {
     @ApiOperation(value = "分词", notes = "句子分词")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<Map<String,List<String>>> similar(@ApiParam(value = "检索请求") String request)
+    public RestResp<Map<String,List<String>>> segments(@ApiParam(value = "检索请求") String request)
             throws Exception {
 
-        List<AnalyzeResponse.AnalyzeToken> esSegments = Helper.esSegment(request,PATENT_INDEX,esClient);
-        List<String> words = new ArrayList<>();
+        List<AnalyzeResponse.AnalyzeToken> esSegments = Helper.esSegment(request,PATENT_INDEX,esClient, "ik_smart");
+        Set<String> words = new HashSet<>();
         for(AnalyzeResponse.AnalyzeToken token: esSegments){
             String term = token.getTerm();
             if(term.length() > 1){
@@ -440,17 +450,29 @@ public class SearchRestApi implements InitializingBean {
         }
 
         log.info("es seg:" + words);
-        List<String> commons = words.stream().sorted((w1,w2)->w2.length() - w1.length()).flatMap((w)->{
+        List<String> commons = words.stream().flatMap((w)->{
             Set<WordEntry> commonWords = word2vec.distance(w,2);
             return commonWords.stream();
-        }).map((w)->{return w.name;}).collect(Collectors.toList());;
+        }).filter((w)->{return w.score>0.75 && !isNumber(w.name);})
+                .sorted((w1,w2)-> Floats.compare(w2.score, w1.score))
+                .map((w)->{return w.name;})
+                .limit(30)
+                .collect(Collectors.toList());;
 
 
+        List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(request, kgName, false, true, false);
+        Set<String> graphWords = new HashSet<>();
+        for (EntityBean bean: rsList) {
+            if(!StringUtils.isEmpty(bean.getName()) && bean.getName().length()>1)
+                graphWords.add(bean.getName());
+        }
+        List<String> recommendWords = graphWords.stream().sorted((w1,w2)->{return w2.length() - w1.length();})
+                .limit(30).collect(Collectors.toList());
         Map <String, List<String>> result = new HashMap<>();
 
 
         result.put("commonWords",commons);
-
+        result.put("recommendWords",recommendWords);
         return new RestResp<>(result, 0L);
     }
 
@@ -482,6 +504,6 @@ public class SearchRestApi implements InitializingBean {
 
 
         word2vec = new Word2VEC();
-        //word2vec.loadJavaModel(modelLocation);
+        word2vec.loadJavaModel(modelLocation);
     }
 }
