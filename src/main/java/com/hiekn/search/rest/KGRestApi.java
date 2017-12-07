@@ -160,8 +160,8 @@ public class KGRestApi implements InitializingBean{
     public RestResp<MyGraphBean> kg(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
                                   @FormParam("allowTypes") String allowTypes, @FormParam("entitiesLimit") Integer entitiesLimit,
                                   @FormParam("relationsLimit") Integer relationsLimit, @FormParam("conceptsLimit") Integer conceptsLimit,
-                                  @FormParam("statsLimit") Integer statsLimit, @FormParam("pageNo") Integer pageNo,
-                                  @FormParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
+                                  @FormParam("statsLimit") Integer statsLimit, @QueryParam("pageNo") Integer pageNo,
+                                  @QueryParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
                                   @ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
                                   @QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
 

@@ -191,9 +191,9 @@ public class SearchRestApi implements InitializingBean {
         String[] kws = request.getKw().trim().split(" ");
         request.setUserSplitSegList(Arrays.asList(kws));
 
-        if (kws.length > 1) {
-            request.setKw(kws[0]);
-        }
+//        if (kws.length > 1) {
+//            request.setKw(kws[0]);
+//        }
 
         List<String> indices = new ArrayList<>();
         List<AbstractService> services = new ArrayList<>();
@@ -457,7 +457,7 @@ public class SearchRestApi implements InitializingBean {
                 .sorted((w1,w2)-> Floats.compare(w2.score, w1.score))
                 .map((w)->{return w.name;})
                 .limit(30)
-                .collect(Collectors.toList());;
+                .collect(Collectors.toList());
 
 
         List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(request, kgName, false, true, false);
@@ -504,6 +504,6 @@ public class SearchRestApi implements InitializingBean {
 
 
         word2vec = new Word2VEC();
-        //word2vec.loadJavaModel(modelLocation);
+        word2vec.loadJavaModel(modelLocation);
     }
 }

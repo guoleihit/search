@@ -100,7 +100,7 @@ public class PatentService extends AbstractService {
         }
 
         Object countries = source.get("countries");
-        List<String> countryList = toStringList(countries);
+        List<String> countryList = toStringListByKey(countries,"countrie");
         if (!countryList.isEmpty()) {
             item.setCountries(countryList);
         }
@@ -159,7 +159,7 @@ public class PatentService extends AbstractService {
                 if (((Map) applicant).get("countries") != null) {
                     Object countriesObj = ((Map) applicant).get("countries");
                     if (countriesObj instanceof List) {
-                        List<String> c = toStringList((List)countriesObj);
+                        List<String> c = toStringListByKey((List)countriesObj, "countrie");
                         if(c!=null && !c.isEmpty()) {
                             if (item.getCountries() != null && !item.getCountries().isEmpty()) {
                                 item.getCountries().addAll(c);
@@ -322,7 +322,7 @@ public class PatentService extends AbstractService {
             return boolQuery;
         }
 
-        TermQueryBuilder titleTerm = QueryBuilders.termQuery("title.original", request.getKw()).boost(4f);
+        QueryBuilder titleTerm = QueryBuilders.termsQuery("title.original", request.getUserSplitSegList()).boost(4f);
         BoolQueryBuilder boolTitleQuery = null;
 
         boolean allOneWord = false;
@@ -389,7 +389,7 @@ public class PatentService extends AbstractService {
             termQuery.should(titleTerm);
             termQuery.should(abstractTerm);
             termQuery.should(annotationTagTerm);
-            if(boolTitleQuery!=null && allOneWord) {
+            if(boolTitleQuery!=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
         }

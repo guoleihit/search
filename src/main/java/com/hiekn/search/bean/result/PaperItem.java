@@ -1,6 +1,7 @@
 package com.hiekn.search.bean.result;
 
 import java.util.List;
+import java.util.Set;
 
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
@@ -28,7 +29,7 @@ public class PaperItem extends ItemBean {
 
     private String firstAuthorOrg;
 
-    private List<String> orgs;
+    private Set<String> orgs;
 
     public String getFirstAuthor() {
         return firstAuthor;
@@ -46,11 +47,11 @@ public class PaperItem extends ItemBean {
         this.firstAuthorOrg = firstAuthorOrg;
     }
 
-    public List<String> getOrgs() {
+    public Set<String> getOrgs() {
         return orgs;
     }
 
-    public void setOrgs(List<String> orgs) {
+    public void setOrgs(Set<String> orgs) {
         this.orgs = orgs;
     }
 

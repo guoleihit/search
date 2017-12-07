@@ -5,9 +5,10 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.*;
-import com.hiekn.util.CommonResource;
-import com.sun.org.apache.xpath.internal.operations.Bool;
+import com.hiekn.search.bean.result.ItemBean;
+import com.hiekn.search.bean.result.PaperDetail;
+import com.hiekn.search.bean.result.PaperItem;
+import com.hiekn.search.bean.result.SearchResultBean;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -17,7 +18,6 @@ import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -30,7 +30,6 @@ import org.elasticsearch.search.sort.SortOrder;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
 import static com.hiekn.util.CommonResource.PAPER_INDEX;
@@ -67,13 +66,13 @@ public class PaperService extends AbstractService{
 		}
 
         Object inventorsObj = source.get("authors");
-        List<String> inventors = new ArrayList<>();
-        List<String> orgList = new ArrayList<>();
+        Set<String> inventors = new HashSet<>();
+        Set<String> orgList = new HashSet<>();
         extractAuthorData(inventorsObj, inventors, orgList);
 
         item.setOrgs(orgList);
         if (!inventors.isEmpty()) {
-            item.setAuthors(inventors);
+            item.setAuthors(Arrays.asList(inventors.toArray(new String[]{})));
         }
 
 		if (source.get("earliest_publication_date") != null) {
@@ -86,7 +85,7 @@ public class PaperService extends AbstractService{
 	
 	}
 
-    private void extractAuthorData(Object inventorsObj, List<String> inventors, List<String> orgList) {
+    private void extractAuthorData(Object inventorsObj, Set<String> inventors, Set<String> orgList) {
         if (inventorsObj != null && inventorsObj instanceof List) {
             for (Object inventor : (List) inventorsObj) {
                 if (inventor != null && ((Map) inventor).get("name") != null) {
@@ -126,13 +125,13 @@ public class PaperService extends AbstractService{
 		}
 
 		Object inventorsObj = source.get("authors");
-		List<String> inventors = new ArrayList<>();
-        List<String> orgList = new ArrayList<>();
+		Set<String> inventors = new HashSet<>();
+        Set<String> orgList = new HashSet<>();
         extractAuthorData(inventorsObj, inventors, orgList);
 
         item.setOrgs(orgList);
 		if (!inventors.isEmpty()) {
-			item.setAuthors(inventors);
+			item.setAuthors(Arrays.asList(inventors.toArray(new String[]{})));
 		}
 		if (source.get("earliest_publication_date") != null) {
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
