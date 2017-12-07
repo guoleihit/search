@@ -14,6 +14,7 @@ import com.hiekn.plantdata.util.JSONUtils;
 import com.hiekn.plantdata.util.SSEResource;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
+import com.hiekn.search.bean.graph.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.JsonException;
 import io.swagger.annotations.*;
@@ -117,7 +118,7 @@ public class KGRestApi implements InitializingBean{
         }
     }
 
-    private GraphBean new_kg_graph_full_hasatts(String kgName, Long entityId,
+    private MyGraphBean new_kg_graph_full_hasatts(String kgName, Long entityId,
                                                 Integer distance, Integer direction, String allowAtts,
                                                 String allowTypes, boolean isMergeRelation,
                                                 Integer pageNo,Integer pageSize,Integer isInherit){
@@ -146,8 +147,8 @@ public class KGRestApi implements InitializingBean{
             throw ServiceException.newInstance(RestReturnCode.REMOTE_INVOKE_ERROR);
         }
 
-        RestResp<GraphBean> result = com.hiekn.util.JSONUtils.fromJson(rs,
-                new com.google.gson.reflect.TypeToken<RestResp<GraphBean>>(){}.getType());
+        RestResp<MyGraphBean> result = com.hiekn.util.JSONUtils.fromJson(rs,
+                new com.google.gson.reflect.TypeToken<RestResp<MyGraphBean>>(){}.getType());
         return result.getData().getRsData().get(0);
     }
 
@@ -156,7 +157,7 @@ public class KGRestApi implements InitializingBean{
     @ApiOperation(value = "图谱")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<GraphBean> kg(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
+    public RestResp<MyGraphBean> kg(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
                                   @FormParam("allowTypes") String allowTypes, @FormParam("entitiesLimit") Integer entitiesLimit,
                                   @FormParam("relationsLimit") Integer relationsLimit, @FormParam("conceptsLimit") Integer conceptsLimit,
                                   @FormParam("statsLimit") Integer statsLimit, @FormParam("pageNo") Integer pageNo,
@@ -192,7 +193,11 @@ public class KGRestApi implements InitializingBean{
             kw = kws[0];
         }
         List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
-        GraphBean graphBean = null;
+        if (knowledgeIds.isEmpty()) {
+            getGraphKnowledge();
+        }
+
+        MyGraphBean graphBean = null;
 
         Long entityId = null;
         if (rsList != null && rsList.size() > 0) {
@@ -244,7 +249,7 @@ public class KGRestApi implements InitializingBean{
             graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
                     true, pageNo, pageSize, isInherit);
             if (entitiesLimit != null && entitiesLimit > 0) {
-                List<EntityBean> entities = graphBean.getEntityList();
+                List<MyEntityBean> entities = graphBean.getEntityList();
                 if (entities != null && entities.size() > entitiesLimit) {
                     graphBean.setEntityList(entities.subList(0, entitiesLimit));
                 }
@@ -258,7 +263,7 @@ public class KGRestApi implements InitializingBean{
             }
 
             if (relationsLimit != null && relationsLimit > 0) {
-                List<RelationBean> relations = graphBean.getRelationList();
+                List<MyRelationBean> relations = graphBean.getRelationList();
                 if (relations != null && relations.size() > relationsLimit) {
                     graphBean.setRelationList(relations.subList(0, relationsLimit));
                 }
@@ -288,32 +293,36 @@ public class KGRestApi implements InitializingBean{
     }
 
     Map<String,Long> types = new HashMap<>();
-    Set<Long> knowledgeIds = new HashSet<>();
+    volatile Set<Long> knowledgeIds = new HashSet<>();
     @Override
     public void afterPropertiesSet() throws Exception {
         try{
-            RestResp<SchemaBean> rest = kgSchema(0L);
-            for(SchemaBean bean :rest.getData().getRsData()){
-                log.info("begin to get knowledge...");
-                for(TypeBean type:bean.getTypes()){
-                    if("人物".equals(type.getV())){
-                        types.put("人物", type.getK());
-                    }else if ("机构".equals(type.getV())) {
-                        types.put("机构", type.getK());
-                    }else if ("知识点".equals(type.getV())) {
-                        types.put("知识点",type.getK());
-                        knowledgeIds.add(type.getK());
-                    }
-
-                    if (knowledgeIds.contains(type.getParentId())) {
-                        knowledgeIds.add(type.getK());
-                    }
-                }
-                log.info("get knowledge end."+knowledgeIds.size());
-                break;
-            }
+            getGraphKnowledge();
         }catch(Exception e){
             log.error("initializing error:", e);
+        }
+    }
+
+    private void getGraphKnowledge() {
+        RestResp<SchemaBean> rest = kgSchema(0L);
+        for(SchemaBean bean :rest.getData().getRsData()){
+            log.info("begin to get knowledge...");
+            for(TypeBean type:bean.getTypes()){
+                if("人物".equals(type.getV())){
+                    types.put("人物", type.getK());
+                }else if ("机构".equals(type.getV())) {
+                    types.put("机构", type.getK());
+                }else if ("知识点".equals(type.getV())) {
+                    types.put("知识点",type.getK());
+                    knowledgeIds.add(type.getK());
+                }
+
+                if (knowledgeIds.contains(type.getParentId())) {
+                    knowledgeIds.add(type.getK());
+                }
+            }
+            log.info("get knowledge end."+knowledgeIds.size());
+            break;
         }
     }
 }
