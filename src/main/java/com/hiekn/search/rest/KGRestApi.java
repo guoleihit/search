@@ -1,24 +1,22 @@
 package com.hiekn.search.rest;
 
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-
-import javax.annotation.Resource;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
-
+import cn.edu.ecust.sse.bean.KGResultItem;
+import cn.edu.ecust.sse.bean.PromptItem;
+import com.alibaba.fastjson.JSONObject;
+import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.TypeBean;
+import com.hiekn.plantdata.bean.graph.*;
+import com.hiekn.plantdata.bean.rest.RestReturnCode;
+import com.hiekn.plantdata.exception.ServiceException;
+import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.plantdata.util.HttpClient;
+import com.hiekn.plantdata.util.JSONUtils;
+import com.hiekn.plantdata.util.SSEResource;
 import com.hiekn.search.bean.result.Code;
+import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
+import com.hiekn.search.exception.JsonException;
+import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,30 +24,14 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
-import com.alibaba.fastjson.JSONObject;
-import com.google.gson.reflect.TypeToken;
-import com.hiekn.plantdata.bean.graph.EntityBean;
-import com.hiekn.plantdata.bean.graph.GraphBean;
-import com.hiekn.plantdata.bean.graph.GraphStatBean;
-import com.hiekn.plantdata.bean.graph.PathAGBean;
-import com.hiekn.plantdata.bean.graph.RelationBean;
-import com.hiekn.plantdata.bean.graph.SchemaBean;
-import com.hiekn.plantdata.bean.rest.RestReturnCode;
-import com.hiekn.plantdata.exception.ServiceException;
-import com.hiekn.plantdata.service.IGeneralSSEService;
-import com.hiekn.plantdata.util.HttpClient;
-import com.hiekn.plantdata.util.JSONUtils;
-import com.hiekn.plantdata.util.SSEResource;
-import com.hiekn.search.bean.result.RestResp;
-import com.hiekn.search.exception.JsonException;
-
-import cn.edu.ecust.sse.bean.KGResultItem;
-import cn.edu.ecust.sse.bean.PromptItem;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
+import javax.annotation.Resource;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Response;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Controller
 @Path("/g")
@@ -133,6 +115,40 @@ public class KGRestApi implements InitializingBean{
         } catch (Exception e) {
             throw ServiceException.newInstance(RestReturnCode.REMOTE_PARSE_ERROR);
         }
+    }
+
+    private GraphBean new_kg_graph_full_hasatts(String kgName, Long entityId,
+                                                Integer distance, Integer direction, String allowAtts,
+                                                String allowTypes, boolean isMergeRelation,
+                                                Integer pageNo,Integer pageSize,Integer isInherit){
+
+        MultivaluedMap<String, Object> form = new MultivaluedHashMap<>();
+        form.add("kgName", kgName);
+        form.add("id", entityId);
+        form.add("distance", distance);
+        form.add("direction", direction);
+        form.add("isInherit", isInherit);
+        form.add("allowAtts", allowAtts);
+        form.add("allowTypes", allowTypes);
+        form.add("isMergeRelation", isMergeRelation);
+
+        MultivaluedHashMap<String,Object> query = new MultivaluedHashMap<>();
+        query.add("pageNo", pageNo);
+        query.add("pageSize", pageSize);
+
+        String rs;
+        try{
+            String url = com.hiekn.util.CommonResource.new_plantdata_service_url+"sdk/specialGraph";
+            log.info("send request to " + url);
+            rs = HttpClient.sendPost(url, query, form);
+        }catch(Exception e){
+            log.error("invoke remote service error.", e);
+            throw ServiceException.newInstance(RestReturnCode.REMOTE_INVOKE_ERROR);
+        }
+
+        RestResp<GraphBean> result = com.hiekn.util.JSONUtils.fromJson(rs,
+                new com.google.gson.reflect.TypeToken<RestResp<GraphBean>>(){}.getType());
+        return result.getData().getRsData().get(0);
     }
 
     @POST
@@ -222,9 +238,11 @@ public class KGRestApi implements InitializingBean{
 
 
         if (entityId != null) {
-            graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
-                    true, pageNo, pageSize, isInherit);
+//            graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
+//                    true, pageNo, pageSize, isInherit);
 
+            graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
+                    true, pageNo, pageSize, isInherit);
             if (entitiesLimit != null && entitiesLimit > 0) {
                 List<EntityBean> entities = graphBean.getEntityList();
                 if (entities != null && entities.size() > entitiesLimit) {
@@ -255,7 +273,7 @@ public class KGRestApi implements InitializingBean{
         }
 
 
-        return new RestResp<GraphBean>(graphBean, 0L);
+        return new RestResp<>(graphBean, 0L);
     }
 
     @POST

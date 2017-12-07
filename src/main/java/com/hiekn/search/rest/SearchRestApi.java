@@ -504,6 +504,6 @@ public class SearchRestApi implements InitializingBean {
 
 
         word2vec = new Word2VEC();
-        word2vec.loadJavaModel(modelLocation);
+        //word2vec.loadJavaModel(modelLocation);
     }
 }
