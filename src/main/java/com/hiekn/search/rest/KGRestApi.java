@@ -5,16 +5,21 @@ import cn.edu.ecust.sse.bean.PromptItem;
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.TypeBean;
-import com.hiekn.plantdata.bean.graph.*;
+import com.hiekn.plantdata.bean.graph.EntityBean;
+import com.hiekn.plantdata.bean.graph.GraphStatBean;
+import com.hiekn.plantdata.bean.graph.PathAGBean;
+import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.bean.rest.RestReturnCode;
 import com.hiekn.plantdata.exception.ServiceException;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.plantdata.util.HttpClient;
 import com.hiekn.plantdata.util.JSONUtils;
 import com.hiekn.plantdata.util.SSEResource;
+import com.hiekn.search.bean.graph.MyEntityBean;
+import com.hiekn.search.bean.graph.MyGraphBean;
+import com.hiekn.search.bean.graph.MyRelationBean;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
-import com.hiekn.search.bean.graph.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.JsonException;
 import io.swagger.annotations.*;
@@ -32,7 +37,7 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 
 @Controller
 @Path("/g")
@@ -193,9 +198,6 @@ public class KGRestApi implements InitializingBean{
             kw = kws[0];
         }
         List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
-        if (knowledgeIds.isEmpty()) {
-            getGraphKnowledge();
-        }
 
         MyGraphBean graphBean = null;
 
@@ -297,7 +299,17 @@ public class KGRestApi implements InitializingBean{
     @Override
     public void afterPropertiesSet() throws Exception {
         try{
-            getGraphKnowledge();
+            FutureTask f = new java.util.concurrent.FutureTask(new Callable() {
+                @Override
+                public Object call() throws Exception {
+                     getGraphKnowledge();
+                     return null;
+                }
+            });
+
+            ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+            executor.schedule(f, 60, TimeUnit.SECONDS);
+            executor.shutdown();
         }catch(Exception e){
             log.error("initializing error:", e);
         }
