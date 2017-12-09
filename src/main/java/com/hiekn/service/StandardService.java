@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
@@ -40,8 +41,10 @@ import static com.hiekn.util.CommonResource.STANDARD_INDEX;
 
 public class StandardService extends AbstractService{
 
-    public StandardService (TransportClient client) {
+    public StandardService (TransportClient client, IGeneralSSEService sse, String kgName) {
         esClient = client;
+        generalSSEService = sse;
+        this.kgName = kgName;
     }
 
     public ItemBean extractItem(SearchHit hit) {

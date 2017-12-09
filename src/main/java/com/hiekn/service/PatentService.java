@@ -1,5 +1,7 @@
 package com.hiekn.service;
 
+import com.hiekn.plantdata.bean.graph.EntityBean;
+import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
@@ -40,8 +42,11 @@ import static com.hiekn.util.CommonResource.PATENT_INDEX;
 
 public class PatentService extends AbstractService {
 
-    public PatentService(TransportClient client) {
+    public PatentService(TransportClient client, IGeneralSSEService sse, String kgName) {
         esClient = client;
+        generalSSEService = sse;
+        this.kgName = kgName;
+
         patentTypeNameMap = new ConcurrentHashMap<>();
         patentTypeNameMap.put("1", "发明专利");
         patentTypeNameMap.put("2", "实用新型");
@@ -322,7 +327,34 @@ public class PatentService extends AbstractService {
             return boolQuery;
         }
 
-        QueryBuilder titleTerm = QueryBuilders.termsQuery("title.original", request.getUserSplitSegList()).boost(4f);
+        String userInputPersonName = null;
+        String userInputOrgName = null;
+        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
+                && (request.getKwType() ==1||request.getKwType()==2) ) {
+            List<EntityBean> rsList = generalSSEService.kg_semantic_seg(request.getKw(), kgName, false, true, false);
+            Long person = Helper.types.get("人物");
+            Long org = Helper.types.get("机构");
+            for(EntityBean bean: rsList){
+                if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputPersonName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                    }
+                }else if(org.equals(bean.getClassId())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputOrgName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                    }
+                }
+
+                if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
+                    request.setKw(request.getKw().replace(userInputPersonName, ""));
+                    request.setKw(request.getKw().replace(userInputOrgName, ""));
+                    break;
+                }
+            }
+        }
+
         BoolQueryBuilder boolTitleQuery = null;
 
         boolean allOneWord = false;
@@ -348,47 +380,54 @@ public class PatentService extends AbstractService {
             }
         }
 
-        QueryBuilder abstractTerm = QueryBuilders.termsQuery("abstract.original", request.getUserSplitSegList());
-        QueryBuilder inventorTerm = QueryBuilders.termsQuery("inventors.name.original.keyword", request.getUserSplitSegList())
-                .boost(4);
-        QueryBuilder applicantTerm = QueryBuilders.termsQuery("applicants.name.original.keyword", request.getUserSplitSegList())
-                .boost(4f);
-        QueryBuilder agenciesTerm = QueryBuilders.termsQuery("agencies_standerd.agency", request.getUserSplitSegList())
-                .boost(4f);
-        QueryBuilder annotationTagTerm = QueryBuilders.termsQuery("annotation_tag.name", request.getUserSplitSegList())
-                .boost(4f);
+        QueryBuilder titleTerm = createTermsQuery("title.original",request.getUserSplitSegList(), 4f);
+        QueryBuilder abstractTerm = createTermsQuery("abstract.original", request.getUserSplitSegList(), 1f);
+        QueryBuilder inventorTerm = createTermsQuery("inventors.name.original.keyword", request.getUserSplitSegList(), 4f);
+        QueryBuilder applicantTerm = createTermsQuery("applicants.name.original.keyword", request.getUserSplitSegList(), 4f);
+        QueryBuilder agenciesTerm = createTermsQuery("agencies_standerd.agency", request.getUserSplitSegList(),4f);
+        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 4f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
-            termQuery.should(titleTerm);
+            should(termQuery, titleTerm);
             if(boolTitleQuery!=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
-            termQuery.should(abstractTerm);
-            termQuery.should(inventorTerm);
-            termQuery.should(agenciesTerm);
-            termQuery.should(applicantTerm);
-            termQuery.should(annotationTagTerm);
-            if (!StringUtils.isEmpty(request.getDescription())) {
-                termQuery.should(QueryBuilders.termsQuery("applicants.name.original.keyword", request.getDescription().split(",")));
-            }
+            should(termQuery, abstractTerm);
+            should(termQuery, inventorTerm);
+            should(termQuery, agenciesTerm);
+            should(termQuery, applicantTerm);
+            should(termQuery, annotationTagTerm);
         } else if (request.getKwType() == 1) {
-            termQuery.should(applicantTerm);
-            if (!StringUtils.isEmpty(request.getDescription())) {
-                BoolQueryBuilder desQuery = QueryBuilders.boolQuery()
-                        .must(QueryBuilders.termsQuery("applicants.name.original.keyword", request.getDescription().split(",")));
-                desQuery.must(inventorTerm);
-                termQuery.should(desQuery);
+            if (userInputPersonName != null) {
+                BoolQueryBuilder personQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                personQuery.must(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
+                if (userInputOrgName != null) {
+                    personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName));
+                }
+                should(termQuery, personQuery);
+                should(termQuery, annotationTagTerm);
             }else {
-                termQuery.should(inventorTerm);
+                should(termQuery, applicantTerm);
+                should(termQuery, inventorTerm);
             }
         } else if (request.getKwType() == 2) {
-            termQuery.should(agenciesTerm);
-            termQuery.should(applicantTerm);
+            if (userInputOrgName != null) {
+                BoolQueryBuilder orgQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                orgQuery.must(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
+                if (userInputPersonName != null) {
+                    orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName));
+                }
+                termQuery.should(orgQuery);
+                should(termQuery, annotationTagTerm);
+            } else {
+                should(termQuery, agenciesTerm);
+                should(termQuery, applicantTerm);
+            }
         } else if (request.getKwType() == 3) {
-            termQuery.should(titleTerm);
-            termQuery.should(abstractTerm);
-            termQuery.should(annotationTagTerm);
+            should(termQuery,titleTerm);
+            should(termQuery,abstractTerm);
+            should(termQuery,annotationTagTerm);
             if(boolTitleQuery!=null && !allOneWord) {
                 termQuery.should(boolTitleQuery);
             }
@@ -398,6 +437,20 @@ public class PatentService extends AbstractService {
         boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
         return boolQuery;
 
+    }
+
+    private QueryBuilder createTermsQuery(String key, List<String> values, float boost){
+        if(values != null && !values.isEmpty()){
+            return QueryBuilders.termsQuery(key, values).boost(boost);
+        }
+        return null;
+    }
+
+    private BoolQueryBuilder should(BoolQueryBuilder parent, QueryBuilder son){
+        if(son!=null){
+            parent.should(son);
+        }
+        return parent;
     }
 
     public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {

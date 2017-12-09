@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
@@ -12,7 +13,9 @@ import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.springframework.beans.factory.annotation.Value;
 
+import javax.annotation.Resource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,9 @@ import java.util.Map;
 public abstract class AbstractService {
 
     protected TransportClient esClient;
+    protected String kgName;
+    protected IGeneralSSEService generalSSEService;
+
 
     public void makeFilters(QueryRequest request, BoolQueryBuilder boolQuery) {
         if (request.getFilters() != null) {

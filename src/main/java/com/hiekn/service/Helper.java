@@ -24,6 +24,9 @@ import java.util.*;
 
 public class Helper {
 
+	static public volatile Map<String,Long> types = new HashMap<>();
+	static public volatile Set<Long> knowledgeIds = new HashSet<>();
+
 	public static String getString(Object obj) {
 		return obj == null ? "" : obj.toString();
 	}

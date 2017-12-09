@@ -1,5 +1,6 @@
 package com.hiekn.search.rest;
 
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Floats;
 import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
@@ -189,7 +190,7 @@ public class SearchRestApi implements InitializingBean {
 
         SearchResultBean result = new SearchResultBean(request.getKw());
         String[] kws = request.getKw().trim().split(" ");
-        request.setUserSplitSegList(Arrays.asList(kws));
+        request.setUserSplitSegList(Lists.newArrayList(kws));
 
 //        if (kws.length > 1) {
 //            request.setKw(kws[0]);
@@ -497,10 +498,10 @@ public class SearchRestApi implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        paperService = new PaperService(esClient);
-        patentService = new PatentService(esClient);
+        paperService = new PaperService(esClient, generalSSEService, kgName);
+        patentService = new PatentService(esClient, generalSSEService, kgName);
         pictureService = new PictureService(esClient);
-        standardService = new StandardService(esClient);
+        standardService = new StandardService(esClient, generalSSEService, kgName);
 
 
         word2vec = new Word2VEC();

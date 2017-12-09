@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
@@ -36,8 +37,10 @@ import static com.hiekn.util.CommonResource.PAPER_INDEX;
 
 public class PaperService extends AbstractService{
 
-	public PaperService (TransportClient client) {
+	public PaperService (TransportClient client, IGeneralSSEService sse, String kgName) {
 		esClient = client;
+        generalSSEService = sse;
+        this.kgName = kgName;
 	}
 
 	public ItemBean extractDetail(SearchHit hit) {

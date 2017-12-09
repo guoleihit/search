@@ -22,6 +22,7 @@ import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.JsonException;
+import com.hiekn.service.Helper;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -38,6 +39,9 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.util.*;
 import java.util.concurrent.*;
+
+import static com.hiekn.service.Helper.knowledgeIds;
+import static com.hiekn.service.Helper.types;
 
 @Controller
 @Path("/g")
@@ -294,8 +298,7 @@ public class KGRestApi implements InitializingBean{
         return new RestResp<SchemaBean>(schema, tt);
     }
 
-    Map<String,Long> types = new HashMap<>();
-    volatile Set<Long> knowledgeIds = new HashSet<>();
+
     @Override
     public void afterPropertiesSet() throws Exception {
         try{
@@ -316,6 +319,8 @@ public class KGRestApi implements InitializingBean{
     }
 
     private void getGraphKnowledge() {
+        Map<String,Long> types = new HashMap<>();
+        Set<Long> knowledgeIds = new HashSet<>();
         RestResp<SchemaBean> rest = kgSchema(0L);
         for(SchemaBean bean :rest.getData().getRsData()){
             log.info("begin to get knowledge...");
@@ -336,5 +341,7 @@ public class KGRestApi implements InitializingBean{
             log.info("get knowledge end."+knowledgeIds.size());
             break;
         }
+        Helper.knowledgeIds = knowledgeIds;
+        Helper.types = types;
     }
 }
