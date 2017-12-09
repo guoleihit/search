@@ -7,7 +7,17 @@ public class PaperDetail extends PaperItem {
 
 	private List<String> categories;
 	private String citeCount;
-    public List<String> getCategories() {
+	private String eTitle;
+
+	public String geteTitle() {
+		return eTitle;
+	}
+
+	public void seteTitle(String eTitle) {
+		this.eTitle = eTitle;
+	}
+
+	public List<String> getCategories() {
 		return categories;
 	}
 

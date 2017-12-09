@@ -30,6 +30,16 @@ public class PatentDetail extends ItemBean {
 
 	private String earliestPrioritiesDate;
 
+	private List<String> priorityDetails;
+
+    public List<String> getPriorityDetails() {
+        return priorityDetails;
+    }
+
+    public void setPriorityDetails(List<String> priorityDetails) {
+        this.priorityDetails = priorityDetails;
+    }
+
     public String getEarliestPrioritiesDate() {
         return earliestPrioritiesDate;
     }

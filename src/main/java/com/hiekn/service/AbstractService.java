@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
@@ -7,18 +8,18 @@ import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.springframework.beans.factory.annotation.Value;
 
 import javax.annotation.Resource;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class AbstractService {
 
@@ -155,5 +156,79 @@ public abstract class AbstractService {
         }else {
             boolQuery.should(appDateQuery);
         }
+    }
+
+    protected Map<String, String> intentionRecognition(QueryRequest request){
+        Map<String, String> result = new HashMap<>();
+        // 用户输入空格分隔的词列表，而且指定了关键词类型为人或者机构，首先识别用户输入的人和机构
+        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
+                /*&& (request.getKwType() ==1||request.getKwType()==2)*/ ) {
+
+            String userInputPersonName = null;
+            String userInputOrgName = null;
+            List<EntityBean> rsList = generalSSEService.kg_semantic_seg(request.getKw(), kgName, false, true, false);
+            Long person = Helper.types.get("人物");
+            Long org = Helper.types.get("机构");
+
+            for(EntityBean bean: rsList){
+                if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputPersonName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                        result.put("人物", userInputPersonName);
+                    }
+                }else if(org.equals(bean.getClassId())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputOrgName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                        result.put("机构", userInputOrgName);
+                    }
+                }
+
+                if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
+                    request.setKw(request.getKw().replace(userInputPersonName, ""));
+                    request.setKw(request.getKw().replace(userInputOrgName, ""));
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    protected BoolQueryBuilder createSegmentsTermQuery(QueryRequest request, String index, String field) {
+        BoolQueryBuilder boolTitleQuery;List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, index);
+
+        boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        List<String> oneWordList = new ArrayList<>();
+        for (AnalyzeResponse.AnalyzeToken token : tokens) {
+            String t = token.getTerm();
+            if (t.equals(request.getKw())) {
+                continue;
+            }
+
+            if (t.length() == 1) {
+                oneWordList.add(t);
+            } else {
+                boolTitleQuery.should(QueryBuilders.termQuery(field, t));
+            }
+        }
+        if (oneWordList.size() == tokens.size()) {
+            boolTitleQuery = null;
+        }
+        return boolTitleQuery;
+    }
+
+    protected QueryBuilder createTermsQuery(String key, List<String> values, float boost){
+        if(values != null && !values.isEmpty()){
+            return QueryBuilders.termsQuery(key, values).boost(boost);
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder should(BoolQueryBuilder parent, QueryBuilder son){
+        if(son!=null){
+            parent.should(son);
+        }
+        return parent;
     }
 }

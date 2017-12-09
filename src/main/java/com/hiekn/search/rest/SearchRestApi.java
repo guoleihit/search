@@ -231,6 +231,7 @@ public class SearchRestApi implements InitializingBean {
                 yearMap.put(String.valueOf(year.intValue()), bucket.getDocCount());
             }
         }
+        yearMap.put("_end",-1l);
         yearFilter.setV(yearMap);
         result.getFilters().add(yearFilter);
 
@@ -242,6 +243,7 @@ public class SearchRestApi implements InitializingBean {
         for (Terms.Bucket bucket : docTypes.getBuckets()) {
             docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
         }
+        docMap.put("_end",-1l);
         docTypeFilter.setV(docMap);
         result.getFilters().add(docTypeFilter);
 
@@ -281,7 +283,7 @@ public class SearchRestApi implements InitializingBean {
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[]{}));
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abstract")
-                .field("abstract.original").field("keywords.keyword").field("authors.name.keyword")
+                .field("abstract.original").field("keywords.keyword").field("authors.name.keyword").field("authors.organization.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
@@ -303,7 +305,7 @@ public class SearchRestApi implements InitializingBean {
         }
 
 
-        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(1);
+        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(5);
 
         srb.highlighter(highlighter).setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());

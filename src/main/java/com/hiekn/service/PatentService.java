@@ -1,6 +1,5 @@
 package com.hiekn.service;
 
-import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
@@ -13,7 +12,6 @@ import com.hiekn.search.bean.result.PatentItem;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -21,7 +19,6 @@ import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -164,7 +161,7 @@ public class PatentService extends AbstractService {
                 if (((Map) applicant).get("countries") != null) {
                     Object countriesObj = ((Map) applicant).get("countries");
                     if (countriesObj instanceof List) {
-                        List<String> c = toStringListByKey((List)countriesObj, "countrie");
+                        List<String> c = toStringListByKey(countriesObj, "countrie");
                         if(c!=null && !c.isEmpty()) {
                             if (item.getCountries() != null && !item.getCountries().isEmpty()) {
                                 item.getCountries().addAll(c);
@@ -322,62 +319,19 @@ public class PatentService extends AbstractService {
         makeFilters(request, boolQuery);
 
         if (!StringUtils.isEmpty(request.getId())) {
-            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())));
+            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
             boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
             return boolQuery;
         }
 
-        String userInputPersonName = null;
-        String userInputOrgName = null;
-        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
-                && (request.getKwType() ==1||request.getKwType()==2) ) {
-            List<EntityBean> rsList = generalSSEService.kg_semantic_seg(request.getKw(), kgName, false, true, false);
-            Long person = Helper.types.get("人物");
-            Long org = Helper.types.get("机构");
-            for(EntityBean bean: rsList){
-                if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
-                    if (request.getUserSplitSegList().contains(bean.getName())) {
-                        userInputPersonName = bean.getName();
-                        request.getUserSplitSegList().remove(bean.getName());
-                    }
-                }else if(org.equals(bean.getClassId())){
-                    if (request.getUserSplitSegList().contains(bean.getName())) {
-                        userInputOrgName = bean.getName();
-                        request.getUserSplitSegList().remove(bean.getName());
-                    }
-                }
-
-                if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
-                    request.setKw(request.getKw().replace(userInputPersonName, ""));
-                    request.setKw(request.getKw().replace(userInputOrgName, ""));
-                    break;
-                }
-            }
-        }
+        Map<String, String> result = intentionRecognition(request);
+        String userInputPersonName = result.get("人物");
+        String userInputOrgName = result.get("机构");
 
         BoolQueryBuilder boolTitleQuery = null;
-
-        boolean allOneWord = false;
-        if (request.getKwType() != 1 && request.getKwType() != 2) {
-            List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, PATENT_INDEX);
-            boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-
-            List<String> oneWordList = new ArrayList<>();
-            for (AnalyzeResponse.AnalyzeToken token : tokens) {
-                String t = token.getTerm();
-                if (t.equals(request.getKw())) {
-                    continue;
-                }
-
-                if (t.length() == 1) {
-                    oneWordList.add(t);
-                } else {
-                    boolTitleQuery.should(QueryBuilders.termQuery("title.original", t));
-                }
-            }
-            if (oneWordList.size() == tokens.size()) {
-                allOneWord = true;
-            }
+        // 已经识别出人和机构，或者用户输入的不是人也不是机构
+        if (request.getKwType() != 1 && request.getKwType() != 2 || userInputOrgName != null || userInputPersonName!=null) {
+            boolTitleQuery = createSegmentsTermQuery(request, PATENT_INDEX, "title.original");
         }
 
         QueryBuilder titleTerm = createTermsQuery("title.original",request.getUserSplitSegList(), 4f);
@@ -390,7 +344,7 @@ public class PatentService extends AbstractService {
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             should(termQuery, titleTerm);
-            if(boolTitleQuery!=null && !allOneWord) {
+            if(boolTitleQuery!=null) {
                 termQuery.should(boolTitleQuery);
             }
             should(termQuery, abstractTerm);
@@ -398,28 +352,46 @@ public class PatentService extends AbstractService {
             should(termQuery, agenciesTerm);
             should(termQuery, applicantTerm);
             should(termQuery, annotationTagTerm);
+
+            if(userInputOrgName != null){
+                should(termQuery, QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(5f));
+            }else{
+                should(termQuery,inventorTerm);
+            }
+
+            if(userInputPersonName != null){
+                should(termQuery, QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(5f));
+            }else{
+                should(termQuery,applicantTerm);
+            }
         } else if (request.getKwType() == 1) {
             if (userInputPersonName != null) {
-                BoolQueryBuilder personQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
                 personQuery.must(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
                 if (userInputOrgName != null) {
                     personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName));
                 }
+                should(personQuery, annotationTagTerm);
+                should(personQuery, titleTerm);
+                should(personQuery, boolTitleQuery);
+                should(personQuery, abstractTerm);
                 should(termQuery, personQuery);
-                should(termQuery, annotationTagTerm);
             }else {
                 should(termQuery, applicantTerm);
                 should(termQuery, inventorTerm);
             }
         } else if (request.getKwType() == 2) {
             if (userInputOrgName != null) {
-                BoolQueryBuilder orgQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
                 orgQuery.must(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
                 if (userInputPersonName != null) {
                     orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName));
                 }
+                should(orgQuery, titleTerm);
+                should(orgQuery, annotationTagTerm);
+                should(orgQuery, boolTitleQuery);
+                should(orgQuery, abstractTerm);
                 termQuery.should(orgQuery);
-                should(termQuery, annotationTagTerm);
             } else {
                 should(termQuery, agenciesTerm);
                 should(termQuery, applicantTerm);
@@ -428,7 +400,7 @@ public class PatentService extends AbstractService {
             should(termQuery,titleTerm);
             should(termQuery,abstractTerm);
             should(termQuery,annotationTagTerm);
-            if(boolTitleQuery!=null && !allOneWord) {
+            if(boolTitleQuery!=null) {
                 termQuery.should(boolTitleQuery);
             }
         }
@@ -437,20 +409,6 @@ public class PatentService extends AbstractService {
         boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
         return boolQuery;
 
-    }
-
-    private QueryBuilder createTermsQuery(String key, List<String> values, float boost){
-        if(values != null && !values.isEmpty()){
-            return QueryBuilders.termsQuery(key, values).boost(boost);
-        }
-        return null;
-    }
-
-    private BoolQueryBuilder should(BoolQueryBuilder parent, QueryBuilder son){
-        if(son!=null){
-            parent.should(son);
-        }
-        return parent;
     }
 
     public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
@@ -479,7 +437,7 @@ public class PatentService extends AbstractService {
                 }else if ("ipc".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
                 }else if ("legal_status".equals(key)) {
-                	//TODO
+                    buildQueryCondition(boolQuery, reqItem, "legal_status", false,false, toLegalStatus(reqItem.getKv().getV()));
                 }else if ("author".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "inventors.name.original.keyword", false,false);
                 }else if ("applicant".equals(key)) {
@@ -587,6 +545,7 @@ public class PatentService extends AbstractService {
                 patentMap.put(key, bucket.getDocCount());
             }
         }
+        patentMap.put("_end", -1l);
         patentTypeFilter.setV(patentMap);
         result.getFilters().add(patentTypeFilter);
 
@@ -600,6 +559,9 @@ public class PatentService extends AbstractService {
             for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
                 ipcMap.put(bucket.getKeyAsString(), bucket.getDocCount());
             }
+            if(ipcName.indexOf("3")>0) {
+                ipcMap.put("_end", -1l);
+            }
             mainIpcTypeFilter.setV(ipcMap);
             result.getFilters().add(mainIpcTypeFilter);
         }
@@ -612,6 +574,7 @@ public class PatentService extends AbstractService {
         for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
             ipcMap.put(bucket.getKeyAsString(), bucket.getDocCount());
         }
+        ipcMap.put("_end", -1l);
         mainIpcTypeFilter.setV(ipcMap);
         result.getFilters().add(mainIpcTypeFilter);
 
@@ -697,6 +660,16 @@ public class PatentService extends AbstractService {
             Integer type = this.patentNameTypeMap.get(name);
             if (type != null)
             types.add(type);
+        }
+        return Arrays.asList(types.toArray());
+    }
+
+    private List<Object> toLegalStatus(List<String> names){
+        List<Integer> types = new ArrayList<>();
+        for (String name: names) {
+            Integer type = this.legalStatusNameValueMap.get(name);
+            if (type != null)
+                types.add(type);
         }
         return Arrays.asList(types.toArray());
     }

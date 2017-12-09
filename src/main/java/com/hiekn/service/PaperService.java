@@ -1,5 +1,7 @@
 package com.hiekn.service;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
@@ -169,6 +171,14 @@ public class PaperService extends AbstractService{
 							setHighlightElements(frags, itr);
 						}
 						break;
+                    case "authors.organization.name.keyword":
+                        if (frags != null && frags.length > 0) {
+                            List<String> values = Lists.newArrayList(item.getOrgs());
+                            ListIterator<String> itr = values.listIterator();
+                            setHighlightElements(frags, itr);
+                            item.setOrgs(Sets.newHashSet(values));
+                        }
+                        break;
 				}
 			}
 		}
@@ -182,73 +192,84 @@ public class PaperService extends AbstractService{
         makeFilters(request, boolQuery);
 
         if (!StringUtils.isEmpty(request.getId())) {
-            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())));
+            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
             boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
             return boolQuery;
         }
 
-		QueryBuilder titleTerm = QueryBuilders.termsQuery("title", request.getUserSplitSegList()).boost(4);
+        Map<String, String> result = intentionRecognition(request);
+        String userInputPersonName = result.get("人物");
+        String userInputOrgName = result.get("机构");
 
         BoolQueryBuilder boolTitleQuery = null;
-        boolean allOneWord = false;
-		if (request.getKwType()!= 1 && request.getKwType() != 2) {
-            List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, PAPER_INDEX);
-            boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-            List<String> oneWordList = new ArrayList<>();
-            for (AnalyzeResponse.AnalyzeToken token : tokens) {
-                String t = token.getTerm();
-                if (t.equals(request.getKw())) {
-                    continue;
-                }
-
-                if (t.length() == 1) {
-                    oneWordList.add(t);
-                } else {
-                    boolTitleQuery.should(QueryBuilders.termQuery("title", t));
-                }
-            }
-            if (oneWordList.size() == tokens.size()) {
-                allOneWord = true;
-            }
+        // 已经识别出人和机构，或者用户输入的不是人也不是机构
+        if (request.getKwType() != 1 && request.getKwType() != 2 || userInputOrgName != null || userInputPersonName!=null) {
+            boolTitleQuery = createSegmentsTermQuery(request, PAPER_INDEX, "title");
         }
 
-        QueryBuilder abstractTerm = QueryBuilders.termsQuery("abstract", request.getUserSplitSegList());
-        QueryBuilder authorTerm = QueryBuilders.termsQuery("authors.name.keyword", request.getUserSplitSegList()).boost(3f);
-        QueryBuilder orgsTerm = QueryBuilders.termsQuery("authors.organization.name.keyword", request.getUserSplitSegList()).boost(3f);
-        QueryBuilder kwsTerm = QueryBuilders.termsQuery("keywords.keyword", request.getUserSplitSegList()).boost(3f);
-        QueryBuilder annotationTagTerm = QueryBuilders.termsQuery("annotation_tag.name", request.getUserSplitSegList())
-                .boost(3f);
+        QueryBuilder titleTerm = createTermsQuery("title", request.getUserSplitSegList(), 1f);
+        QueryBuilder abstractTerm = createTermsQuery("abstract", request.getUserSplitSegList(), 1f);
+        QueryBuilder authorTerm = createTermsQuery("authors.name.keyword", request.getUserSplitSegList(), 3f);
+        QueryBuilder orgsTerm = createTermsQuery("authors.organization.name.keyword", request.getUserSplitSegList(), 3f);
+        QueryBuilder kwsTerm = createTermsQuery("keywords.keyword", request.getUserSplitSegList(), 3f);
+        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 3f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
-            termQuery.should(titleTerm);
-            if(boolTitleQuery !=null && !allOneWord) {
-                termQuery.should(boolTitleQuery);
+            should(termQuery, titleTerm);
+            should(termQuery,boolTitleQuery);
+            should(termQuery,abstractTerm);
+            should(termQuery,kwsTerm);
+            should(termQuery,annotationTagTerm);
+            if(userInputOrgName != null){
+                should(termQuery, QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(5f));
+            }else{
+                should(termQuery,authorTerm);
             }
-            termQuery.should(abstractTerm);
-            termQuery.should(authorTerm);
-            termQuery.should(kwsTerm);
-            termQuery.should(orgsTerm);
-            termQuery.should(annotationTagTerm);
+
+            if(userInputPersonName != null){
+                should(termQuery, QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName).boost(5f));
+            }else{
+                should(termQuery,orgsTerm);
+            }
         } else if(request.getKwType() == 1){
-            if (!StringUtils.isEmpty(request.getDescription())) {
-                BoolQueryBuilder bool = QueryBuilders.boolQuery()
-                        .must(authorTerm)
-                        .must(QueryBuilders.termsQuery("authors.organization.name.keyword", request.getDescription().split(",")));
-                termQuery.should(bool);
+            if (userInputPersonName != null) {
+                BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
+                personQuery.must(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(6f));
+                if (userInputOrgName != null) {
+                    personQuery.should(QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName));
+                }
+                should(personQuery, annotationTagTerm);
+                should(personQuery, titleTerm);
+                should(personQuery, boolTitleQuery);
+                should(personQuery, abstractTerm);
+                should(personQuery, kwsTerm);
+                should(termQuery, personQuery);
             }else {
-                termQuery.should(authorTerm);
+                should(termQuery, authorTerm);
             }
         } else if (request.getKwType() == 2) {
-            termQuery.should(orgsTerm);
-        } else if (request.getKwType() == 3) {
-            termQuery.should(titleTerm);
-            if(boolTitleQuery !=null && !allOneWord) {
-                termQuery.should(boolTitleQuery);
+            if (userInputOrgName != null) {
+                BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
+                orgQuery.must(QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName).boost(6f));
+                if (userInputPersonName != null) {
+                    orgQuery.should(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName));
+                }
+                should(orgQuery, annotationTagTerm);
+                should(orgQuery, titleTerm);
+                should(orgQuery, boolTitleQuery);
+                should(orgQuery, abstractTerm);
+                should(orgQuery, kwsTerm);
+                should(termQuery, orgQuery);
+            }else {
+                should(termQuery, orgsTerm);
             }
-            termQuery.should(abstractTerm);
-            termQuery.should(kwsTerm);
-            termQuery.should(annotationTagTerm);
+        } else if (request.getKwType() == 3) {
+            should(termQuery, titleTerm);
+            should(termQuery, boolTitleQuery);
+            should(termQuery, abstractTerm);
+            should(termQuery, kwsTerm);
+            should(termQuery, annotationTagTerm);
         }
 
 

@@ -331,6 +331,7 @@ public class StandardService extends AbstractService{
         for (Terms.Bucket bucket : baseClassAggs.getBuckets()) {
             baseClassValueMap.put(bucket.getKeyAsString(), bucket.getDocCount());
         }
+        baseClassValueMap.put("_end",-1l);
         baseClassFilter.setV(baseClassValueMap);
         result.getFilters().add(baseClassFilter);
 
@@ -342,6 +343,9 @@ public class StandardService extends AbstractService{
             Map<String, Long> classValueMap = new HashMap<>();
             for (Terms.Bucket bucket : classAggs.getBuckets()) {
                 classValueMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+            }
+            if(className.indexOf("2")>0){
+                classValueMap.put("_end",-1l);
             }
             classFilter.setV(classValueMap);
             result.getFilters().add(classFilter);

@@ -98,6 +98,9 @@ public class Helper {
             for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
                 knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
             }
+            if (annotation.indexOf("3") > 0) {
+                knowledgeMap.put("_end", -1l);
+            }
             knowledgeClassFilter.setV(knowledgeMap);
             result.getFilters().add(knowledgeClassFilter);
         }
