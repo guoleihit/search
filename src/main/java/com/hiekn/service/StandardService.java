@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
-import static com.hiekn.util.CommonResource.PATENT_INDEX;
 import static com.hiekn.util.CommonResource.STANDARD_INDEX;
 
 public class StandardService extends AbstractService{
@@ -145,6 +144,7 @@ public class StandardService extends AbstractService{
             item.setAbs(absObj.toString());
         }
 
+        item.setGraphId(getString(source.get("kg_id")));
         Object inventorsObj = source.get("author");
         List<String> inventors = toStringList(inventorsObj);
         if (!inventors.isEmpty()) {
@@ -257,11 +257,11 @@ public class StandardService extends AbstractService{
                 if ("standardNum".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "num", false, false);
                 }else if ("title".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "name", false,false);
+                    buildLongTextQueryCondition(boolQuery, reqItem, STANDARD_INDEX,"name", false,false ,null);
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
                     buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "name", false,false, Operator.OR);
+                    buildLongTextQueryCondition(allQueryBuilder, reqItem, STANDARD_INDEX,"name", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, Operator.OR);
                     setOperator(boolQuery,reqItem, allQueryBuilder);
                 }else if ("standardType".equals(key)) {

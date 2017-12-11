@@ -9,17 +9,14 @@ import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.SearchResultBean;
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
-import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.springframework.beans.factory.annotation.Value;
 
-import javax.annotation.Resource;
 import java.util.*;
+
 
 public abstract class AbstractService {
 
@@ -70,7 +67,7 @@ public abstract class AbstractService {
      * @param boolQuery
      * @param reqItem
      * @param esField
-     * @param needPrefix 1=prefix
+     * @param needPrefix true=prefix
      */
     protected void buildQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String esField, boolean needPrefix, boolean ignoreStrCase) {
         List<String> values = reqItem.getKv().getV();
@@ -120,7 +117,7 @@ public abstract class AbstractService {
         buildQueryCondition(boolQuery, reqItem, esField, needPrefix, ignoreStrCase,values, null);
     }
 
-    protected void setOperator(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, BoolQueryBuilder allQueryBuilder) {
+    protected void setOperator(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, QueryBuilder allQueryBuilder) {
         if (Operator.AND.equals(reqItem.getOp())) {
             boolQuery.must(allQueryBuilder);
         }else if (Operator.OR.equals(reqItem.getOp())) {
@@ -133,9 +130,15 @@ public abstract class AbstractService {
     protected void doBuildQueryCondition(CompositeRequestItem reqItem, String esField, boolean needPrefix, BoolQueryBuilder termQuery, Object value) {
         if (needPrefix) {
             termQuery.should(QueryBuilders.prefixQuery(esField, value.toString()));
-        }else if (Integer.valueOf(1).equals(reqItem.getPrecision())) {
+        }else if (Integer.valueOf(1).equals(reqItem.getPrecision()) || value instanceof Integer) { // 精确匹配
             termQuery.should(QueryBuilders.termQuery(esField, value));
-        } else if (Integer.valueOf(2).equals(reqItem.getPrecision())){
+            if(esField.indexOf(".keyword") < 0 && value instanceof String){
+                esField = esField.concat(".keyword");
+            }
+            if (value instanceof String) {
+                termQuery.should(QueryBuilders.wildcardQuery(esField, "*" + value + "*"));
+            }
+        } else if (Integer.valueOf(2).equals(reqItem.getPrecision())){ // 模糊匹配
             termQuery.should(QueryBuilders.wildcardQuery(esField, "*" + value + "*"));
         }
     }
@@ -195,6 +198,17 @@ public abstract class AbstractService {
         return result;
     }
 
+    protected void buildLongTextQueryCondition(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, String index, String field, boolean needPrefix, boolean ignoreStrCase, Operator op) {
+        if (reqItem.getPrecision().equals(2)) {
+            QueryRequest rq = new QueryRequest();
+            rq.setKw(reqItem.getKv().getV().get(0));
+            QueryBuilder absQuery = createSegmentsTermQuery(rq, index, field);
+            setOperator(boolQuery, reqItem, absQuery);
+        } else {
+            buildQueryCondition(boolQuery, reqItem, field, needPrefix, ignoreStrCase, op);
+        }
+    }
+
     protected BoolQueryBuilder createSegmentsTermQuery(QueryRequest request, String index, String field) {
         BoolQueryBuilder boolTitleQuery;List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, index);
 
@@ -202,9 +216,6 @@ public abstract class AbstractService {
         List<String> oneWordList = new ArrayList<>();
         for (AnalyzeResponse.AnalyzeToken token : tokens) {
             String t = token.getTerm();
-            if (t.equals(request.getKw())) {
-                continue;
-            }
 
             if (t.length() == 1) {
                 oneWordList.add(t);
@@ -213,7 +224,7 @@ public abstract class AbstractService {
             }
         }
         if (oneWordList.size() == tokens.size()) {
-            boolTitleQuery = null;
+            boolTitleQuery.should(QueryBuilders.termsQuery(field, oneWordList)).minimumShouldMatch(oneWordList.size());
         }
         return boolTitleQuery;
     }

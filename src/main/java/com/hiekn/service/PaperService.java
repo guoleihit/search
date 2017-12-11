@@ -13,7 +13,6 @@ import com.hiekn.search.bean.result.PaperDetail;
 import com.hiekn.search.bean.result.PaperItem;
 import com.hiekn.search.bean.result.SearchResultBean;
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -69,6 +68,8 @@ public class PaperService extends AbstractService{
 		if (!cts.isEmpty()) {
 			item.setCategories(cts);
 		}
+
+		item.setGraphId(getString(source.get("kg_id")));
 
         Object inventorsObj = source.get("authors");
         Set<String> inventors = new HashSet<>();
@@ -294,6 +295,9 @@ public class PaperService extends AbstractService{
             AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("authors.organization.name.keyword");
             spq.addAggregation(relatedOrgs);
 
+            AggregationBuilder relatedKeywords = AggregationBuilders.terms("related_keywords").field("keywords.keyword");
+            spq.addAggregation(relatedKeywords);
+
             Future<SearchResponse> similarPaperFuture = spq.execute();
             SearchResponse similarPaperResp;
             if((similarPaperResp = similarPaperFuture.get())!=null){
@@ -333,6 +337,18 @@ public class PaperService extends AbstractService{
                     orgList.add(bucket.getKeyAsString());
                 }
                 relatedOrgsFilter.setV(orgList);
+
+
+                Terms relatedKeywordsAgg = similarPaperResp.getAggregations().get("related_keywords");
+                KVBean<String, List<Object>> relatedKeywordsFilter = new KVBean<>();
+                result.getSimilarData().add(relatedKeywordsFilter);
+                relatedKeywordsFilter.setD("相关关键词");
+                relatedKeywordsFilter.setK("related_keywords");
+                List<Object> keywordList = new ArrayList<>();
+                for (Terms.Bucket bucket : relatedKeywordsAgg.getBuckets()) {
+                    keywordList.add(bucket.getKeyAsString());
+                }
+                relatedKeywordsFilter.setV(keywordList);
             }
 	}
 
@@ -354,9 +370,9 @@ public class PaperService extends AbstractService{
 				}
 
 				if ("title".equals(key)) {
-					buildQueryCondition(boolQuery, reqItem, "title", false, false);
+					buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX, "title", false, false, null);
 				}else if ("abs".equals(key)) {
-					buildQueryCondition(boolQuery, reqItem, "abstract", false, false);
+                    buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX,"abstract", false, false, null);
 				} else if ("theme".equals(key)) {
 					BoolQueryBuilder themeQuery = QueryBuilders.boolQuery();
                     buildQueryCondition(themeQuery, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
@@ -374,8 +390,8 @@ public class PaperService extends AbstractService{
 				}else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
 
-					buildQueryCondition(allQueryBuilder, reqItem, "title", false,false, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "abstract", false,false, Operator.OR);
+                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"title", false,false, Operator.OR);
+                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"abstract", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);

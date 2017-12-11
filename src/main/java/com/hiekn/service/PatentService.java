@@ -101,6 +101,7 @@ public class PatentService extends AbstractService {
             item.setAgents(agentList);
         }
 
+        item.setGraphId(getString(source.get("kg_id")));
         Object countries = source.get("countries");
         List<String> countryList = toStringListByKey(countries,"countrie");
         if (!countryList.isEmpty()) {
@@ -421,19 +422,25 @@ public class PatentService extends AbstractService {
                 String key = null;
                 if(reqItem.getKv()!=null) {
                     key = reqItem.getKv().getK();
+                    if (reqItem.getKv().getV() == null || reqItem.getKv().getV().isEmpty()) {
+                        continue;
+                    }
                 }
 
                 String dateKey = null;
                 if(reqItem.getKvDate()!=null) {
                     dateKey = reqItem.getKvDate().getK();
+                    if (reqItem.getKvDate().getV() == null || reqItem.getKvDate().getV().isEmpty()) {
+                        continue;
+                    }
                 }
 
                 if ("appNum".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "application_number.keyword", false, true);
                 }else if ("pubNum".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "publication_number.keyword", false, true);
-                } else if ("title".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "title.original", false,false);
+                } else if ("title".equals(key)) { // 待修改
+                    buildLongTextQueryCondition(boolQuery, reqItem,  PATENT_INDEX,"title.original", false, false, null);
                 }else if ("ipc".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "main_ipc.ipc.keyword", false,true);
                 }else if ("legal_status".equals(key)) {
@@ -443,7 +450,7 @@ public class PatentService extends AbstractService {
                 }else if ("applicant".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "applicants.name.original.keyword", false,false);
                 }else if ("abs".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "abstract.original", false,false);
+                    buildLongTextQueryCondition(boolQuery, reqItem, PATENT_INDEX,"abstract.original", false , false, null);
                 }else if ("type".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "type", false,false, toPatentTypes(reqItem.getKv().getV()));
                 }else if ("appDate".equals(dateKey)) {
@@ -452,8 +459,8 @@ public class PatentService extends AbstractService {
                     doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-                    buildQueryCondition(allQueryBuilder, reqItem, "title.original", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "abstract.original", false,false, Operator.OR);
+                    buildLongTextQueryCondition(allQueryBuilder, reqItem,PATENT_INDEX,"title.original", false,false, Operator.OR);
+                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PATENT_INDEX,"abstract.original", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false, Operator.OR);
@@ -526,6 +533,7 @@ public class PatentService extends AbstractService {
         		srb.addSort(SortBuilders.fieldSort("application_date").order(SortOrder.DESC));
         }
 
+        System.out.println(srb.toString());
         SearchResponse response = srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
         result.setRsCount(response.getHits().totalHits);

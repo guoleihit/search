@@ -77,9 +77,9 @@ public class Helper {
 		if (request.getFilters() != null) {
 			for (KVBean<String, List<String>> filter : request.getFilters()) {
 				if ("_kg_annotation_1.name".equals(filter.getK())) {
-					annotationField = "annotation_2.name";
+					annotationField = "_kg_annotation_2.name";
 				} else if ("_kg_annotation_2.name".equals(filter.getK())) {
-					annotationField = "annotation_3.name";
+					annotationField = "_kg_annotation_3.name";
 				} else if ("_kg_annotation_3.name".equals(filter.getK())) {
 					return null;
 				}

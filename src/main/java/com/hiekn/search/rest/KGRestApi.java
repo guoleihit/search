@@ -174,10 +174,10 @@ public class KGRestApi implements InitializingBean{
                                   @ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
                                   @QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
 
-        if (StringUtils.isEmpty(kw)) {
+        if (StringUtils.isEmpty(kw) && StringUtils.isEmpty(id)) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
-        log.info("kw+"+kw+",tt:"+tt);
+        log.info("kw:"+kw+",tt:"+tt+",pageNo:"+pageNo+",pageSize:"+pageSize);
         List<Long> allowAttList = null;
         List<Long> allowTypeList = null;
 
@@ -188,6 +188,11 @@ public class KGRestApi implements InitializingBean{
         if (pageSize == null) {
             pageSize = 10;
         }
+
+        if (kw == null) {
+            kw = "";
+        }
+
         try {
             allowAttList = JSONUtils.fromJson(allowAtts, new TypeToken<List<Long>>() {
             }.getType());
@@ -201,7 +206,10 @@ public class KGRestApi implements InitializingBean{
         if (kws.length > 0) {
             kw = kws[0];
         }
-        List<EntityBean> rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
+        List<EntityBean> rsList = null;
+        if(StringUtils.isEmpty(id)) {
+            rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
+        }
 
         MyGraphBean graphBean = null;
 

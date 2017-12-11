@@ -13,6 +13,15 @@ public class ItemBean {
 	private List<String> authors;
 	private String pubDate;
 	private DocType docType;
+	private String graphId;
+
+	public String getGraphId() {
+		return graphId;
+	}
+
+	public void setGraphId(String graphId) {
+		this.graphId = graphId;
+	}
 
 	public String getPubDate() {
 		return pubDate;
