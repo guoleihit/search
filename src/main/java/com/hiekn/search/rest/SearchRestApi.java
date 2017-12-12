@@ -12,6 +12,7 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
+import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
@@ -192,22 +193,10 @@ public class SearchRestApi implements InitializingBean {
         String[] kws = request.getKw().trim().split(" ");
         request.setUserSplitSegList(Lists.newArrayList(kws));
 
-//        if (kws.length > 1) {
-//            request.setKw(kws[0]);
-//        }
 
         List<String> indices = new ArrayList<>();
         List<AbstractService> services = new ArrayList<>();
-        if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
-            services.addAll(Arrays.asList(patentService, paperService, standardService));
-            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX));
-        } else if(request.getDocType()!=null) {
-            setSearchResource(request.getDocType(),services,indices);
-        }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
-            for (DocType doc: request.getDocTypeList()) {
-                setSearchResource(doc,services,indices);
-            }
-        }
+        setSearchResources(request,indices, services);
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         for (AbstractService service: services) {
@@ -216,6 +205,12 @@ public class SearchRestApi implements InitializingBean {
         SearchResponse response = searchIndexes(request,boolQuery,indices);
 
         assert response != null;
+        setSingleSearchResults(request, result, response);
+
+        return new RestResp<>(result, request.getTt());
+    }
+
+    private void setSingleSearchResults(QueryRequest request, SearchResultBean result, SearchResponse response) {
         result.setRsCount(response.getHits().totalHits);
         setResultData(result, response);
 
@@ -249,8 +244,6 @@ public class SearchRestApi implements InitializingBean {
 
         String annotation = getAnnotationFieldName(request);
         setKnowledgeAggResult(response,result,annotation);
-
-        return new RestResp<>(result, request.getTt());
     }
 
     private void setSearchResource(DocType docType, List<AbstractService> services, List<String> indices){
@@ -432,6 +425,63 @@ public class SearchRestApi implements InitializingBean {
         SearchResultBean result = service.doCompositeSearch(request);
 
         return new RestResp<>(result, request.getTt());
+    }
+
+    @POST
+    @Path("/cp")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @ApiOperation(value = "高级搜索", notes = "搜索过滤及排序")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> kwComposite(@ApiParam(value = "检索请求") CompositeQueryRequest request)
+            throws Exception {
+        String requestStr = JSONUtils.toJson(request);
+        log.info(requestStr);
+
+        List<String> indices = new ArrayList<>();
+        List<AbstractService> services = new ArrayList<>();
+        setSearchResources(request, indices, services);
+
+
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+        for (AbstractService service: services) {
+            QueryBuilder builder = service.buildEnhancedQuery(request);
+            if(builder != null){
+                boolQuery.should(builder);
+            }else {
+                if (service == standardService) {
+                    indices.remove(STANDARD_INDEX);
+                }else if (service == paperService) {
+                    indices.remove(PAPER_INDEX);
+                }else if (service == patentService) {
+                    indices.remove(PATENT_INDEX);
+                }
+            }
+        }
+
+        if (indices.isEmpty()) {
+            throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
+        }
+        SearchResponse response = searchIndexes(request,boolQuery,indices);
+
+        SearchResultBean result = new SearchResultBean(request.getKw());
+
+        setSingleSearchResults(request, result,response);
+
+        return new RestResp<>(result, request.getTt());
+    }
+
+    private void setSearchResources(QueryRequest request, List<String> indices, List<AbstractService> services) {
+        if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
+            services.addAll(Arrays.asList(patentService, paperService, standardService));
+            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX));
+        } else if(request.getDocType()!=null) {
+            setSearchResource(request.getDocType(),services,indices);
+        }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
+            for (DocType doc: request.getDocTypeList()) {
+                setSearchResource(doc,services,indices);
+            }
+        }
     }
 
     @POST

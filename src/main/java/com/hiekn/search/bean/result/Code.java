@@ -21,7 +21,8 @@ public enum Code {
 	
 	SERVICE_ERROR(90000,"服务端错误"),
 	REMOTE_SERVICE_PARSE_ERROR(90001,"远程数据解析错误"),
-	REMOTE_SERVICE_ERROR(90002,"远程服务错误");
+	REMOTE_SERVICE_ERROR(90002,"远程服务错误"),
+	SEARCH_UNKNOWN_FIELD_ERROR(90010,"搜索未知域错误");
 	
 	private Integer code;
 	private String errorInfo;

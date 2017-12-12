@@ -400,10 +400,15 @@ public class PaperService extends AbstractService{
 					buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, Operator.OR);
 
                     setOperator(boolQuery, reqItem, allQueryBuilder);
+                }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
+                    // 搜索未知域，期望搜索本资源失败
+                    if(Operator.AND.equals(reqItem.getOp()))
+                        return null;
                 }
 			}
 		}
 
+        boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(4f);
 		return boolQuery;
 
 	}

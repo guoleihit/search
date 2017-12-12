@@ -133,6 +133,11 @@ public class PictureService extends AbstractService{
 	}
 
 	@Override
+	public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
+		return null;
+	}
+
+	@Override
 	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
 
 	}

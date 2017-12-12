@@ -416,6 +416,7 @@ public class PatentService extends AbstractService {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makePatentFilter(request, boolQuery);
+        makeFilters(request, boolQuery);
 
         if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
             for (CompositeRequestItem reqItem: request.getConditions()) {
@@ -465,10 +466,15 @@ public class PatentService extends AbstractService {
                     buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false, Operator.OR);
                     buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false, Operator.OR);
                     setOperator(boolQuery,reqItem,allQueryBuilder);
+                }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
+                    // 搜索未知域，期望搜索本资源失败
+                    if(Operator.AND.equals(reqItem.getOp()))
+                        return null;
                 }
             }
         }
 
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(2f);
         return boolQuery;
 
     }

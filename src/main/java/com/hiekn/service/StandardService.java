@@ -6,10 +6,9 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.ItemBean;
-import com.hiekn.search.bean.result.SearchResultBean;
-import com.hiekn.search.bean.result.StandardDetail;
-import com.hiekn.search.bean.result.StandardItem;
+import com.hiekn.search.bean.result.*;
+import com.hiekn.search.exception.BaseException;
+import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
@@ -29,6 +28,7 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
+import javax.xml.ws.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -241,6 +241,7 @@ public class StandardService extends AbstractService{
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeStandardFilters(request, boolQuery);
+        makeFilters(request, boolQuery);
         if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
             for (CompositeRequestItem reqItem: request.getConditions()) {
                 String key = null;
@@ -268,9 +269,14 @@ public class StandardService extends AbstractService{
                     buildQueryCondition(boolQuery, reqItem, "num", true,true);
                 }else if ("pubDate".equals(dateKey)) {
                     doBuildDateCondition(boolQuery,reqItem, "earliest_publication_date");
+                }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
+                    // 搜索未知域，期望搜索本资源失败
+                    if(Operator.AND.equals(reqItem.getOp()))
+                        return null;
                 }
             }
         }
+        boolQuery.filter(QueryBuilders.termQuery("_type", "standard_data"));
         return boolQuery;
     }
 
@@ -293,6 +299,9 @@ public class StandardService extends AbstractService{
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
         BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        if (boolQuery==null) {
+            throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
+        }
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX+"_170");
         HighlightBuilder highlighter = new HighlightBuilder().field("name");
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
