@@ -22,6 +22,7 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
@@ -302,10 +303,20 @@ public class StandardService extends AbstractService{
         if (boolQuery==null) {
             throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
         }
-        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX+"_170");
+        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.STANDARD_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("name");
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
+
+        boolean noClassFound = true;
+        if (request.getFilters() != null) {
+            for (KVBean<String, List<String>> filter : request.getFilters()) {
+                if (filter.getK()!=null && (filter.getK().startsWith("base_")) || (filter.getK().startsWith("class_"))) {
+                    noClassFound = false;
+                    break;
+                }
+            }
+        }
 
         // 标准基础分类
         AggregationBuilder baseClasses = AggregationBuilders.terms("base_class").field("base_class");
@@ -317,6 +328,11 @@ public class StandardService extends AbstractService{
             AggregationBuilder classes = AggregationBuilders.terms(className).field(className);
             srb.addAggregation(classes);
         }
+
+        // 发表时间
+        AggregationBuilder aggPubYear = AggregationBuilders.histogram("publication_year")
+                .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
+        srb.addAggregation(aggPubYear);
 
         if (request.getSort() != null) {
             if(Integer.valueOf(1).equals(request.getSort()))
@@ -359,6 +375,8 @@ public class StandardService extends AbstractService{
             classFilter.setV(classValueMap);
             result.getFilters().add(classFilter);
         }
+
+        Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         return result;
     }
 

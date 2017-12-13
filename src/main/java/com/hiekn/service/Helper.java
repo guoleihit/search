@@ -13,6 +13,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -116,6 +117,37 @@ public class Helper {
 		}
 	}
 
+	public static void setTermAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
+		Terms docTypes = response.getAggregations().get(aggName);
+		KVBean<String, Map<String, ?>> docTypeFilter = new KVBean<>();
+		docTypeFilter.setD(filterD);
+		docTypeFilter.setK(filterK);
+		Map<String, Long> docMap = new HashMap<>();
+		for (Terms.Bucket bucket : docTypes.getBuckets()) {
+			docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+		}
+		docMap.put("_end",-1l);
+		docTypeFilter.setV(docMap);
+		result.getFilters().add(docTypeFilter);
+	}
+
+	public static void setYearAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
+		Histogram yearAgg = response.getAggregations().get(aggName);
+		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
+		yearFilter.setD(filterD);
+		yearFilter.setK(filterK);
+		Map<String, Long> yearMap = new HashMap<>();
+		for (Histogram.Bucket bucket : yearAgg.getBuckets()) {
+			if (bucket.getKey() instanceof Number) {
+				Double year = Double.valueOf(bucket.getKeyAsString());
+				year = year / 10000;
+				yearMap.put(String.valueOf(year.intValue()), bucket.getDocCount());
+			}
+		}
+		yearMap.put("_end",-1l);
+		yearFilter.setV(yearMap);
+		result.getFilters().add(yearFilter);
+	}
 	public static List<AnalyzeResponse.AnalyzeToken> esSegment(String input, String index, TransportClient esClient){
 		return esSegment(input, index, esClient, "ik_max_word");
 	}

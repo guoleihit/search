@@ -23,6 +23,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
@@ -431,6 +432,12 @@ public class PaperService extends AbstractService{
             AggregationBuilder knowledge = AggregationBuilders.terms("knowledge_class").field(annotationField);
             srb.addAggregation(knowledge);
         }
+
+        // 发表时间
+        AggregationBuilder aggPubYear = AggregationBuilders.histogram("publication_year")
+                .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
+        srb.addAggregation(aggPubYear);
+
         System.out.println(srb.toString());
 		SearchResponse response =  srb.execute().get();
 		SearchResultBean result = new SearchResultBean(request.getKw());
@@ -442,6 +449,8 @@ public class PaperService extends AbstractService{
 
         String annotation = getAnnotationFieldName(request);
         setKnowledgeAggResult(response, result, annotation);
+
+        Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         return result;
 	}
 }

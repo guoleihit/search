@@ -22,6 +22,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
@@ -495,10 +496,23 @@ public class PatentService extends AbstractService {
                         filterQuery.should(QueryBuilders.termQuery("main_ipc.ipc.keyword",v));
                     }
                     boolQuery.must(filterQuery);
-                } else if (filter.getK()!=null && filter.getK().startsWith("ipc_")) {
+                } else if (filter.getK()!=null && (filter.getK().startsWith("ipc_")||filter.getK().startsWith("address_"))) {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         filterQuery.should(QueryBuilders.termQuery(filter.getK(),v));
+                    }
+                    boolQuery.must(filterQuery);
+                } else if ("application_date".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.rangeQuery(filter.getK()).gt(Long.valueOf(v + "0000"))
+                                .lt(Long.valueOf(v + "9999")));
+                    }
+                    boolQuery.must(filterQuery);
+                } else if ("legal_status".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery(filter.getK(), legalStatusNameValueMap.get(v)));
                     }
                     boolQuery.must(filterQuery);
                 }
@@ -530,9 +544,30 @@ public class PatentService extends AbstractService {
             srb.addAggregation(ipcs);
         }
 
+        // 公开时间
+        AggregationBuilder aggPubYear = AggregationBuilders.histogram("publication_year")
+                .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
+        srb.addAggregation(aggPubYear);
+
+        // 申请时间
+        AggregationBuilder aggAppYear = AggregationBuilders.histogram("application_year")
+                .field("application_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
+        srb.addAggregation(aggAppYear);
+
+        // 省市
+        AggregationBuilder addressProvince =  AggregationBuilders.terms("address_province")
+                .field("applicants.address.original_province").minDocCount(1);
+        srb.addAggregation(addressProvince);
+
+        // 法律状态
+        AggregationBuilder legalStatusAgg =  AggregationBuilders.terms("legal_status")
+                .field("legal_status").minDocCount(1);
+        srb.addAggregation(legalStatusAgg);
+
         AggregationBuilder ipcs = AggregationBuilders.terms("main_ipc").field("main_ipc.ipc.keyword");
         srb.addAggregation(ipcs);
 
+        // 排序
         if (Integer.valueOf(1).equals(request.getSort())) {
             srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
         }else if (Integer.valueOf(2).equals(request.getSort())) {
@@ -550,7 +585,7 @@ public class PatentService extends AbstractService {
 
         Terms patentTypes = response.getAggregations().get("patent_type");
         KVBean<String, Map<String, ?>> patentTypeFilter = new KVBean<>();
-        patentTypeFilter.setD("专类类型");
+        patentTypeFilter.setD("专利类型");
         patentTypeFilter.setK("type");
         Map<String, Long> patentMap = new HashMap<>();
         for (Terms.Bucket bucket : patentTypes.getBuckets()) {
@@ -562,6 +597,22 @@ public class PatentService extends AbstractService {
         patentMap.put("_end", -1l);
         patentTypeFilter.setV(patentMap);
         result.getFilters().add(patentTypeFilter);
+
+        Terms legalStatuses = response.getAggregations().get("legal_status");
+        KVBean<String, Map<String, ?>> legalStatusFilter = new KVBean<>();
+        legalStatusFilter.setD("法律状态");
+        legalStatusFilter.setK("legal_status");
+        Map<String, Long> legalMap = new HashMap<>();
+        for (Terms.Bucket bucket : legalStatuses.getBuckets()) {
+            String key = legalStatusValueNameMap.get(bucket.getKeyAsString());
+            if (key != null) {
+                legalMap.put(key, bucket.getDocCount());
+            }
+        }
+        legalMap.put("_end", -1l);
+        legalStatusFilter.setV(legalMap);
+        result.getFilters().add(legalStatusFilter);
+
 
         String ipcName = getIPCFieldName(request);
         if(ipcName != null) {
@@ -579,6 +630,10 @@ public class PatentService extends AbstractService {
             mainIpcTypeFilter.setV(ipcMap);
             result.getFilters().add(mainIpcTypeFilter);
         }
+
+        Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
+        Helper.setYearAggFilter(result,response,"application_year", "申请时间","application_date");
+        Helper.setTermAggFilter(result,response,"address_province","所在省市","applicants.address.original_province");
 
         Terms mainIpcTypes = response.getAggregations().get("main_ipc");
         KVBean<String, Map<String, ?>> mainIpcTypeFilter = new KVBean<>();

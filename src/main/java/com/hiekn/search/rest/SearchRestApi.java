@@ -214,33 +214,9 @@ public class SearchRestApi implements InitializingBean {
         result.setRsCount(response.getHits().totalHits);
         setResultData(result, response);
 
-        Histogram yearAgg = response.getAggregations().get("publication_year");
-        KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
-        yearFilter.setD("发表年份");
-        yearFilter.setK("earliest_publication_date");
-        Map<String, Long> yearMap = new HashMap<>();
-        for (Histogram.Bucket bucket : yearAgg.getBuckets()) {
-            if (bucket.getKey() instanceof Number) {
-                Double year = Double.valueOf(bucket.getKeyAsString());
-                year = year / 10000;
-                yearMap.put(String.valueOf(year.intValue()), bucket.getDocCount());
-            }
-        }
-        yearMap.put("_end",-1l);
-        yearFilter.setV(yearMap);
-        result.getFilters().add(yearFilter);
+        setYearAggFilter(result, response,"publication_year", "发表年份", "earliest_publication_date");
 
-        Terms docTypes = response.getAggregations().get("document_type");
-        KVBean<String, Map<String, ?>> docTypeFilter = new KVBean<>();
-        docTypeFilter.setD("资源类型");
-        docTypeFilter.setK("_type");
-        Map<String, Long> docMap = new HashMap<>();
-        for (Terms.Bucket bucket : docTypes.getBuckets()) {
-            docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
-        }
-        docMap.put("_end",-1l);
-        docTypeFilter.setV(docMap);
-        result.getFilters().add(docTypeFilter);
+        setTermAggFilter(result, response, "document_type", "资源类型", "_type");
 
         String annotation = getAnnotationFieldName(request);
         setKnowledgeAggResult(response,result,annotation);

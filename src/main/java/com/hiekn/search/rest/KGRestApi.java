@@ -23,6 +23,7 @@ import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.JsonException;
 import com.hiekn.service.Helper;
+import com.hiekn.util.CommonResource;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -79,14 +80,14 @@ public class KGRestApi implements InitializingBean{
 
     public List<EntityBean> getPrompt(String kgName, String kw, List<Long> allowTypes, boolean isCaseSensitive,
                                       Integer pageSize) {
-        String url = SSEResource.sse_service_location + "/kg/entity/prompt";
+        String url = CommonResource.new_kg_service_url + "/kg/prompt";
 
         MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>();
         para.add("kgName", kgName);
-        para.add("prefix", kw);
+        para.add("text", kw);
         para.add("type", 1);
         para.add("size", pageSize);
-        para.add("isCaseInsensitive", !isCaseSensitive);
+        para.add("isCaseInsensitive", false);
 
         if (allowTypes != null && allowTypes.size() > 0) {
             para.add("conceptIds", allowTypes);
@@ -106,20 +107,27 @@ public class KGRestApi implements InitializingBean{
             throw ServiceException.newInstance(RestReturnCode.REMOTE_INVOKE_ERROR);
         }
 
-        KGResultItem<Map<String, List<PromptItem>>> kgResultItem = null;
         try {
             System.out.println(rs);
             JSONObject result = JSONUtils.fromJson(rs, JSONObject.class);
             List<EntityBean> rsList = new ArrayList<>();
-            for (Object e : (List) result.get("data")) {
-                JSONObject element = (JSONObject) e;
-                EntityBean bean = new EntityBean();
-                bean.setId(element.getLong("_id"));
-                if (element.get("entity_name") != null)
-                    bean.setName(element.getString("entity_name"));
-                if (element.get("meaning_tag") != null)
-                    bean.setMeaningTag(element.getString("meaning_tag"));
-                rsList.add(bean);
+            for (Object e : ((java.util.Map) result.get("data")).values()) {
+                if(e instanceof List) {
+                    for (Object elem: (List)e) {
+                        JSONObject element = (JSONObject) elem;
+                        EntityBean bean = new EntityBean();
+                        bean.setId(element.getLong("id"));
+                        if (element.get("entityName") != null)
+                            bean.setName(element.getString("entityName"));
+                        if (element.get("meaningTag") != null)
+                            bean.setMeaningTag(element.getString("meaningTag"));
+                        if (element.get("classId")!=null)
+                            bean.setClassId(element.getLong("classId"));
+                        if (element.get("type") != null)
+                            bean.setKgType(element.getInteger("type"));
+                        rsList.add(bean);
+                    }
+                }
             }
             return rsList;
         } catch (Exception e) {
@@ -182,11 +190,11 @@ public class KGRestApi implements InitializingBean{
         List<Long> allowTypeList = null;
 
         if (pageNo == null) {
-            pageNo = 0;
+            pageNo = 1;
         }
 
-        if (pageSize == null) {
-            pageSize = 10;
+        if (pageSize == null || pageSize == 0) {
+            pageSize = 20;
         }
 
         if (kw == null) {
