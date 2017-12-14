@@ -9,6 +9,7 @@ public final class CommonResource {
 	public static final String PAPER_INDEX = "gw_paper";
 	public static final String BAIKE_INDEX = "gw_baike";
 	public static final String PICTURE_INDEX = "gw_picture";
+	public static final String RESULTS_INDEX = "gw_results";
 
 	private static Properties props = PropertiesUtil.loadPropties("meta_ws.properties");
 

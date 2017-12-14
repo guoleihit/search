@@ -6,7 +6,6 @@ import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
-import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
@@ -17,12 +16,8 @@ import com.hiekn.service.*;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
-import com.mongodb.MongoClient;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
-import org.bson.Document;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -30,12 +25,10 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -72,9 +65,6 @@ public class SearchRestApi implements InitializingBean {
     @Resource
     private IGeneralSSEService generalSSEService;
 
-    private MongoClient client = null;
-    private MongoDatabase dataBase = null;
-    private MongoCollection<Document> basicInfoCollection = null;
     private Word2VEC word2vec;
 
     private static Logger log = LoggerFactory.getLogger(SearchRestApi.class);
@@ -86,6 +76,7 @@ public class SearchRestApi implements InitializingBean {
     private PatentService patentService = null;
     private PictureService pictureService = null;
     private StandardService standardService = null;
+    private ResultsService resultsService = null;
     private BaikeService baikeService = new BaikeService();
 
     @GET
@@ -108,6 +99,8 @@ public class SearchRestApi implements InitializingBean {
             index = PAPER_INDEX;
         } else if (DocType.STANDARD.equals(docType)) {
             index = STANDARD_INDEX;
+        } else if (DocType.RESULTS.equals(docType)){
+            index = RESULTS_INDEX;
         }
 
         //System.out.println(Helper.getItemFromHbase(docId, DocType.NEWS).toString());
@@ -127,6 +120,8 @@ public class SearchRestApi implements InitializingBean {
                 patentService.searchSimilarData(docId, result);
             }else if (DocType.PAPER.equals(docType)) {
                 paperService.searchSimilarData(docId, result);
+            }else if (DocType.RESULTS.equals(docType)) {
+                resultsService.searchSimilarData(docId, result);
             }
         }
         return new RestResp<>(result, tt);
@@ -140,6 +135,8 @@ public class SearchRestApi implements InitializingBean {
                 return paperService.extractDetail(hit);
             case STANDARD:
                 return standardService.extractDetail(hit);
+            case RESULTS:
+                return resultsService.extractDetail(hit);
             case PATENT:
             default:
                 return patentService.extractDetail(hit);
@@ -232,6 +229,9 @@ public class SearchRestApi implements InitializingBean {
         } else if (DocType.STANDARD.equals(docType)) {
             services.add(standardService);
             indices.add(STANDARD_INDEX);
+        } else if (DocType.RESULTS.equals(docType)) {
+            services.add(resultsService);
+            indices.add(RESULTS_INDEX);
         }
     }
 
@@ -274,9 +274,9 @@ public class SearchRestApi implements InitializingBean {
         }
 
 
-        FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(5);
+        //FunctionScoreQueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery).setMinScore(1);
 
-        srb.highlighter(highlighter).setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize())
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
         System.out.println(srb.toString());
@@ -389,8 +389,8 @@ public class SearchRestApi implements InitializingBean {
             case PATENT:
                 service = patentService;
                 break;
-            case PICTURE:
-                service = pictureService;
+            case RESULTS:
+                service = resultsService;
                 break;
             default:
                 throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
@@ -431,6 +431,8 @@ public class SearchRestApi implements InitializingBean {
                     indices.remove(PAPER_INDEX);
                 }else if (service == patentService) {
                     indices.remove(PATENT_INDEX);
+                }else if (service == resultsService) {
+                    indices.remove(RESULTS_INDEX);
                 }
             }
         }
@@ -449,8 +451,8 @@ public class SearchRestApi implements InitializingBean {
 
     private void setSearchResources(QueryRequest request, List<String> indices, List<AbstractService> services) {
         if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
-            services.addAll(Arrays.asList(patentService, paperService, standardService));
-            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX));
+            services.addAll(Arrays.asList(patentService, paperService, standardService, resultsService));
+            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, RESULTS_INDEX));
         } else if(request.getDocType()!=null) {
             setSearchResource(request.getDocType(),services,indices);
         }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
@@ -517,6 +519,8 @@ public class SearchRestApi implements InitializingBean {
                 item = standardService.extractItem(hit);
             else if (hit.getType().equals("picture_data"))
                 item = pictureService.extractItem(hit);
+            else if (hit.getType().equals("results_data"))
+                item = resultsService.extractItem(hit);
             else {
                 continue;
             }
@@ -530,7 +534,7 @@ public class SearchRestApi implements InitializingBean {
         patentService = new PatentService(esClient, generalSSEService, kgName);
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient, generalSSEService, kgName);
-
+        resultsService = new ResultsService(esClient, generalSSEService, kgName);
 
         word2vec = new Word2VEC();
         word2vec.loadJavaModel(modelLocation);

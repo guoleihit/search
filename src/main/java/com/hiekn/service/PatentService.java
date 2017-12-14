@@ -6,10 +6,8 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.ItemBean;
-import com.hiekn.search.bean.result.PatentDetail;
-import com.hiekn.search.bean.result.PatentItem;
-import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.search.bean.result.*;
+import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -402,9 +400,7 @@ public class PatentService extends AbstractService {
             should(termQuery,titleTerm);
             should(termQuery,abstractTerm);
             should(termQuery,annotationTagTerm);
-            if(boolTitleQuery!=null) {
-                termQuery.should(boolTitleQuery);
-            }
+            should(termQuery,boolTitleQuery);
         }
 
         boolQuery.must(termQuery);
@@ -523,6 +519,9 @@ public class PatentService extends AbstractService {
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
         BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        if (boolQuery==null) {
+            throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
+        }
         SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PATENT_INDEX);
 
         HighlightBuilder highlighter = new HighlightBuilder().field("title.original")

@@ -8,10 +8,8 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
-import com.hiekn.search.bean.result.ItemBean;
-import com.hiekn.search.bean.result.PaperDetail;
-import com.hiekn.search.bean.result.PaperItem;
-import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.search.bean.result.*;
+import com.hiekn.search.exception.ServiceException;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -416,6 +414,9 @@ public class PaperService extends AbstractService{
 
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        if (boolQuery==null) {
+            throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
+        }
 		SearchRequestBuilder srb = esClient.prepareSearch(PAPER_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abstract")
                 .field("keywords.keyword").field("authors.name.keyword");
