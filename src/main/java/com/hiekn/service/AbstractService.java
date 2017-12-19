@@ -17,6 +17,8 @@ import org.elasticsearch.index.query.QueryBuilders;
 
 import java.util.*;
 
+import static com.hiekn.service.Helper.isChinese;
+
 
 public abstract class AbstractService {
 
@@ -245,5 +247,140 @@ public abstract class AbstractService {
             parent.should(son);
         }
         return parent;
+    }
+
+    abstract BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op);
+
+    protected BoolQueryBuilder buildCustomQuery(QueryRequest request) {
+        List<String> parsed = new ArrayList<>();
+        int i = 0;
+        char[] contents = request.getCustomQuery().toLowerCase().toCharArray();
+        boolean wordStart = false;
+        boolean notOp = false;
+        int s = 0, e = 0;
+        while (i < contents.length) {
+            char c = contents[i];
+            if (c == '(') {
+                parsed.add("(");
+            } else if (c == 'a') {
+                if ((i + 3) < contents.length && contents[i + 1] == 'n' && contents[i + 2] == 'd'
+                        && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
+                    parsed.add("and");
+                    i += 2;
+                }
+            } else if (c == 'o') {
+                if ((i + 2) < contents.length && contents[i + 1] == 'r'
+                        && (contents[i + 2] == '(' || contents[i + 2] == ' ')) {
+                    parsed.add("or");
+                    i += 1;
+                }
+            } else if (c == 'n') {
+                if ((i + 3) < contents.length && contents[i + 1] == 'o' && contents[i + 2] == 't'
+                        && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
+                    //parsed.add("not");
+                    notOp = true;
+                    i += 2;
+                }
+            } else if (isChinese(String.valueOf(c)) || (c >= 'a' && c <= 'z')) {
+                if (!wordStart) {
+                    s = i;
+                    wordStart = true;
+                }
+            } else if (c == ' ' || c == ')') {
+                if (wordStart) {
+                    e = i - 1;
+                    wordStart = false;
+                    String word = new String(contents, s, e - s + 1);
+                    if (notOp) {
+                        notOp = false;
+                        word = "not_" + word;
+                    }
+                    parsed.add(word);
+                }
+
+                if (c == ')') {
+                    parsed.add(")");
+                }
+            }
+            i++;
+        }
+        if (wordStart) {
+            e = i - 1;
+            String word = new String(contents, s, e - s + 1);
+            if (notOp) {
+                word = "not_" + word;
+            }
+            parsed.add(word);
+        }
+        System.out.println(parsed);
+
+        Stack<String> stack = new Stack<>();
+        List<String> parsedSuffix = new ArrayList<>();
+        for (i = 0; i < parsed.size(); i++) {
+            String element = parsed.get(i);
+            if ("(".equals(element)) {
+                stack.push(element);
+            } else if (")".equals(element)) {
+                while (!"(".equals(stack.peek())) {
+                    parsedSuffix.add(stack.pop());
+                }
+                stack.pop();
+            } else if ("or".equals(element)) {
+                while (!stack.isEmpty() && !"(".equals(stack.peek())) {
+                    parsedSuffix.add(stack.pop());
+                }
+                stack.push(element);
+            } else if ("and".equals(element)) {
+                while (!stack.isEmpty() && "and".equals(stack.peek())) {
+                    parsedSuffix.add(stack.pop());
+                }
+                stack.push(element);
+            } else {
+                parsedSuffix.add(element);
+            }
+        }
+        while(!stack.isEmpty()) {
+            parsedSuffix.add(stack.pop());
+        }
+
+        System.out.println(parsedSuffix);
+
+        Stack<BoolQueryBuilder> queryStack = new Stack<>();
+        for(i=0; i<parsedSuffix.size(); i++){
+            String element = parsedSuffix.get(i);
+            if("or".equals(element)){
+
+                BoolQueryBuilder q1 = queryStack.pop();
+                BoolQueryBuilder q2 = queryStack.pop();
+                queryStack.push(q1.should(q2));
+            }else if("and".equals(element)) {
+                BoolQueryBuilder q1 = queryStack.pop();
+                BoolQueryBuilder q2 = queryStack.pop();
+                queryStack.push(q1.must(q2));
+            }else {
+                String value = element;
+                boolean isNotOp = false;
+                if(value.startsWith("not_")){
+                    value = value.substring(4);
+                    isNotOp = true;
+                }
+                CompositeRequestItem item = new CompositeRequestItem();
+                KVBean<String, List<String>> bean = new KVBean();
+                bean.setK("all");
+                bean.setV(new ArrayList<>());
+                bean.getV().add(value);
+                item.setPrecision(Integer.valueOf(2)); // 模糊
+                Operator op = Operator.OR;
+                if(isNotOp){
+                    op = Operator.NOT;
+                    item.setPrecision(Integer.valueOf(1)); // 精确
+                }
+                item.setOp(op);
+                item.setKv(bean);
+                queryStack.push(makeFiledAllQueryBuilder(item, op));
+            }
+        }
+        BoolQueryBuilder query = queryStack.peek();
+        return query;
     }
 }

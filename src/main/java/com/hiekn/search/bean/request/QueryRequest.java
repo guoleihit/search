@@ -10,6 +10,7 @@ import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 
 import io.swagger.annotations.ApiParam;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 
@@ -50,6 +51,16 @@ public class QueryRequest {
 
     private String id;
 
+    private String customQuery;
+
+    public String getCustomQuery() {
+        return customQuery;
+    }
+
+    public void setCustomQuery(String customQuery) {
+        this.customQuery = customQuery;
+    }
+
     public String getId() {
         return id;
     }
@@ -62,6 +73,7 @@ public class QueryRequest {
 
 	private List<AnalyzeResponse.AnalyzeToken> segmentList;
 
+	@JsonIgnore
     public List<String> getUserSplitSegList() {
         return userSplitSegList;
     }
@@ -72,7 +84,7 @@ public class QueryRequest {
 
     private List<String> userSplitSegList;
 
-
+    @JsonIgnore
 	public List<AnalyzeResponse.AnalyzeToken> getSegmentList() {
 		return segmentList;
 	}
@@ -179,53 +191,4 @@ public class QueryRequest {
     public void setDocTypeList(List<DocType> docTypeList) {
         this.docTypeList = docTypeList;
     }
-
-    /*
-    public String getAndKwList() {
-        return andKwList;
-    }
-
-    public void setAndKwList(String andKwList) {
-        this.andKwList = andKwList;
-    }
-
-    public String getExactKwList() {
-        return exactKwList;
-    }
-
-    public void setExactKwList(String exactKwList) {
-        this.exactKwList = exactKwList;
-    }
-
-    public String getAtLeastOneKw() {
-        return atLeastOneKw;
-    }
-
-    public void setAtLeastOneKw(String atLeastOneKw) {
-        this.atLeastOneKw = atLeastOneKw;
-    }
-
-    public String getNoneKwList() {
-        return noneKwList;
-    }
-
-    public void setNoneKwList(String noneKwList) {
-        this.noneKwList = noneKwList;
-    }
-
-    public Integer getPosition() {
-        return position;
-    }
-
-    public void setPosition(Integer position) {
-        this.position = position;
-    }
-
-    public String getLanguage() {
-        return language;
-    }
-
-    public void setLanguage(String language) {
-        this.language = language;
-    }*/
 }

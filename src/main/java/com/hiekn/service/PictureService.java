@@ -10,6 +10,8 @@ import java.util.concurrent.ExecutionException;
 
 import com.alibaba.fastjson.JSONObject;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
+import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -140,6 +142,11 @@ public class PictureService extends AbstractService{
 	@Override
 	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
 
+	}
+
+	@Override
+	BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
+		return null;
 	}
 
 	@Override

@@ -57,12 +57,12 @@ public class PatentService extends AbstractService {
         legalStatusValueNameMap = new ConcurrentHashMap<>();
         legalStatusValueNameMap.put("1", "公开");
         legalStatusValueNameMap.put("2", "授权");
-        legalStatusValueNameMap.put("3", "实效");
+        legalStatusValueNameMap.put("3", "失效");
 
         legalStatusNameValueMap = new ConcurrentHashMap<>();
         legalStatusNameValueMap.put("公开", 1);
         legalStatusNameValueMap.put("授权", 2);
-        legalStatusNameValueMap.put("实效", 3);
+        legalStatusNameValueMap.put("失效", 3);
     }
 
     private Map<String, String> patentTypeNameMap;
@@ -324,6 +324,12 @@ public class PatentService extends AbstractService {
             return boolQuery;
         }
 
+        if (!StringUtils.isEmpty(request.getCustomQuery())) {
+            BoolQueryBuilder query = buildCustomQuery(request);
+            query.filter(QueryBuilders.termQuery("_type", "patent_data"));
+            return query;
+        }
+
         Map<String, String> result = intentionRecognition(request);
         String userInputPersonName = result.get("人物");
         String userInputOrgName = result.get("机构");
@@ -353,13 +359,13 @@ public class PatentService extends AbstractService {
             should(termQuery, applicantTerm);
             should(termQuery, annotationTagTerm);
 
-            if(userInputOrgName != null){
+            if(userInputPersonName != null){
                 should(termQuery, QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(5f));
             }else{
                 should(termQuery,inventorTerm);
             }
 
-            if(userInputPersonName != null){
+            if(userInputOrgName != null){
                 should(termQuery, QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(5f));
             }else{
                 should(termQuery,applicantTerm);
@@ -456,12 +462,7 @@ public class PatentService extends AbstractService {
                 }else if ("pubDate".equals(dateKey)) {
                     doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
                 }else if ("all".equals(key)) {
-                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem,PATENT_INDEX,"title.original", false,false, Operator.OR);
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PATENT_INDEX,"abstract.original", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false, Operator.OR);
+                    BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery,reqItem,allQueryBuilder);
                 }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
                     // 搜索未知域，期望搜索本资源失败
@@ -722,6 +723,17 @@ public class PatentService extends AbstractService {
         }
     }
 
+    @Override
+    BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
+        BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+        buildLongTextQueryCondition(allQueryBuilder, reqItem,PATENT_INDEX,"title.original", false,false, op);
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, PATENT_INDEX,"abstract.original", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "main_ipc.ipc.keyword", false,true, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "inventors.name.original.keyword", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "applicants.name.original.keyword", false,false, op);
+        return allQueryBuilder;
+    }
+
     private List<Object> toPatentTypes(List<String> names){
         List<Integer> types = new ArrayList<>();
         for (String name: names) {
@@ -744,12 +756,19 @@ public class PatentService extends AbstractService {
 
     public static String getIPCFieldName(QueryRequest request) {
         String annotationField = "ipc_1";
+        int level = 1;
         if (request.getFilters() != null) {
             for (KVBean<String, List<String>> filter : request.getFilters()) {
                 if ("ipc_1".equals(filter.getK())) {
-                    annotationField = "ipc_2";
+                    if (level < 2) {
+                        annotationField = "ipc_2";
+                        level = 2;
+                    }
                 } else if ("ipc_2".equals(filter.getK())) {
-                    annotationField = "ipc_3";
+                    if (level < 3) {
+                        annotationField = "ipc_3";
+                        level = 3;
+                    }
                 }else if ("ipc_3".equals(filter.getK())) {
                     return null;
                 }

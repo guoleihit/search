@@ -189,6 +189,12 @@ public class StandardService extends AbstractService{
             return boolQuery;
         }
 
+        if (!StringUtils.isEmpty(request.getCustomQuery())) {
+            BoolQueryBuilder query = buildCustomQuery(request);
+            query.filter(QueryBuilders.termQuery("_type", "standard_data"));
+            return query;
+        }
+
         BoolQueryBuilder boolTitleQuery = null;
         Boolean allOneWord = false;
         if (request.getKwType() != 1 && request.getKwType() != 2) {
@@ -261,11 +267,12 @@ public class StandardService extends AbstractService{
                 }else if ("title".equals(key)) {
                     buildLongTextQueryCondition(boolQuery, reqItem, STANDARD_INDEX,"name", false,false ,null);
                 }else if ("all".equals(key)) {
-                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-                    buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, Operator.OR);
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, STANDARD_INDEX,"name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, Operator.OR);
+                    BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery,reqItem, allQueryBuilder);
+                }else if ("author".equals(key)) {
+                    //TODO 专利起草人
+                }else if ("authorOrg".equals(key)) {
+                    //TODO 专利起草单位
                 }else if ("standardType".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "num", true,true);
                 }else if ("pubDate".equals(dateKey)) {
@@ -382,6 +389,7 @@ public class StandardService extends AbstractService{
 
     public static String getClassFieldName(QueryRequest request) {
         String annotationField = "class_1";
+        int level = 1;
         if (request.getFilters() != null) {
             for (KVBean<String, List<String>> filter : request.getFilters()) {
                 if ("class_1".equals(filter.getK())) {
@@ -392,5 +400,14 @@ public class StandardService extends AbstractService{
             }
         }
         return annotationField;
+    }
+
+    @Override
+    BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
+        BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+        buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, op);
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, STANDARD_INDEX,"name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, op);
+        return allQueryBuilder;
     }
 }

@@ -9,7 +9,25 @@ public class PaperDetail extends PaperItem {
 	private String citeCount;
 	private String eTitle;
 
-	public String geteTitle() {
+	/**
+	 * 参考文献
+	 */
+	private List<Object> references;
+
+    /**
+     * 引证文献
+     */
+	private List<Object> cites;
+
+    public List<Object> getCites() {
+        return cites;
+    }
+
+    public void setCites(List<Object> cites) {
+        this.cites = cites;
+    }
+
+    public String geteTitle() {
 		return eTitle;
 	}
 
@@ -31,5 +49,13 @@ public class PaperDetail extends PaperItem {
 
 	public void setCiteCount(String citeCount) {
 		this.citeCount = citeCount;
+	}
+
+	public List<Object> getReferences() {
+		return references;
+	}
+
+	public void setReferences(List<Object> references) {
+		this.references = references;
 	}
 }

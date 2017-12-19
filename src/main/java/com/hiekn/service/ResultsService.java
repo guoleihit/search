@@ -147,6 +147,11 @@ public class ResultsService extends AbstractService {
                 .field("province_city").minDocCount(1);
         srb.addAggregation(addressProvince);
 
+        // 成果水平 TODO
+        AggregationBuilder resultsLevel =  AggregationBuilders.terms("results_level")
+                .field("type").minDocCount(1);
+        srb.addAggregation(resultsLevel);
+
         System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
         SearchResultBean result = new SearchResultBean(request.getKw());
@@ -161,6 +166,7 @@ public class ResultsService extends AbstractService {
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         Helper.setTermAggFilter(result,response,"address_province","所在省市","province_city");
+        Helper.setTermAggFilter(result,response,"results_level","成果水平","results_level");
         return result;
     }
 
@@ -174,6 +180,12 @@ public class ResultsService extends AbstractService {
             boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
             boolQuery.filter(QueryBuilders.termQuery("_type", "results_data")).boost(3f);
             return boolQuery;
+        }
+
+        if (!StringUtils.isEmpty(request.getCustomQuery())) {
+            BoolQueryBuilder query = buildCustomQuery(request);
+            query.filter(QueryBuilders.termQuery("_type", "results_data"));
+            return query;
         }
 
         Map<String, String> result = intentionRecognition(request);
@@ -289,17 +301,7 @@ public class ResultsService extends AbstractService {
                 }else if ("pubDate".equals(dateKey)) {
                     doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
                 }else if ("all".equals(key)) {
-                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, RESULTS_INDEX,"title", false,false, Operator.OR);
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, RESULTS_INDEX,"abs", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "keywords", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "complete_persons", false,false, Operator.OR);
-
+                    BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery, reqItem, allQueryBuilder);
                 }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
                     // 搜索未知域，期望搜索本资源失败
@@ -321,6 +323,13 @@ public class ResultsService extends AbstractService {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         filterQuery.should(QueryBuilders.termQuery(filter.getK(),v));
+                    }
+                    boolQuery.must(filterQuery);
+                }else if ("results_level".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        //TODO 成果水平过滤
+                        filterQuery.should(QueryBuilders.termQuery("type",v));
                     }
                     boolQuery.must(filterQuery);
                 }
@@ -367,6 +376,22 @@ public class ResultsService extends AbstractService {
         result.getSimilarData().add(similarKeywords);
         similarKeywords.getV().addAll(Arrays.asList("直流系统","维护"));
 
+    }
+
+    @Override
+    BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
+        BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, RESULTS_INDEX,"title", false,false, op);
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, RESULTS_INDEX,"abs", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "keywords", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "complete_persons", false,false, op);
+
+        return allQueryBuilder;
     }
 
     private ItemBean fakePatent(){

@@ -9,6 +9,10 @@ import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.*;
+import com.hiekn.search.bean.result.paper.Conference;
+import com.hiekn.search.bean.result.paper.Degree;
+import com.hiekn.search.bean.result.paper.Journal;
+import com.hiekn.search.bean.result.paper.PaperType;
 import com.hiekn.search.exception.ServiceException;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -44,8 +48,9 @@ public class PaperService extends AbstractService{
 	}
 
 	public ItemBean extractDetail(SearchHit hit) {
-		PaperDetail item = new PaperDetail();
 		Map<String, Object> source = hit.getSource();
+        PaperDetail item = (PaperDetail)getPaper(source, new PaperDetail());
+
 		item.setDocId(hit.getId());
 
 		Object titleObj = source.get("title");
@@ -98,11 +103,15 @@ public class PaperService extends AbstractService{
                 }
 
                 if (((Map) inventor).get("organization") != null){
-                    List orgs = (List)((Map) inventor).get("organization");
-                    for (Object org: orgs) {
-                        if(((Map)org).get("name")!=null){
-                            orgList.add(((Map)org).get("name").toString());
+                    if (((Map) inventor).get("organization") instanceof List) {
+                        List orgs = (List) ((Map) inventor).get("organization");
+                        for (Object org : orgs) {
+                            if (((Map) org).get("name") != null) {
+                                orgList.add(((Map) org).get("name").toString());
+                            }
                         }
+                    }else {
+                        orgList.add(getString(((Map) inventor).get("organization")));
                     }
                 }
             }
@@ -111,8 +120,9 @@ public class PaperService extends AbstractService{
 
     @SuppressWarnings("rawtypes")
 	public PaperItem extractItem(SearchHit hit) {
-		PaperItem item = new PaperItem();
-		Map<String, Object> source = hit.getSource();
+        Map<String, Object> source = hit.getSource();
+        PaperItem item = getPaper(source, new PaperItem());
+
 		item.setDocId(hit.getId().toString());
 
 		Object titleObj = source.get("title");
@@ -171,6 +181,7 @@ public class PaperService extends AbstractService{
 							setHighlightElements(frags, itr);
 						}
 						break;
+						//TODO
                     case "authors.organization.name.keyword":
                         if (frags != null && frags.length > 0) {
                             List<String> values = Lists.newArrayList(item.getOrgs());
@@ -185,6 +196,42 @@ public class PaperService extends AbstractService{
 		return item;
 	}
 
+    private PaperItem getPaper(Map<String, Object> source, PaperItem paperItem) {
+        PaperItem item = paperItem;
+        if (source.get("paperType")!=null) {
+            if(source.get("paperType").equals(PaperType.CONFERENCE.getName())){
+                Conference c = new Conference();
+                if(source.get("conference")!=null && source.get("conference") instanceof Map) {
+                    Map<String, Object> confObj = (Map<String, Object>) source.get("conference");
+                    c.setConference(getString(confObj.get("conference_name")));
+                    c.setConferenceDate(getString(confObj.get("conference_time")));
+                    c.setConferencePlace(getString(confObj.get("conference_place")));
+                    c.setConferenceOrganizer(getString(confObj.get("conference_organizer")));
+                }
+                item = c;
+            }else if(source.get("paperType").equals(PaperType.DEGREE.getName())){
+                Degree d = new Degree();
+                d.setDegree(getString(source.get("degree")));
+                d.setDegreeYear(getString(source.get("degree_year")));
+                d.setMajor(getString(source.get("profession")));
+                d.setUniversity(getString(source.get("degree_awarded_organization")));
+                d.setMentor(toStringListByKey(source.get("mentor"),"tutor_name"));
+                item = d;
+            }else if(source.get("paperType").equals(PaperType.JOURNAL.getName())){
+                Journal j = new Journal();
+                if(source.get("journal")!=null && source.get("journal") instanceof Map) {
+                    Map<String, Object> journalObj = (Map<String, Object>) source.get("journal");
+                    j.seteJournal(getString(journalObj.get("journal_english_name")));
+                    j.setJournal(getString(journalObj.get("journal_chinese_name")));
+                    j.setJournalYear(getString("year"));
+                    j.setPeriod(getString(journalObj.get("period")));
+                }
+                item = j;
+            }
+        }
+        return item;
+    }
+
 
     public BoolQueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
@@ -197,6 +244,12 @@ public class PaperService extends AbstractService{
             return boolQuery;
         }
 
+        if (!StringUtils.isEmpty(request.getCustomQuery())) {
+            BoolQueryBuilder query = buildCustomQuery(request);
+            query.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
+            return query;
+        }
+
         Map<String, String> result = intentionRecognition(request);
         String userInputPersonName = result.get("人物");
         String userInputOrgName = result.get("机构");
@@ -207,8 +260,26 @@ public class PaperService extends AbstractService{
             boolTitleQuery = createSegmentsTermQuery(request, PAPER_INDEX, "title");
         }
 
-        QueryBuilder titleTerm = createTermsQuery("title", request.getUserSplitSegList(), 1f);
-        QueryBuilder abstractTerm = createTermsQuery("abstract", request.getUserSplitSegList(), 1f);
+        Set<String> enWords = Sets.newHashSet();
+        Set<String> cnWords = Sets.newHashSet();
+        for (String seg: request.getUserSplitSegList()) {
+            if (!isChinese(seg)) {
+                enWords.add(seg);
+            }else{
+                cnWords.add(seg);
+            }
+        }
+
+        List<String> cnWordList = Lists.newArrayList();
+        cnWordList.addAll(cnWords);
+        List<String> enWordList = Lists.newArrayList();
+        enWordList.addAll(enWords);
+
+        QueryBuilder titleTerm = createTermsQuery("title", cnWordList, 1f);
+        QueryBuilder abstractTerm = createTermsQuery("abstract", cnWordList, 1f);
+        QueryBuilder entitleTerm = createTermsQuery("title.english", enWordList, 1f);
+        QueryBuilder enabstractTerm = createTermsQuery("abstract.english", enWordList, 1f);
+
         QueryBuilder authorTerm = createTermsQuery("authors.name.keyword", request.getUserSplitSegList(), 3f);
         QueryBuilder orgsTerm = createTermsQuery("authors.organization.name.keyword", request.getUserSplitSegList(), 3f);
         QueryBuilder kwsTerm = createTermsQuery("keywords.keyword", request.getUserSplitSegList(), 3f);
@@ -217,10 +288,12 @@ public class PaperService extends AbstractService{
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             should(termQuery, titleTerm);
-            should(termQuery,boolTitleQuery);
-            should(termQuery,abstractTerm);
-            should(termQuery,kwsTerm);
-            should(termQuery,annotationTagTerm);
+            should(termQuery, boolTitleQuery);
+            should(termQuery, entitleTerm);
+            should(termQuery, enabstractTerm);
+            should(termQuery, abstractTerm);
+            should(termQuery, kwsTerm);
+            should(termQuery, annotationTagTerm);
             if(userInputOrgName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(5f));
             }else{
@@ -265,6 +338,8 @@ public class PaperService extends AbstractService{
                 should(termQuery, orgsTerm);
             }
         } else if (request.getKwType() == 3) {
+            should(termQuery, entitleTerm);
+            should(termQuery, enabstractTerm);
             should(termQuery, titleTerm);
             should(termQuery, boolTitleQuery);
             should(termQuery, abstractTerm);
@@ -278,7 +353,7 @@ public class PaperService extends AbstractService{
         return boolQuery;
     }
 
-	@Override
+    @Override
 	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
             String title = result.getRsData().get(0).getTitle();
             QueryBuilder similarPapersQuery = QueryBuilders.matchQuery("title",title).analyzer("ik_max_word");
@@ -370,8 +445,14 @@ public class PaperService extends AbstractService{
 
 				if ("title".equals(key)) {
 					buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX, "title", false, false, null);
+					if(!reqItem.getKv().getV().isEmpty() && !isChinese(reqItem.getKv().getV().get(0))){
+                        buildQueryCondition(boolQuery, reqItem, "title.english", false, true);
+                    }
 				}else if ("abs".equals(key)) {
                     buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX,"abstract", false, false, null);
+                    if(!reqItem.getKv().getV().isEmpty() && !isChinese(reqItem.getKv().getV().get(0))){
+                        buildQueryCondition(boolQuery, reqItem, "abstract.english", false, true);
+                    }
 				} else if ("theme".equals(key)) {
 					BoolQueryBuilder themeQuery = QueryBuilders.boolQuery();
                     buildQueryCondition(themeQuery, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
@@ -382,21 +463,20 @@ public class PaperService extends AbstractService{
 					setOperator(boolQuery, reqItem, themeQuery);
 				}else if ("keyword".equals(key)) {
 					buildQueryCondition(boolQuery, reqItem, "keywords.keyword", false,false);
-				}else if ("author".equals(key)) {
+				}else if ("firstAuthor".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "first_author", false,false);
+                }else if ("firstAuthorOrg".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "first_author_org", false,false);
+                }else if ("author".equals(key)) {
 					buildQueryCondition(boolQuery, reqItem, "authors.name.keyword", false,false);
-				}else if ("pubDate".equals(dateKey)) {
+				}else if ("authorOrg".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "authors.organization.name.keyword", false,false);
+                }else if ("doi".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "doi", false,false);
+                }else if ("pubDate".equals(dateKey)) {
 					doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
 				}else if ("all".equals(key)) {
-                    BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
-
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"title", false,false, Operator.OR);
-                    buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"abstract", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
-                    buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, Operator.OR);
-					buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, Operator.OR);
+                    BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
 
                     setOperator(boolQuery, reqItem, allQueryBuilder);
                 }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
@@ -411,6 +491,21 @@ public class PaperService extends AbstractService{
 		return boolQuery;
 
 	}
+
+	@Override
+    BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
+        BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"title", false,false, op);
+        buildLongTextQueryCondition(allQueryBuilder, reqItem, PAPER_INDEX,"abstract", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "authors.organization.name.keyword", false,false, op);
+        return allQueryBuilder;
+    }
 
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
 		BoolQueryBuilder boolQuery = buildEnhancedQuery(request);

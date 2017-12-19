@@ -3,7 +3,7 @@ package com.hiekn.search.bean.result;
 import java.util.List;
 import java.util.Set;
 
-import org.codehaus.jackson.map.annotate.JsonSerialize;
+import com.hiekn.search.bean.result.paper.PaperType;
 
 import com.hiekn.search.bean.DocType;
 
@@ -20,16 +20,31 @@ public class PaperItem extends ItemBean {
 
 	private Long downloadedCount;
 
-    /**
-     * 参考文献
-     */
-    private List<String> references;
-
     private String firstAuthor;
 
     private String firstAuthorOrg;
 
     private Set<String> orgs;
+
+    private PaperType paperType;
+
+    private String origin;
+
+    public String getOrigin() {
+        return origin;
+    }
+
+    public void setOrigin(String origin) {
+        this.origin = origin;
+    }
+
+    public PaperType getPaperType() {
+        return paperType;
+    }
+
+    public void setPaperType(PaperType paperType) {
+        this.paperType = paperType;
+    }
 
     public String getFirstAuthor() {
         return firstAuthor;
@@ -53,14 +68,6 @@ public class PaperItem extends ItemBean {
 
     public void setOrgs(Set<String> orgs) {
         this.orgs = orgs;
-    }
-
-    public List<String> getReferences() {
-        return references;
-    }
-
-    public void setReferences(List<String> references) {
-        this.references = references;
     }
 
 	public Long getDownloadedCount() {

@@ -43,8 +43,6 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.hiekn.service.Helper.*;
@@ -279,14 +277,8 @@ public class SearchRestApi implements InitializingBean {
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
-        System.out.println(srb.toString());
+        //System.out.println(srb.toString());
         return srb.execute().get();
-    }
-
-    private boolean isChinese(String words) {
-        Pattern chinesePattern = Pattern.compile("[\\u4E00-\\u9FA5]+");
-        Matcher matcherResult = chinesePattern.matcher(words);
-        return matcherResult.find();
     }
 
     private boolean isNumber(String str) {

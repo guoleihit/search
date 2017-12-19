@@ -22,6 +22,8 @@ import org.xml.sax.helpers.DefaultHandler;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Helper {
 
@@ -75,12 +77,19 @@ public class Helper {
 
 	public static String getAnnotationFieldName(QueryRequest request) {
 		String annotationField = "_kg_annotation_1.name";
+		int level = 1;
 		if (request.getFilters() != null) {
 			for (KVBean<String, List<String>> filter : request.getFilters()) {
 				if ("_kg_annotation_1.name".equals(filter.getK())) {
-					annotationField = "_kg_annotation_2.name";
+					if(level<2){
+						annotationField = "_kg_annotation_2.name";
+						level = 2;
+					}
 				} else if ("_kg_annotation_2.name".equals(filter.getK())) {
-					annotationField = "_kg_annotation_3.name";
+					if(level<3) {
+						annotationField = "_kg_annotation_3.name";
+						level = 3;
+					}
 				} else if ("_kg_annotation_3.name".equals(filter.getK())) {
 					return null;
 				}
@@ -213,6 +222,12 @@ public class Helper {
 
         return Long.valueOf(year) * 10000 + Long.valueOf(month) * 100 + Long.valueOf(dateS);
     }
+
+	public static boolean isChinese(String words) {
+		Pattern chinesePattern = Pattern.compile("[\\u4E00-\\u9FA5]+");
+		Matcher matcherResult = chinesePattern.matcher(words);
+		return matcherResult.find();
+	}
 
     public static JSONObject getItemFromHbase(String rowKey, DocType docType){
         String table = getHBaseTableName(docType);
