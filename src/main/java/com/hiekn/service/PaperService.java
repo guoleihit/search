@@ -33,6 +33,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -41,10 +42,22 @@ import static com.hiekn.util.CommonResource.PAPER_INDEX;
 
 public class PaperService extends AbstractService{
 
+    private Map<String, String> paperTypeNameMap;
+    private Map<String, String> paperNameTypeMap;
 	public PaperService (TransportClient client, IGeneralSSEService sse, String kgName) {
 		esClient = client;
         generalSSEService = sse;
         this.kgName = kgName;
+
+        paperTypeNameMap = new ConcurrentHashMap<>();
+        paperTypeNameMap.put("CONFERENCE", "会议论文");
+        paperTypeNameMap.put("JOURNAL", "期刊论文");
+        paperTypeNameMap.put("DEGREE", "学位论文");
+
+        paperNameTypeMap = new ConcurrentHashMap<>();
+        paperNameTypeMap.put("会议论文", "CONFERENCE");
+        paperNameTypeMap.put("期刊论文", "JOURNAL");
+        paperNameTypeMap.put("学位论文", "DEGREE");
 	}
 
 	public ItemBean extractDetail(SearchHit hit) {
@@ -59,7 +72,7 @@ public class PaperService extends AbstractService{
 		}
 		Object absObj = source.get("abstract");
 		if (absObj != null) {
-			item.setAbs(absObj.toString());
+			item.setAbs(absObj.toString().replaceAll(",","，"));
 		}
 		Object keywords = source.get("keywords");
 		List<String> kws = toStringList(keywords);
@@ -85,12 +98,31 @@ public class PaperService extends AbstractService{
             item.setAuthors(Arrays.asList(inventors.toArray(new String[]{})));
         }
 
+        item.setFirstAuthor(getString(source.get("first_author")));
+        item.setFirstAuthorOrg(toStringList(source.get("first_author_org")));
+
 		if (source.get("earliest_publication_date") != null) {
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
 		}
 
-		item.setJournal(getString(source.get("journal")));
+		//item.setJournal(getString(source.get("journal")));
 		item.setCiteCount(getString(source.get("citeCount")));
+
+        if (source.get("refer")!=null) {
+            List<Object> references = new ArrayList<>();
+            if(source.get("refer") instanceof List){
+                references.addAll((List)source.get("refer"));
+            }
+            item.setReferences(references);
+        }
+
+        if (source.get("cite")!=null) {
+            List<Object> cites = new ArrayList<>();
+            if(source.get("cite") instanceof List){
+                cites.addAll((List)source.get("cite"));
+            }
+            item.setCites(cites);
+        }
 		return item;
 	
 	}
@@ -131,7 +163,7 @@ public class PaperService extends AbstractService{
 		}
 		Object absObj = source.get("abstract");
 		if (absObj != null) {
-			item.setAbs(absObj.toString());
+			item.setAbs(absObj.toString().replaceAll(",","，"));
 		}
 		Object keywords = source.get("keywords");
 		List<String> kws = toStringList(keywords);
@@ -152,7 +184,7 @@ public class PaperService extends AbstractService{
 			item.setPubDate(toDateString(source.get("earliest_publication_date").toString(), "-"));
 		}
 
-        item.setJournal(getString(source.get("journal")));
+        //item.setJournal(getString(source.get("journal")));
 
 		//highlight
 		if (hit.getHighlightFields() != null) {
@@ -160,11 +192,13 @@ public class PaperService extends AbstractService{
 				Text[] frags = entry.getValue().getFragments();
 				switch (entry.getKey()) {
 					case "title":
+                    case "title.keyword":
 						if (frags != null && frags.length > 0 && frags[0].string().length()>1) {
 							item.setTitle(frags[0].string());
 						}
 						break;
 					case "abstract":
+                    case "abstract.keyword":
 						if (frags != null && frags.length > 0) {
 							item.setAbs(frags[0].string());
 						}
@@ -182,7 +216,7 @@ public class PaperService extends AbstractService{
 						}
 						break;
 						//TODO
-                    case "authors.organization.name.keyword":
+                    case "authors.organization.name":
                         if (frags != null && frags.length > 0) {
                             List<String> values = Lists.newArrayList(item.getOrgs());
                             ListIterator<String> itr = values.listIterator();
@@ -223,7 +257,7 @@ public class PaperService extends AbstractService{
                     Map<String, Object> journalObj = (Map<String, Object>) source.get("journal");
                     j.seteJournal(getString(journalObj.get("journal_english_name")));
                     j.setJournal(getString(journalObj.get("journal_chinese_name")));
-                    j.setJournalYear(getString("year"));
+                    j.setJournalYear(getString(journalObj.get("year")));
                     j.setPeriod(getString(journalObj.get("period")));
                 }
                 item = j;
@@ -247,7 +281,10 @@ public class PaperService extends AbstractService{
         if (!StringUtils.isEmpty(request.getCustomQuery())) {
             BoolQueryBuilder query = buildCustomQuery(request);
             query.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
-            return query;
+            boolQuery.should(query);
+            if(StringUtils.isEmpty(request.getKw())){
+                return boolQuery;
+            }
         }
 
         Map<String, String> result = intentionRecognition(request);
@@ -281,7 +318,7 @@ public class PaperService extends AbstractService{
         QueryBuilder enabstractTerm = createTermsQuery("abstract.english", enWordList, 1f);
 
         QueryBuilder authorTerm = createTermsQuery("authors.name.keyword", request.getUserSplitSegList(), 3f);
-        QueryBuilder orgsTerm = createTermsQuery("authors.organization.name.keyword", request.getUserSplitSegList(), 3f);
+        QueryBuilder orgsTerm = createTermsQuery("authors.organization.name", request.getUserSplitSegList(), 3f);
         QueryBuilder kwsTerm = createTermsQuery("keywords.keyword", request.getUserSplitSegList(), 3f);
         QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 3f);
 
@@ -294,14 +331,16 @@ public class PaperService extends AbstractService{
             should(termQuery, abstractTerm);
             should(termQuery, kwsTerm);
             should(termQuery, annotationTagTerm);
-            if(userInputOrgName != null){
+            if(userInputPersonName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(5f));
+                should(termQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
             }else{
                 should(termQuery,authorTerm);
             }
 
-            if(userInputPersonName != null){
-                should(termQuery, QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName).boost(5f));
+            if(userInputOrgName != null){
+                should(termQuery, QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(5f));
+                should(termQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
             }else{
                 should(termQuery,orgsTerm);
             }
@@ -309,8 +348,10 @@ public class PaperService extends AbstractService{
             if (userInputPersonName != null) {
                 BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
                 personQuery.must(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(6f));
+                should(personQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
                 if (userInputOrgName != null) {
-                    personQuery.should(QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName));
+                    personQuery.should(QueryBuilders.termQuery("authors.organization.name", userInputOrgName));
+                    should(personQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
                 }
                 should(personQuery, annotationTagTerm);
                 should(personQuery, titleTerm);
@@ -324,9 +365,11 @@ public class PaperService extends AbstractService{
         } else if (request.getKwType() == 2) {
             if (userInputOrgName != null) {
                 BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
-                orgQuery.must(QueryBuilders.termQuery("authors.organization.name.keyword", userInputOrgName).boost(6f));
+                orgQuery.must(QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(6f));
+                should(orgQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
                 if (userInputPersonName != null) {
                     orgQuery.should(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName));
+                    should(orgQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
                 }
                 should(orgQuery, annotationTagTerm);
                 should(orgQuery, titleTerm);
@@ -355,7 +398,8 @@ public class PaperService extends AbstractService{
 
     @Override
 	public void searchSimilarData(String docId, SearchResultBean result) throws Exception {
-            String title = result.getRsData().get(0).getTitle();
+	        PaperDetail paperDetail = (PaperDetail) result.getRsData().get(0);
+            String title = paperDetail.getTitle();
             QueryBuilder similarPapersQuery = QueryBuilders.matchQuery("title",title).analyzer("ik_max_word");
             SearchRequestBuilder spq = esClient.prepareSearch(PAPER_INDEX);
             HighlightBuilder titleHighlighter = new HighlightBuilder().field("title");
@@ -366,7 +410,7 @@ public class PaperService extends AbstractService{
             AggregationBuilder relatedPersons = AggregationBuilders.terms("related_persons").field("authors.name.keyword");
             spq.addAggregation(relatedPersons);
 
-            AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("authors.organization.name.keyword");
+            AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("authors.organization.name");
             spq.addAggregation(relatedOrgs);
 
             AggregationBuilder relatedKeywords = AggregationBuilders.terms("related_keywords").field("keywords.keyword");
@@ -423,6 +467,18 @@ public class PaperService extends AbstractService{
                     keywordList.add(bucket.getKeyAsString());
                 }
                 relatedKeywordsFilter.setV(keywordList);
+
+                KVBean<String, List<Object>> references = new KVBean<>();
+                references.setD("参考文献");
+                references.setK("references");
+                references.setV(paperDetail.getReferences());
+                result.getSimilarData().add(references);
+
+                KVBean<String, List<Object>> cites = new KVBean<>();
+                cites.setD("引证文献");
+                cites.setK("cites");
+                cites.setV(paperDetail.getCites());
+                result.getSimilarData().add(cites);
             }
 	}
 
@@ -430,6 +486,7 @@ public class PaperService extends AbstractService{
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
+        makePaperFilter(request, boolQuery);
 
 		if (request.getConditions()!=null && !request.getConditions().isEmpty()) {
 			for (CompositeRequestItem reqItem: request.getConditions()) {
@@ -445,12 +502,16 @@ public class PaperService extends AbstractService{
 
 				if ("title".equals(key)) {
 					buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX, "title", false, false, null);
-					if(!reqItem.getKv().getV().isEmpty() && !isChinese(reqItem.getKv().getV().get(0))){
+					String value = reqItem.getKv().getV().get(0);
+					if(!reqItem.getKv().getV().isEmpty() && !isChinese(value)){
+					    reqItem.getKv().getV().addAll(Arrays.asList(value.toLowerCase().split(" ")));
                         buildQueryCondition(boolQuery, reqItem, "title.english", false, true);
                     }
 				}else if ("abs".equals(key)) {
                     buildLongTextQueryCondition(boolQuery, reqItem, PAPER_INDEX,"abstract", false, false, null);
+                    String value = reqItem.getKv().getV().get(0);
                     if(!reqItem.getKv().getV().isEmpty() && !isChinese(reqItem.getKv().getV().get(0))){
+                        reqItem.getKv().getV().addAll(Arrays.asList(value.toLowerCase().split(" ")));
                         buildQueryCondition(boolQuery, reqItem, "abstract.english", false, true);
                     }
 				} else if ("theme".equals(key)) {
@@ -470,9 +531,11 @@ public class PaperService extends AbstractService{
                 }else if ("author".equals(key)) {
 					buildQueryCondition(boolQuery, reqItem, "authors.name.keyword", false,false);
 				}else if ("authorOrg".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "authors.organization.name.keyword", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "authors.organization.name", false,false);
                 }else if ("doi".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "doi", false,false);
+                }else if ("references".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "refer.name", false,false);
                 }else if ("pubDate".equals(dateKey)) {
 					doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
 				}else if ("all".equals(key)) {
@@ -503,7 +566,8 @@ public class PaperService extends AbstractService{
         buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
         buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, op);
-        buildQueryCondition(allQueryBuilder, reqItem, "authors.organization.name.keyword", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "authors.organization.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "refer.name", false,false, op);
         return allQueryBuilder;
     }
 
@@ -514,6 +578,7 @@ public class PaperService extends AbstractService{
         }
 		SearchRequestBuilder srb = esClient.prepareSearch(PAPER_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abstract")
+                .field("title.english").field("abstract.english")
                 .field("keywords.keyword").field("authors.name.keyword");
 
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
@@ -534,6 +599,10 @@ public class PaperService extends AbstractService{
                 .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
         srb.addAggregation(aggPubYear);
 
+        // 文献类型
+        AggregationBuilder paperTypes = AggregationBuilders.terms("paper_type").field("paperType");
+        srb.addAggregation(paperTypes);
+
         System.out.println(srb.toString());
 		SearchResponse response =  srb.execute().get();
 		SearchResultBean result = new SearchResultBean(request.getKw());
@@ -547,6 +616,37 @@ public class PaperService extends AbstractService{
         setKnowledgeAggResult(response, result, annotation);
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
+        //Helper.setTermAggFilter(result,response, "paper_type", "文献类型", "paperType");
+        Terms paperTypesAggs = response.getAggregations().get("paper_type");
+        KVBean<String, Map<String, ?>> paperTypeFilter = new KVBean<>();
+        paperTypeFilter.setD("文献类型");
+        paperTypeFilter.setK("paperType");
+        Map<String, Long> paperMap = new HashMap<>();
+        for (Terms.Bucket bucket : paperTypesAggs.getBuckets()) {
+            String key = paperTypeNameMap.get(bucket.getKeyAsString());
+            if(key == null){
+                continue;
+            }
+            paperMap.put(key, bucket.getDocCount());
+        }
+        paperMap.put("_end", -1l);
+        paperTypeFilter.setV(paperMap);
+        result.getFilters().add(paperTypeFilter);
         return result;
 	}
+
+    private void makePaperFilter(QueryRequest request, BoolQueryBuilder boolQuery) {
+        if (request.getFilters() != null) {
+            List<KVBean<String, List<String>>> filters = request.getFilters();
+            for (KVBean<String, List<String>> filter : filters) {
+                if ("paperType".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery(filter.getK(), paperNameTypeMap.get(v)));
+                    }
+                    boolQuery.must(filterQuery);
+                }
+            }
+        }
+    }
 }

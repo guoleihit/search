@@ -327,7 +327,10 @@ public class PatentService extends AbstractService {
         if (!StringUtils.isEmpty(request.getCustomQuery())) {
             BoolQueryBuilder query = buildCustomQuery(request);
             query.filter(QueryBuilders.termQuery("_type", "patent_data"));
-            return query;
+            boolQuery.should(query);
+            if(StringUtils.isEmpty(request.getKw())){
+                return boolQuery;
+            }
         }
 
         Map<String, String> result = intentionRecognition(request);

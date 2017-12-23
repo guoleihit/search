@@ -1,13 +1,13 @@
 package com.hiekn.search.bean.result;
 
+import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.result.paper.PaperType;
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+
 import java.util.List;
 import java.util.Set;
 
-import com.hiekn.search.bean.result.paper.PaperType;
-
-import com.hiekn.search.bean.DocType;
-
-//@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class PaperItem extends ItemBean {
 
 	public PaperItem() {
@@ -22,7 +22,7 @@ public class PaperItem extends ItemBean {
 
     private String firstAuthor;
 
-    private String firstAuthorOrg;
+    private List<String> firstAuthorOrg;
 
     private Set<String> orgs;
 
@@ -54,11 +54,11 @@ public class PaperItem extends ItemBean {
         this.firstAuthor = firstAuthor;
     }
 
-    public String getFirstAuthorOrg() {
+    public List<String> getFirstAuthorOrg() {
         return firstAuthorOrg;
     }
 
-    public void setFirstAuthorOrg(String firstAuthorOrg) {
+    public void setFirstAuthorOrg(List<String> firstAuthorOrg) {
         this.firstAuthorOrg = firstAuthorOrg;
     }
 

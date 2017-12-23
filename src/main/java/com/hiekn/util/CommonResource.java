@@ -19,5 +19,5 @@ public final class CommonResource {
 
 	public static final String new_plantdata_service_url = props.getProperty("new_plantdata_service_url");
 
-	public static final String new_kg_service_url = props.getProperty("new_kg_service_url");
+	public static final String kg_public_service_url = props.getProperty("kg_public_service_url");
 }

@@ -1,7 +1,10 @@
 package com.hiekn.search.bean.result;
 
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+
 import java.util.List;
 
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class PaperDetail extends PaperItem {
 
 

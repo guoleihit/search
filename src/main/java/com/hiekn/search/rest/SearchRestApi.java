@@ -179,11 +179,14 @@ public class SearchRestApi implements InitializingBean {
             @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> kw(@ApiParam(value = "检索请求") QueryRequest request)
             throws InterruptedException, ExecutionException {
-        if (StringUtils.isEmpty(request.getKw())) {
+        if (StringUtils.isEmpty(request.getKw()) && StringUtils.isEmpty(request.getCustomQuery())) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
         log.info(com.hiekn.util.JSONUtils.toJson(request));
 
+        if(request.getKw()==null){
+            request.setKw("");
+        }
         SearchResultBean result = new SearchResultBean(request.getKw());
         String[] kws = request.getKw().trim().split(" ");
         request.setUserSplitSegList(Lists.newArrayList(kws));
@@ -277,7 +280,7 @@ public class SearchRestApi implements InitializingBean {
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
-        //System.out.println(srb.toString());
+        System.out.println(srb.toString());
         return srb.execute().get();
     }
 
@@ -496,6 +499,9 @@ public class SearchRestApi implements InitializingBean {
 
         result.put("commonWords",commons);
         result.put("recommendWords",recommendWords);
+
+        log.info("common seg:" + commons);
+        log.info("recommend seg:" + recommendWords);
         return new RestResp<>(result, 0L);
     }
 

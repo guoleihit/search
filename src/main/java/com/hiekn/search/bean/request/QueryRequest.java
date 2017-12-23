@@ -53,7 +53,21 @@ public class QueryRequest {
 
     private String customQuery;
 
-    public String getCustomQuery() {
+	/**
+	 *  模糊 or 精确
+	 *  <p>默认精确</p>
+	 */
+	private Integer precision = 1;
+
+	public Integer getPrecision() {
+		return precision;
+	}
+
+	public void setPrecision(Integer precision) {
+		this.precision = precision;
+	}
+
+	public String getCustomQuery() {
         return customQuery;
     }
 

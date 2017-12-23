@@ -192,11 +192,14 @@ public class StandardService extends AbstractService{
         if (!StringUtils.isEmpty(request.getCustomQuery())) {
             BoolQueryBuilder query = buildCustomQuery(request);
             query.filter(QueryBuilders.termQuery("_type", "standard_data"));
-            return query;
+            boolQuery.should(query);
+            if(StringUtils.isEmpty(request.getKw())){
+                return boolQuery;
+            }
         }
 
         BoolQueryBuilder boolTitleQuery = null;
-        Boolean allOneWord = false;
+        Boolean emptyTitleQuery = true;
         if (request.getKwType() != 1 && request.getKwType() != 2) {
             List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, STANDARD_INDEX);
             boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -212,11 +215,11 @@ public class StandardService extends AbstractService{
                     oneWordList.add(t);
                 } else {
                     boolTitleQuery.should(QueryBuilders.termQuery("name", t));
+                    emptyTitleQuery = false;
                 }
             }
             if (oneWordList.size() == tokens.size()) {
-                //boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList));
-                allOneWord = true;
+                boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList)).minimumShouldMatch(oneWordList.size());
             }
         }
 
@@ -230,7 +233,7 @@ public class StandardService extends AbstractService{
         termQuery.should(abstractTerm);
         termQuery.should(authorTerm);
         termQuery.should(kwsTerm);
-        if(boolTitleQuery!=null && !allOneWord){
+        if(boolTitleQuery!=null && !emptyTitleQuery){
             termQuery.should(boolTitleQuery);
         }
 
@@ -273,6 +276,12 @@ public class StandardService extends AbstractService{
                     //TODO 专利起草人
                 }else if ("authorOrg".equals(key)) {
                     //TODO 专利起草单位
+                }else if ("status".equals(key)) {
+                    // TODO 标准状态: implement,publish,annull
+                    buildQueryCondition(boolQuery, reqItem, "state", false, false);
+                }else if ("term".equals(key)) {
+                    // TODO 标准术语
+                    buildQueryCondition(boolQuery, reqItem, "term", false, false);
                 }else if ("standardType".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "num", true,true);
                 }else if ("pubDate".equals(dateKey)) {
@@ -297,6 +306,12 @@ public class StandardService extends AbstractService{
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         filterQuery.should(QueryBuilders.termQuery(filter.getK(), v));
+                    }
+                    boolQuery.must(filterQuery);
+                }else if ("status".equals(filter.getK()) ) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery("state", v));
                     }
                     boolQuery.must(filterQuery);
                 }
@@ -341,6 +356,11 @@ public class StandardService extends AbstractService{
                 .field("earliest_publication_date").interval(10000).minDocCount(1).order(Histogram.Order.KEY_DESC);
         srb.addAggregation(aggPubYear);
 
+
+        // 标准状态
+        AggregationBuilder status = AggregationBuilders.terms("status").field("state");
+        srb.addAggregation(status);
+
         if (request.getSort() != null) {
             if(Integer.valueOf(1).equals(request.getSort()))
                 srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
@@ -384,6 +404,7 @@ public class StandardService extends AbstractService{
         }
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
+        Helper.setTermAggFilter(result,response,"status", "专利状态","state");
         return result;
     }
 

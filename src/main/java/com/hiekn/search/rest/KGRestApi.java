@@ -1,23 +1,15 @@
 package com.hiekn.search.rest;
 
-import cn.edu.ecust.sse.bean.KGResultItem;
-import cn.edu.ecust.sse.bean.PromptItem;
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.TypeBean;
-import com.hiekn.plantdata.bean.graph.EntityBean;
-import com.hiekn.plantdata.bean.graph.GraphStatBean;
-import com.hiekn.plantdata.bean.graph.PathAGBean;
-import com.hiekn.plantdata.bean.graph.SchemaBean;
+import com.hiekn.plantdata.bean.graph.*;
 import com.hiekn.plantdata.bean.rest.RestReturnCode;
 import com.hiekn.plantdata.exception.ServiceException;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.plantdata.util.HttpClient;
 import com.hiekn.plantdata.util.JSONUtils;
-import com.hiekn.plantdata.util.SSEResource;
-import com.hiekn.search.bean.graph.MyEntityBean;
 import com.hiekn.search.bean.graph.MyGraphBean;
-import com.hiekn.search.bean.graph.MyRelationBean;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
@@ -80,7 +72,7 @@ public class KGRestApi implements InitializingBean{
 
     public List<EntityBean> getPrompt(String kgName, String kw, List<Long> allowTypes, boolean isCaseSensitive,
                                       Integer pageSize) {
-        String url = CommonResource.new_kg_service_url + "/kg/prompt";
+        String url = CommonResource.kg_public_service_url + "/kg/prompt";
 
         MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>();
         para.add("kgName", kgName);
@@ -174,7 +166,7 @@ public class KGRestApi implements InitializingBean{
     @ApiOperation(value = "图谱")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<MyGraphBean> kg(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
+    public RestResp<GraphBean> kg(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
                                   @FormParam("allowTypes") String allowTypes, @FormParam("entitiesLimit") Integer entitiesLimit,
                                   @FormParam("relationsLimit") Integer relationsLimit, @FormParam("conceptsLimit") Integer conceptsLimit,
                                   @FormParam("statsLimit") Integer statsLimit, @QueryParam("pageNo") Integer pageNo,
@@ -219,7 +211,7 @@ public class KGRestApi implements InitializingBean{
             rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
         }
 
-        MyGraphBean graphBean = null;
+        GraphBean graphBean = null;
 
         Long entityId = null;
         if (rsList != null && rsList.size() > 0) {
@@ -265,13 +257,13 @@ public class KGRestApi implements InitializingBean{
 
 
         if (entityId != null) {
-//            graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
-//                    true, pageNo, pageSize, isInherit);
-
-            graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
+           graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
                     true, pageNo, pageSize, isInherit);
+
+//            graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
+//                    true, pageNo, pageSize, isInherit);
             if (entitiesLimit != null && entitiesLimit > 0) {
-                List<MyEntityBean> entities = graphBean.getEntityList();
+                List<EntityBean> entities = graphBean.getEntityList();
                 if (entities != null && entities.size() > entitiesLimit) {
                     graphBean.setEntityList(entities.subList(0, entitiesLimit));
                 }
@@ -285,7 +277,7 @@ public class KGRestApi implements InitializingBean{
             }
 
             if (relationsLimit != null && relationsLimit > 0) {
-                List<MyRelationBean> relations = graphBean.getRelationList();
+                List<RelationBean> relations = graphBean.getRelationList();
                 if (relations != null && relations.size() > relationsLimit) {
                     graphBean.setRelationList(relations.subList(0, relationsLimit));
                 }

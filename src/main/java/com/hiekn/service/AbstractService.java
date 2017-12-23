@@ -7,7 +7,9 @@ import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.SearchResultBean;
+import com.hiekn.search.exception.BaseException;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -124,9 +126,13 @@ public abstract class AbstractService {
     }
 
     void setOperator(BoolQueryBuilder boolQuery, CompositeRequestItem reqItem, QueryBuilder allQueryBuilder) {
-        if (Operator.AND.equals(reqItem.getOp())) {
+        setOperator(boolQuery, reqItem.getOp(), allQueryBuilder);
+    }
+
+    void setOperator(BoolQueryBuilder boolQuery, Operator op,  QueryBuilder allQueryBuilder) {
+        if (Operator.AND.equals(op)) {
             boolQuery.must(allQueryBuilder);
-        }else if (Operator.OR.equals(reqItem.getOp())) {
+        }else if (Operator.OR.equals(op)) {
             boolQuery.should(allQueryBuilder);
         }else {
             boolQuery.mustNot(allQueryBuilder);
@@ -142,10 +148,15 @@ public abstract class AbstractService {
                 esField = esField.concat(".keyword");
             }
             if (value instanceof String) {
-                termQuery.should(QueryBuilders.wildcardQuery(esField, "*" + value + "*"));
+                termQuery.should(QueryBuilders.termQuery(esField, value));
             }
         } else if (Integer.valueOf(2).equals(reqItem.getPrecision())){ // 模糊匹配
-            termQuery.should(QueryBuilders.wildcardQuery(esField, "*" + value + "*"));
+            //termQuery.should(QueryBuilders.wildcardQuery(esField, "*" + value + "*"));
+            termQuery.should(QueryBuilders.termQuery(esField, value));
+            QueryRequest rq = new QueryRequest();
+            rq.setKw(reqItem.getKv().getV().get(0));
+            QueryBuilder absQuery = createSegmentsTermQuery(rq, "gw_paper", esField); // TODO index name for test
+            setOperator((BoolQueryBuilder) termQuery, (CompositeRequestItem) reqItem, (QueryBuilder) absQuery);
         }
     }
 
@@ -179,6 +190,9 @@ public abstract class AbstractService {
             Long person = Helper.types.get("人物");
             Long org = Helper.types.get("机构");
 
+            if(person == null || org == null){
+                return result;
+            }
             for(EntityBean bean: rsList){
                 if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
                     if (request.getUserSplitSegList().contains(bean.getName())) {
@@ -209,7 +223,10 @@ public abstract class AbstractService {
             QueryRequest rq = new QueryRequest();
             rq.setKw(reqItem.getKv().getV().get(0));
             QueryBuilder absQuery = createSegmentsTermQuery(rq, index, field);
-            setOperator(boolQuery, reqItem, absQuery);
+            if (op != null)
+                setOperator(boolQuery, op,  absQuery);
+            else
+                setOperator(boolQuery, reqItem, absQuery);
         } else {
             buildQueryCondition(boolQuery, reqItem, field, needPrefix, ignoreStrCase, op);
         }
@@ -252,135 +269,165 @@ public abstract class AbstractService {
     abstract BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op);
 
     protected BoolQueryBuilder buildCustomQuery(QueryRequest request) {
-        List<String> parsed = new ArrayList<>();
-        int i = 0;
-        char[] contents = request.getCustomQuery().toLowerCase().toCharArray();
-        boolean wordStart = false;
-        boolean notOp = false;
-        int s = 0, e = 0;
-        while (i < contents.length) {
-            char c = contents[i];
-            if (c == '(') {
-                parsed.add("(");
-            } else if (c == 'a') {
-                if ((i + 3) < contents.length && contents[i + 1] == 'n' && contents[i + 2] == 'd'
-                        && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
-                    parsed.add("and");
-                    i += 2;
-                }
-            } else if (c == 'o') {
-                if ((i + 2) < contents.length && contents[i + 1] == 'r'
-                        && (contents[i + 2] == '(' || contents[i + 2] == ' ')) {
-                    parsed.add("or");
-                    i += 1;
-                }
-            } else if (c == 'n') {
-                if ((i + 3) < contents.length && contents[i + 1] == 'o' && contents[i + 2] == 't'
-                        && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
-                    //parsed.add("not");
-                    notOp = true;
-                    i += 2;
-                }
-            } else if (isChinese(String.valueOf(c)) || (c >= 'a' && c <= 'z')) {
-                if (!wordStart) {
-                    s = i;
-                    wordStart = true;
-                }
-            } else if (c == ' ' || c == ')') {
-                if (wordStart) {
-                    e = i - 1;
-                    wordStart = false;
-                    String word = new String(contents, s, e - s + 1);
-                    if (notOp) {
+        try {
+            Integer precision = request.getPrecision();
+            if(!Integer.valueOf(1).equals(precision) &&  !Integer.valueOf(2).equals(precision)){
+                precision = 1;
+            }
+            List<String> parsed = new ArrayList<>();
+            int i = 0;
+            char[] contents = request.getCustomQuery().toLowerCase().toCharArray();
+            boolean wordStart = false;
+            boolean notOp = false;
+            int s = 0, e = 0;
+            while (i < contents.length) {
+                char c = contents[i];
+                if (c == '(') {
+                    if(notOp){
+                        parsed.add("not");
                         notOp = false;
-                        word = "not_" + word;
                     }
-                    parsed.add(word);
-                }
+                    parsed.add("(");
+                } else if (c == 'a') {
+                    if ((i + 3) < contents.length && contents[i + 1] == 'n' && contents[i + 2] == 'd'
+                            && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
+                        parsed.add("and");
+                        i += 2;
+                    }
+                } else if (c == 'o') {
+                    if ((i + 2) < contents.length && contents[i + 1] == 'r'
+                            && (contents[i + 2] == '(' || contents[i + 2] == ' ')) {
+                        parsed.add("or");
+                        i += 1;
+                    }
+                } else if (c == 'n') {
+                    if ((i + 3) < contents.length && contents[i + 1] == 'o' && contents[i + 2] == 't'
+                            && (contents[i + 3] == '(' || contents[i + 3] == ' ')) {
+                        //parsed.add("not");
+                        if (notOp){
+                            parsed.add("not");
+                        }
+                        notOp = true;
+                        i += 2;
+                    }
+                } else if (isChinese(String.valueOf(c)) || (c >= 'a' && c <= 'z')) {
+                    if (!wordStart) {
+                        s = i;
+                        wordStart = true;
+                    }
+                } else if (c == ' ' || c == ')') {
+                    if (wordStart) {
+                        e = i - 1;
+                        wordStart = false;
+                        String word = new String(contents, s, e - s + 1);
+                        if (notOp) {
+                            notOp = false;
+                            word = "not_" + word;
+                        }
+                        parsed.add(word);
+                    }
 
-                if (c == ')') {
-                    parsed.add(")");
+                    if (c == ')') {
+                        parsed.add(")");
+                    }
+                }
+                i++;
+            }
+            if (wordStart) {
+                e = i - 1;
+                String word = new String(contents, s, e - s + 1);
+                if (notOp) {
+                    word = "not_" + word;
+                }
+                parsed.add(word);
+            }
+            // System.out.println(parsed);
+
+            Stack<String> stack = new Stack<>();
+            List<String> parsedSuffix = new ArrayList<>();
+            for (i = 0; i < parsed.size(); i++) {
+                String element = parsed.get(i);
+                if ("(".equals(element)) {
+                    stack.push(element);
+                } else if (")".equals(element)) {
+                    while (!"(".equals(stack.peek())) {
+                        parsedSuffix.add(stack.pop());
+                    }
+                    stack.pop();
+                } else if ("or".equals(element)) {
+                    while (!stack.isEmpty() && !"(".equals(stack.peek())) {
+                        parsedSuffix.add(stack.pop());
+                    }
+                    stack.push(element);
+                } else if ("and".equals(element)) {
+                    while (!stack.isEmpty() && ("and".equals(stack.peek()))) {
+                        parsedSuffix.add(stack.pop());
+                    }
+                    stack.push(element);
+                } else if ("not".equals(element)) {
+//                    while (!stack.isEmpty() && !"(".equals(stack.peek())) {
+//                        parsedSuffix.add(stack.pop());
+//                    }
+                    stack.push(element);
+                } else {
+                    parsedSuffix.add(element);
                 }
             }
-            i++;
-        }
-        if (wordStart) {
-            e = i - 1;
-            String word = new String(contents, s, e - s + 1);
-            if (notOp) {
-                word = "not_" + word;
+            while (!stack.isEmpty()) {
+                parsedSuffix.add(stack.pop());
             }
-            parsed.add(word);
-        }
-        System.out.println(parsed);
 
-        Stack<String> stack = new Stack<>();
-        List<String> parsedSuffix = new ArrayList<>();
-        for (i = 0; i < parsed.size(); i++) {
-            String element = parsed.get(i);
-            if ("(".equals(element)) {
-                stack.push(element);
-            } else if (")".equals(element)) {
-                while (!"(".equals(stack.peek())) {
-                    parsedSuffix.add(stack.pop());
+            System.out.println(parsedSuffix);
+
+            Stack<BoolQueryBuilder> queryStack = new Stack<>();
+            for (i = 0; i < parsedSuffix.size(); i++) {
+                String element = parsedSuffix.get(i);
+                if ("or".equals(element)) {
+
+                    BoolQueryBuilder q1 = queryStack.pop();
+                    BoolQueryBuilder q2 = queryStack.pop();
+                    queryStack.push(QueryBuilders.boolQuery().should(q1).should(q2).minimumShouldMatch(1));
+                } else if ("and".equals(element)) {
+                    BoolQueryBuilder q1 = queryStack.pop();
+                    BoolQueryBuilder q2 = queryStack.pop();
+                    queryStack.push(QueryBuilders.boolQuery().must(q1).must(q2));
+                } else if ("not".equals(element)){
+                    BoolQueryBuilder q1 = queryStack.pop();
+                    queryStack.push(QueryBuilders.boolQuery().mustNot(q1));
+                }else {
+                    String value = element;
+                    boolean isNotOp = false;
+                    if (value.startsWith("not_")) {
+                        value = value.substring(4);
+                        isNotOp = true;
+                    }
+                    CompositeRequestItem item = new CompositeRequestItem();
+                    KVBean<String, List<String>> bean = new KVBean();
+                    bean.setK("all");
+                    bean.setV(new ArrayList<>());
+                    bean.getV().add(value);
+
+                    item.setPrecision(precision);
+                    Operator op = Operator.OR;
+                    if (isNotOp) {
+                        op = Operator.NOT;
+                        item.setPrecision(Integer.valueOf(1)); // 精确
+                    }
+                    item.setOp(op);
+                    item.setKv(bean);
+                    queryStack.push(makeFiledAllQueryBuilder(item, op));
                 }
-                stack.pop();
-            } else if ("or".equals(element)) {
-                while (!stack.isEmpty() && !"(".equals(stack.peek())) {
-                    parsedSuffix.add(stack.pop());
-                }
-                stack.push(element);
-            } else if ("and".equals(element)) {
-                while (!stack.isEmpty() && "and".equals(stack.peek())) {
-                    parsedSuffix.add(stack.pop());
-                }
-                stack.push(element);
-            } else {
-                parsedSuffix.add(element);
             }
-        }
-        while(!stack.isEmpty()) {
-            parsedSuffix.add(stack.pop());
-        }
 
-        System.out.println(parsedSuffix);
-
-        Stack<BoolQueryBuilder> queryStack = new Stack<>();
-        for(i=0; i<parsedSuffix.size(); i++){
-            String element = parsedSuffix.get(i);
-            if("or".equals(element)){
-
-                BoolQueryBuilder q1 = queryStack.pop();
-                BoolQueryBuilder q2 = queryStack.pop();
-                queryStack.push(q1.should(q2));
-            }else if("and".equals(element)) {
-                BoolQueryBuilder q1 = queryStack.pop();
-                BoolQueryBuilder q2 = queryStack.pop();
-                queryStack.push(q1.must(q2));
-            }else {
-                String value = element;
-                boolean isNotOp = false;
-                if(value.startsWith("not_")){
-                    value = value.substring(4);
-                    isNotOp = true;
-                }
-                CompositeRequestItem item = new CompositeRequestItem();
-                KVBean<String, List<String>> bean = new KVBean();
-                bean.setK("all");
-                bean.setV(new ArrayList<>());
-                bean.getV().add(value);
-                item.setPrecision(Integer.valueOf(2)); // 模糊
-                Operator op = Operator.OR;
-                if(isNotOp){
-                    op = Operator.NOT;
-                    item.setPrecision(Integer.valueOf(1)); // 精确
-                }
-                item.setOp(op);
-                item.setKv(bean);
-                queryStack.push(makeFiledAllQueryBuilder(item, op));
+            if (queryStack.size() > 1) {
+                throw new RuntimeException("表达式解析错误." + request.getCustomQuery());
             }
+
+            BoolQueryBuilder query = queryStack.peek();
+            return query;
+        }catch (Exception e){
+            System.out.println(e.getMessage());
+            throw new BaseException(Code.EXPRESS_ERROR.getCode());
         }
-        BoolQueryBuilder query = queryStack.peek();
-        return query;
     }
 }
