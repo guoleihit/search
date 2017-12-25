@@ -116,7 +116,7 @@ public class ResultsService extends AbstractService {
 
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws Exception {
-        BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        QueryBuilder boolQuery = buildEnhancedQuery(request);
         if (boolQuery==null) {
             throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
         }
@@ -171,7 +171,7 @@ public class ResultsService extends AbstractService {
     }
 
     @Override
-    public BoolQueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -273,7 +273,7 @@ public class ResultsService extends AbstractService {
     }
 
     @Override
-    public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
+    public QueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);

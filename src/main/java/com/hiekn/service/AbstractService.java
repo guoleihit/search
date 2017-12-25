@@ -54,9 +54,9 @@ public abstract class AbstractService {
 
     public abstract SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws Exception;
 
-    public abstract BoolQueryBuilder buildQuery(QueryRequest request);
+    public abstract QueryBuilder buildQuery(QueryRequest request);
 
-    public abstract BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request);
+    public abstract QueryBuilder buildEnhancedQuery(CompositeQueryRequest request);
 
     public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
 

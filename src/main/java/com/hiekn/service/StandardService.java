@@ -7,7 +7,6 @@ import com.hiekn.search.bean.request.CompositeRequestItem;
 import com.hiekn.search.bean.request.Operator;
 import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.*;
-import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +16,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -29,7 +29,6 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
-import javax.xml.ws.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -178,7 +177,7 @@ public class StandardService extends AbstractService{
         return item;
     }
 
-    public BoolQueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -247,7 +246,7 @@ public class StandardService extends AbstractService{
 
     }
 
-    public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
+    public QueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeStandardFilters(request, boolQuery);
@@ -321,7 +320,7 @@ public class StandardService extends AbstractService{
 
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        QueryBuilder boolQuery = buildEnhancedQuery(request);
         if (boolQuery==null) {
             throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
         }

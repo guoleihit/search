@@ -18,10 +18,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -192,12 +195,14 @@ public class PaperService extends AbstractService{
 				Text[] frags = entry.getValue().getFragments();
 				switch (entry.getKey()) {
 					case "title":
+                    case "title.english":
                     case "title.keyword":
 						if (frags != null && frags.length > 0 && frags[0].string().length()>1) {
 							item.setTitle(frags[0].string());
 						}
 						break;
 					case "abstract":
+                    case "abstract.english":
                     case "abstract.keyword":
 						if (frags != null && frags.length > 0) {
 							item.setAbs(frags[0].string());
@@ -267,7 +272,7 @@ public class PaperService extends AbstractService{
     }
 
 
-    public BoolQueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -333,14 +338,14 @@ public class PaperService extends AbstractService{
             should(termQuery, annotationTagTerm);
             if(userInputPersonName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(5f));
-                should(termQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
+                should(termQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(5f);
             }else{
                 should(termQuery,authorTerm);
             }
 
             if(userInputOrgName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(5f));
-                should(termQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
+                should(termQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(5f));
             }else{
                 should(termQuery,orgsTerm);
             }
@@ -348,10 +353,10 @@ public class PaperService extends AbstractService{
             if (userInputPersonName != null) {
                 BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
                 personQuery.must(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(6f));
-                should(personQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
+                should(personQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(6f);
                 if (userInputOrgName != null) {
-                    personQuery.should(QueryBuilders.termQuery("authors.organization.name", userInputOrgName));
-                    should(personQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
+                    personQuery.should(QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(6f));
+                    should(personQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(6f));
                 }
                 should(personQuery, annotationTagTerm);
                 should(personQuery, titleTerm);
@@ -366,10 +371,10 @@ public class PaperService extends AbstractService{
             if (userInputOrgName != null) {
                 BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
                 orgQuery.must(QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(6f));
-                should(orgQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(2f));
+                should(orgQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(6f));
                 if (userInputPersonName != null) {
-                    orgQuery.should(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName));
-                    should(orgQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(2f);
+                    orgQuery.should(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(6f));
+                    should(orgQuery, QueryBuilders.termQuery("first_author", userInputPersonName)).boost(6f);
                 }
                 should(orgQuery, annotationTagTerm);
                 should(orgQuery, titleTerm);
@@ -393,7 +398,20 @@ public class PaperService extends AbstractService{
 
         boolQuery.must(termQuery);
         boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
-        return boolQuery;
+
+        FunctionScoreQueryBuilder q = adjustPaperTypeBoost(boolQuery);
+        return q;
+    }
+
+    private FunctionScoreQueryBuilder adjustPaperTypeBoost(BoolQueryBuilder boolQuery) {
+        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                QueryBuilders.termQuery("paperType","JOURNAL"), ScoreFunctionBuilders.weightFactorFunction(1.3f)),
+        new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                QueryBuilders.termQuery("paperType","DEGREE"), ScoreFunctionBuilders.weightFactorFunction(1.0f)),
+        new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                QueryBuilders.termQuery("paperType","CONFERENCE"), ScoreFunctionBuilders.weightFactorFunction(1.1f))};
+
+        return QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MULTIPLY);
     }
 
     @Override
@@ -482,7 +500,7 @@ public class PaperService extends AbstractService{
             }
 	}
 
-	public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
+	public QueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -551,7 +569,7 @@ public class PaperService extends AbstractService{
 		}
 
         boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(4f);
-		return boolQuery;
+		return adjustPaperTypeBoost(boolQuery);
 
 	}
 
@@ -572,7 +590,7 @@ public class PaperService extends AbstractService{
     }
 
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
-		BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+		QueryBuilder boolQuery = buildEnhancedQuery(request);
         if (boolQuery==null) {
             throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
         }

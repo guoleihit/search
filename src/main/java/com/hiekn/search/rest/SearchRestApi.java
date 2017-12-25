@@ -6,6 +6,7 @@ import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.SimpleTerm;
 import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
@@ -13,12 +14,12 @@ import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
+import com.hiekn.service.nlp.NLPServiceImpl;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -69,6 +70,9 @@ public class SearchRestApi implements InitializingBean {
 
     @Resource
     private TransportClient esClient;
+
+    @Resource
+    private NLPServiceImpl nlpService;
 
     private PaperService paperService = null;
     private PatentService patentService = null;
@@ -466,23 +470,40 @@ public class SearchRestApi implements InitializingBean {
     public RestResp<Map<String,List<String>>> segments(@ApiParam(value = "检索请求") String request)
             throws Exception {
 
-        List<AnalyzeResponse.AnalyzeToken> esSegments = Helper.esSegment(request,PATENT_INDEX,esClient, "ik_smart");
-        Set<String> words = new HashSet<>();
-        for(AnalyzeResponse.AnalyzeToken token: esSegments){
-            String term = token.getTerm();
-            if(term.length() > 1){
-                words.add(term);
-            }
+        if (StringUtils.isEmpty(request)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
 
-        log.info("es seg:" + words);
-        List<String> commons = words.stream().flatMap((w)->{
+        Set<String> words = new HashSet<>();
+        List<SimpleTerm> simpleTerms = nlpService.seg("nshort", request,Lists.newArrayList(), true);
+        int wordLimits = 30;
+        for (SimpleTerm simpleTerm: simpleTerms) {
+            if ("n".equals(simpleTerm.getNature()) || "nz".equals(simpleTerm.getNature())) {
+                words.add(simpleTerm.getWord());
+                wordLimits -- ;
+            }
+            if (wordLimits == 0) {
+                break;
+            }
+        }
+//        List<AnalyzeResponse.AnalyzeToken> esSegments = Helper.esSegment(request,PAPER_INDEX,esClient, "ik_smart");
+//
+//        for(AnalyzeResponse.AnalyzeToken token: esSegments){
+//            String term = token.getTerm();
+//            if(term.length() > 1){
+//                words.add(term);
+//            }
+//        }
+
+        //log.info("es seg:" + Lists.newArrayList(words.toArray(new String[]{})));
+
+        List<String> relatedWords = words.stream().flatMap((w)->{
             Set<WordEntry> commonWords = word2vec.distance(w,2);
             return commonWords.stream();
         }).filter((w)->{return w.score>0.75 && !isNumber(w.name);})
                 .sorted((w1,w2)-> Floats.compare(w2.score, w1.score))
                 .map((w)->{return w.name;})
-                .limit(30)
+                .limit(15)
                 .collect(Collectors.toList());
 
 
@@ -492,16 +513,17 @@ public class SearchRestApi implements InitializingBean {
             if(!StringUtils.isEmpty(bean.getName()) && bean.getName().length()>1)
                 graphWords.add(bean.getName());
         }
-        List<String> recommendWords = graphWords.stream().sorted((w1,w2)->{return w2.length() - w1.length();})
-                .limit(30).collect(Collectors.toList());
+        List<String> recommendWords = graphWords.stream().filter(w->!isNumber(w) && !relatedWords.contains(w))//sorted((w1,w2)->{return w2.length() - w1.length();})
+                .limit(15).collect(Collectors.toList());
         Map <String, List<String>> result = new HashMap<>();
 
+        relatedWords.addAll(recommendWords);
 
-        result.put("commonWords",commons);
-        result.put("recommendWords",recommendWords);
+        result.put("commonWords", Lists.newArrayList(words.toArray(new String[]{})));
+        result.put("recommendWords",relatedWords);
 
-        log.info("common seg:" + commons);
-        log.info("recommend seg:" + recommendWords);
+        log.info("common seg:" + words);
+        log.info("recommend seg:" + relatedWords);
         return new RestResp<>(result, 0L);
     }
 

@@ -313,7 +313,7 @@ public class PatentService extends AbstractService {
         return item;
     }
 
-    public BoolQueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -378,7 +378,7 @@ public class PatentService extends AbstractService {
                 BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
                 personQuery.must(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
                 if (userInputOrgName != null) {
-                    personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName));
+                    personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
                 }
                 should(personQuery, annotationTagTerm);
                 should(personQuery, titleTerm);
@@ -394,7 +394,7 @@ public class PatentService extends AbstractService {
                 BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
                 orgQuery.must(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
                 if (userInputPersonName != null) {
-                    orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName));
+                    orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
                 }
                 should(orgQuery, titleTerm);
                 should(orgQuery, annotationTagTerm);
@@ -418,7 +418,7 @@ public class PatentService extends AbstractService {
 
     }
 
-    public BoolQueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
+    public QueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makePatentFilter(request, boolQuery);
@@ -522,7 +522,7 @@ public class PatentService extends AbstractService {
 
     @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
-        BoolQueryBuilder boolQuery = buildEnhancedQuery(request);
+        QueryBuilder boolQuery = buildEnhancedQuery(request);
         if (boolQuery==null) {
             throw new ServiceException(Code.SEARCH_UNKNOWN_FIELD_ERROR.getCode());
         }
