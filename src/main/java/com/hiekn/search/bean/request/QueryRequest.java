@@ -85,27 +85,6 @@ public class QueryRequest {
 
     private List<DocType> docTypeList;
 
-	private List<AnalyzeResponse.AnalyzeToken> segmentList;
-
-	@JsonIgnore
-    public List<String> getUserSplitSegList() {
-        return userSplitSegList;
-    }
-
-    public void setUserSplitSegList(List<String> userSplitSegList) {
-        this.userSplitSegList = userSplitSegList;
-    }
-
-    private List<String> userSplitSegList;
-
-    @JsonIgnore
-	public List<AnalyzeResponse.AnalyzeToken> getSegmentList() {
-		return segmentList;
-	}
-
-	public void setSegmentList(List<AnalyzeResponse.AnalyzeToken> segmentList) {
-		this.segmentList = segmentList;
-	}
 
 	/*
             private String andKwList;

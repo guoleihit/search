@@ -3,10 +3,7 @@ package com.hiekn.service;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.ServiceException;
 import org.apache.commons.lang3.StringUtils;
@@ -171,7 +168,7 @@ public class ResultsService extends AbstractService {
     }
 
     @Override
-    public QueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequestInternal request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -191,13 +188,12 @@ public class ResultsService extends AbstractService {
             }
         }
 
-        Map<String, String> result = intentionRecognition(request);
-        String userInputPersonName = result.get("人物");
-        String userInputOrgName = result.get("机构");
+        String userInputPersonName = request.getRecognizedPerson();
+        String userInputOrgName = request.getRecognizedOrg();
 
         BoolQueryBuilder boolTitleQuery = null;
         // 已经识别出人和机构，或者用户输入的不是人也不是机构
-        if (request.getKwType() != 1 && request.getKwType() != 2 || userInputOrgName != null || userInputPersonName!=null) {
+        if (request.getUserSplitSegList()!=null && !request.getUserSplitSegList().isEmpty()) {
             boolTitleQuery = createSegmentsTermQuery(request, RESULTS_INDEX, "title");
         }
 

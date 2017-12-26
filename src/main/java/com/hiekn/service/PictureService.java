@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
+import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.CommonResource;
 import org.elasticsearch.action.search.SearchRequestBuilder;
@@ -22,7 +20,6 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 
-import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.PictureDetail;
 import com.hiekn.search.bean.result.PictureItem;
@@ -113,7 +110,7 @@ public class PictureService extends AbstractService{
 		return item;
 	}
 	
-	public QueryBuilder buildQuery(QueryRequest request) {
+	public QueryBuilder buildQuery(QueryRequestInternal request) {
 		BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
 		makeFilters(request, boolQuery);
@@ -151,7 +148,7 @@ public class PictureService extends AbstractService{
 
 	@Override
 	public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
-		QueryBuilder boolQuery = buildQuery(request);
+		QueryBuilder boolQuery = buildQuery(new QueryRequestInternal(request));
 		SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PICTURE_INDEX);
 		HighlightBuilder highlighter = new HighlightBuilder().field("title");
 		srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)

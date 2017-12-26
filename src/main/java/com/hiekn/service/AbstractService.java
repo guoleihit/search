@@ -3,10 +3,7 @@ package com.hiekn.service;
 import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.exception.BaseException;
@@ -16,6 +13,8 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -28,6 +27,7 @@ public abstract class AbstractService {
     String kgName;
     IGeneralSSEService generalSSEService;
 
+    private static Logger log = LoggerFactory.getLogger(AbstractService.class);
 
     void makeFilters(QueryRequest request, BoolQueryBuilder boolQuery) {
         if (request.getFilters() != null) {
@@ -54,13 +54,13 @@ public abstract class AbstractService {
 
     public abstract SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws Exception;
 
-    public abstract QueryBuilder buildQuery(QueryRequest request);
+    public abstract QueryBuilder buildQuery(QueryRequestInternal request);
 
     public abstract QueryBuilder buildEnhancedQuery(CompositeQueryRequest request);
 
     public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
 
-    List<AnalyzeResponse.AnalyzeToken> esSegment(QueryRequest request, String index){
+    List<AnalyzeResponse.AnalyzeToken> esSegment(QueryRequestInternal request, String index){
         //利用es分词
         if(request.getSegmentList() == null) {
             List<AnalyzeResponse.AnalyzeToken> segList = Helper.esSegment(request.getKw(),index,esClient);
@@ -155,7 +155,7 @@ public abstract class AbstractService {
             termQuery.should(QueryBuilders.termQuery(esField, value));
             QueryRequest rq = new QueryRequest();
             rq.setKw(reqItem.getKv().getV().get(0));
-            QueryBuilder absQuery = createSegmentsTermQuery(rq, "gw_paper", esField); // TODO index name for test
+            QueryBuilder absQuery = createSegmentsTermQuery(new QueryRequestInternal(rq), "gw_paper", esField); // TODO index name for test
             setOperator((BoolQueryBuilder) termQuery, (CompositeRequestItem) reqItem, (QueryBuilder) absQuery);
         }
     }
@@ -178,7 +178,7 @@ public abstract class AbstractService {
         }
     }
 
-    protected Map<String, String> intentionRecognition(QueryRequest request){
+    protected Map<String, String> intentionRecognition(QueryRequestInternal request){
         Map<String, String> result = new HashMap<>();
         // 用户输入空格分隔的词列表，而且指定了关键词类型为人或者机构，首先识别用户输入的人和机构
         if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
@@ -191,6 +191,7 @@ public abstract class AbstractService {
             Long org = Helper.types.get("机构");
 
             if(person == null || org == null){
+                log.warn("no kg person or org info available.");
                 return result;
             }
             for(EntityBean bean: rsList){
@@ -199,18 +200,22 @@ public abstract class AbstractService {
                         userInputPersonName = bean.getName();
                         request.getUserSplitSegList().remove(bean.getName());
                         result.put("人物", userInputPersonName);
+                        log.info("got person:" + userInputPersonName);
+                        request.setRecognizedPerson(userInputPersonName);
                     }
                 }else if(org.equals(bean.getClassId())){
                     if (request.getUserSplitSegList().contains(bean.getName())) {
                         userInputOrgName = bean.getName();
                         request.getUserSplitSegList().remove(bean.getName());
                         result.put("机构", userInputOrgName);
+                        log.info("got org:" + userInputOrgName);
+                        request.setRecognizedOrg(userInputOrgName);
                     }
                 }
 
                 if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
-                    request.setKw(request.getKw().replace(userInputPersonName, ""));
-                    request.setKw(request.getKw().replace(userInputOrgName, ""));
+//                    request.setKw(request.getKw().replace(userInputPersonName, ""));
+//                    request.setKw(request.getKw().replace(userInputOrgName, ""));
                     break;
                 }
             }
@@ -222,7 +227,7 @@ public abstract class AbstractService {
         if (reqItem.getPrecision().equals(2)) {
             QueryRequest rq = new QueryRequest();
             rq.setKw(reqItem.getKv().getV().get(0));
-            QueryBuilder absQuery = createSegmentsTermQuery(rq, index, field);
+            QueryBuilder absQuery = createSegmentsTermQuery(new QueryRequestInternal(rq), index, field);
             if (op != null)
                 setOperator(boolQuery, op,  absQuery);
             else
@@ -232,8 +237,9 @@ public abstract class AbstractService {
         }
     }
 
-    protected BoolQueryBuilder createSegmentsTermQuery(QueryRequest request, String index, String field) {
-        BoolQueryBuilder boolTitleQuery;List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, index);
+    protected BoolQueryBuilder createSegmentsTermQuery(QueryRequestInternal request, String index, String field) {
+        BoolQueryBuilder boolTitleQuery;
+        List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, index);
 
         boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         List<String> oneWordList = new ArrayList<>();
@@ -246,9 +252,13 @@ public abstract class AbstractService {
                 boolTitleQuery.should(QueryBuilders.termQuery(field, t));
             }
         }
+
         if (oneWordList.size() == tokens.size()) {
             boolTitleQuery.should(QueryBuilders.termsQuery(field, oneWordList)).minimumShouldMatch(oneWordList.size());
+        } else if(tokens==null || tokens.isEmpty()) {
+            boolTitleQuery = null;
         }
+
         return boolTitleQuery;
     }
 

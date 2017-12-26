@@ -2,10 +2,7 @@ package com.hiekn.service;
 
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
@@ -177,7 +174,7 @@ public class StandardService extends AbstractService{
         return item;
     }
 
-    public QueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequestInternal request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -222,16 +219,22 @@ public class StandardService extends AbstractService{
             }
         }
 
-        TermQueryBuilder titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
-        TermQueryBuilder abstractTerm = QueryBuilders.termQuery("abs", request.getKw());
-        TermQueryBuilder authorTerm = QueryBuilders.termQuery("author.keyword", request.getKw()).boost(1.5f);
-        TermQueryBuilder kwsTerm = QueryBuilders.termQuery("keywords", request.getKw()).boost(1.5f);
+        QueryBuilder titleTerm = createTermsQuery("name", request.getUserSplitSegList(), 2f);
+        QueryBuilder abstractTerm = createTermsQuery("abs", request.getUserSplitSegList(), 1);
+        QueryBuilder authorTerm = createTermsQuery("persons.keyword", request.getUserSplitSegList(),1.5f);
+        QueryBuilder kwsTerm = createTermsQuery("keywords", request.getUserSplitSegList(),1.5f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-        termQuery.should(titleTerm);
-        termQuery.should(abstractTerm);
-        termQuery.should(authorTerm);
-        termQuery.should(kwsTerm);
+        should(termQuery,titleTerm);
+        should(termQuery,abstractTerm);
+        should(termQuery,authorTerm);
+        should(termQuery,kwsTerm);
+        if (request.getRecognizedPerson() != null) {
+            should(termQuery, QueryBuilders.termQuery("persons.keyword", request.getRecognizedPerson()).boost(1.5f));
+        }
+        if (request.getRecognizedOrg() != null) { // TODO
+            should(termQuery, QueryBuilders.termQuery("name", request.getRecognizedOrg()).boost(1.5f));
+        }
         if(boolTitleQuery!=null && !emptyTitleQuery){
             termQuery.should(boolTitleQuery);
         }

@@ -10,6 +10,7 @@ import com.hiekn.search.bean.SimpleTerm;
 import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
 import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.QueryRequestInternal;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.ServiceException;
@@ -192,8 +193,21 @@ public class SearchRestApi implements InitializingBean {
             request.setKw("");
         }
         SearchResultBean result = new SearchResultBean(request.getKw());
-        String[] kws = request.getKw().trim().split(" ");
-        request.setUserSplitSegList(Lists.newArrayList(kws));
+        String[] kws = StringUtils.split(request.getKw());
+        List<String> tokens = Lists.newArrayList(kws);
+        for(String kw:kws){
+            if(kw.indexOf('+')>=0){
+                tokens.addAll(Lists.newArrayList(StringUtils.split(kw,'+')));
+            }else if (kw.indexOf('/')>=0) {
+                tokens.addAll(Lists.newArrayList(StringUtils.split(kw,'/')));
+            }
+        }
+        log.info("query keywords:" + tokens);
+        QueryRequestInternal queryInternal = new QueryRequestInternal(request);
+        queryInternal.setUserSplitSegList(tokens);
+
+        //
+        intentionRecognition(queryInternal);
 
 
         List<String> indices = new ArrayList<>();
@@ -202,7 +216,7 @@ public class SearchRestApi implements InitializingBean {
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         for (AbstractService service: services) {
-            boolQuery.should(service.buildQuery(request));
+            boolQuery.should(service.buildQuery(queryInternal));
         }
         SearchResponse response = searchIndexes(request,boolQuery,indices);
 
@@ -546,6 +560,51 @@ public class SearchRestApi implements InitializingBean {
             }
             result.getRsData().add(item);
         }
+    }
+
+    protected Map<String, String> intentionRecognition(QueryRequestInternal request){
+        Map<String, String> result = new HashMap<>();
+        // 用户输入空格分隔的词列表，而且指定了关键词类型为人或者机构，首先识别用户输入的人和机构
+        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
+                /*&& (request.getKwType() ==1||request.getKwType()==2)*/ ) {
+
+            String userInputPersonName = null;
+            String userInputOrgName = null;
+            List<EntityBean> rsList = generalSSEService.kg_semantic_seg(request.getKw(), kgName, false, true, false);
+            Long person = Helper.types.get("人物");
+            Long org = Helper.types.get("机构");
+
+            if(person == null || org == null){
+                log.warn("no kg person or org info available.");
+                return result;
+            }
+            for(EntityBean bean: rsList){
+                if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputPersonName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                        result.put("人物", userInputPersonName);
+                        log.info("got person:" + userInputPersonName);
+                        request.setRecognizedPerson(userInputPersonName);
+                    }
+                }else if(org.equals(bean.getClassId())){
+                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                        userInputOrgName = bean.getName();
+                        request.getUserSplitSegList().remove(bean.getName());
+                        result.put("机构", userInputOrgName);
+                        log.info("got org:" + userInputOrgName);
+                        request.setRecognizedOrg(userInputOrgName);
+                    }
+                }
+
+                if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
+                    request.setKw(request.getKw().replace(userInputPersonName, ""));
+                    request.setKw(request.getKw().replace(userInputOrgName, ""));
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     @Override

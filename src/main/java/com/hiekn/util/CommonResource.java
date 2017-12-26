@@ -20,4 +20,14 @@ public final class CommonResource {
 	public static final String new_plantdata_service_url = props.getProperty("new_plantdata_service_url");
 
 	public static final String kg_public_service_url = props.getProperty("kg_public_service_url");
+
+	public static final Float search_person_weight = Float.valueOf(props.getProperty("search_person_weight"));
+	public static final Float search_recognized_person_weight = Float.valueOf(props.getProperty("search_recognized_person_weight"));
+	public static final Float search_org_weight = Float.valueOf(props.getProperty("search_org_weight"));
+	public static final Float search_recognized_org_weight = Float.valueOf(props.getProperty("search_recognized_org_weight"));
+	public static final Float search_patent_weight = Float.valueOf(props.getProperty("search_patent_weight"));
+	public static final Float search_degree_paper_weight = Float.valueOf(props.getProperty("search_degree_paper_weight"));
+	public static final Float search_conference_paper_weight = Float.valueOf(props.getProperty("search_conference_paper_weight"));
+	public static final Float search_journal_paper_weight = Float.valueOf(props.getProperty("search_journal_paper_weight"));
+    public static final Float search_user_input_title_weight = Float.valueOf(props.getProperty("search_user_input_title_weight"));
 }

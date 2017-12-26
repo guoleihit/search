@@ -2,10 +2,7 @@ package com.hiekn.service;
 
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.CompositeQueryRequest;
-import com.hiekn.search.bean.request.CompositeRequestItem;
-import com.hiekn.search.bean.request.Operator;
-import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
@@ -313,7 +310,7 @@ public class PatentService extends AbstractService {
         return item;
     }
 
-    public QueryBuilder buildQuery(QueryRequest request) {
+    public QueryBuilder buildQuery(QueryRequestInternal request) {
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 
         makeFilters(request, boolQuery);
@@ -329,26 +326,25 @@ public class PatentService extends AbstractService {
             query.filter(QueryBuilders.termQuery("_type", "patent_data"));
             boolQuery.should(query);
             if(StringUtils.isEmpty(request.getKw())){
-                return boolQuery;
+                return boolQuery.boost(CommonResource.search_patent_weight);
             }
         }
 
-        Map<String, String> result = intentionRecognition(request);
-        String userInputPersonName = result.get("人物");
-        String userInputOrgName = result.get("机构");
+        String userInputPersonName = request.getRecognizedPerson();
+        String userInputOrgName = request.getRecognizedOrg();
 
         BoolQueryBuilder boolTitleQuery = null;
-        // 已经识别出人和机构，或者用户输入的不是人也不是机构
-        if (request.getKwType() != 1 && request.getKwType() != 2 || userInputOrgName != null || userInputPersonName!=null) {
+        // 意图识别之后仍然有其他关键词
+        if (request.getUserSplitSegList()!=null && !request.getUserSplitSegList().isEmpty()) {
             boolTitleQuery = createSegmentsTermQuery(request, PATENT_INDEX, "title.original");
         }
 
-        QueryBuilder titleTerm = createTermsQuery("title.original",request.getUserSplitSegList(), 4f);
+        QueryBuilder titleTerm = createTermsQuery("title.original",request.getUserSplitSegList(), CommonResource.search_user_input_title_weight);
         QueryBuilder abstractTerm = createTermsQuery("abstract.original", request.getUserSplitSegList(), 1f);
-        QueryBuilder inventorTerm = createTermsQuery("inventors.name.original.keyword", request.getUserSplitSegList(), 4f);
-        QueryBuilder applicantTerm = createTermsQuery("applicants.name.original.keyword", request.getUserSplitSegList(), 4f);
-        QueryBuilder agenciesTerm = createTermsQuery("agencies_standerd.agency", request.getUserSplitSegList(),4f);
-        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 4f);
+        QueryBuilder inventorTerm = createTermsQuery("inventors.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_person_weight);
+        QueryBuilder applicantTerm = createTermsQuery("applicants.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_org_weight);
+        QueryBuilder agenciesTerm = createTermsQuery("agencies_standerd.agency", request.getUserSplitSegList(),CommonResource.search_org_weight);
+        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 1f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
@@ -363,22 +359,22 @@ public class PatentService extends AbstractService {
             should(termQuery, annotationTagTerm);
 
             if(userInputPersonName != null){
-                should(termQuery, QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(5f));
+                should(termQuery, QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(CommonResource.search_recognized_person_weight));
             }else{
                 should(termQuery,inventorTerm);
             }
 
             if(userInputOrgName != null){
-                should(termQuery, QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(5f));
+                should(termQuery, QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
             }else{
                 should(termQuery,applicantTerm);
             }
         } else if (request.getKwType() == 1) {
             if (userInputPersonName != null) {
                 BoolQueryBuilder personQuery = QueryBuilders.boolQuery();
-                personQuery.must(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
+                personQuery.must(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(CommonResource.search_recognized_person_weight));
                 if (userInputOrgName != null) {
-                    personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
+                    personQuery.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
                 }
                 should(personQuery, annotationTagTerm);
                 should(personQuery, titleTerm);
@@ -392,9 +388,9 @@ public class PatentService extends AbstractService {
         } else if (request.getKwType() == 2) {
             if (userInputOrgName != null) {
                 BoolQueryBuilder orgQuery = QueryBuilders.boolQuery();
-                orgQuery.must(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(6f));
+                orgQuery.must(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
                 if (userInputPersonName != null) {
-                    orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(6f));
+                    orgQuery.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName).boost(CommonResource.search_recognized_person_weight));
                 }
                 should(orgQuery, titleTerm);
                 should(orgQuery, annotationTagTerm);
@@ -413,7 +409,7 @@ public class PatentService extends AbstractService {
         }
 
         boolQuery.must(termQuery);
-        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(CommonResource.search_patent_weight);
         return boolQuery;
 
     }
@@ -475,7 +471,7 @@ public class PatentService extends AbstractService {
             }
         }
 
-        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(2f);
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(1.1f);
         return boolQuery;
 
     }
