@@ -90,6 +90,7 @@ public class ResultsService extends AbstractService {
         }
 
         item.setDocType(DocType.RESULTS);
+        item.setResultsType(getString(source.get("resultsType")));
     }
 
     public ItemBean extractDetail(SearchHit hit) {
@@ -106,6 +107,10 @@ public class ResultsService extends AbstractService {
         item.setReview_level(getString(source.get("review_level")));
 
         item.setPro_type(getString(source.get("pro_type"))); // 推广形式
+        item.setProject_begin(getString(source.get("project_begin")));
+        item.setProject_end(getString(source.get("project_end")));
+        item.setInnovation_point(toStringList(source.get("innovation_point")));
+        item.setProject_background(getString(source.get("project_background")));
         //TODO 成果密级、获奖信息、鉴定负责人、经济效益、社会效益、推广应用情况
 
         return item;

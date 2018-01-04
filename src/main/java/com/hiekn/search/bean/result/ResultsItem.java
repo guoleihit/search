@@ -27,6 +27,19 @@ public class ResultsItem extends ItemBean {
      **/
     private String complete_department;
 
+    /**
+     * 成果类型
+     */
+    private String resultsType;
+
+    public String getResultsType() {
+        return resultsType;
+    }
+
+    public void setResultsType(String resultsType) {
+        this.resultsType = resultsType;
+    }
+
     public String getNo() {
         return no;
     }

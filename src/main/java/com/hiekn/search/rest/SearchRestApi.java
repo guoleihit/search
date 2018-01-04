@@ -16,6 +16,7 @@ import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
 import com.hiekn.service.nlp.NLPServiceImpl;
+import com.hiekn.util.CommonResource;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
@@ -24,9 +25,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder.FilterFunctionBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -333,13 +339,15 @@ public class SearchRestApi implements InitializingBean {
         boolQuery.should(titleTerm);
         if (request.getKwType() != null && request.getKwType() > 0) {
             boolQuery.filter(QueryBuilders.termQuery("type", request.getKwType()));
-//            if (request.getKwType() == 1 || request.getKwType() == 2) {
-//                boolQuery.should(QueryBuilders.existsQuery("description").boost(2));
-//            }
         }
 
+        FilterFunctionBuilder[] functions = new FilterFunctionBuilder[]{
+                new FilterFunctionBuilder(QueryBuilders.wildcardQuery("description","*电*"), ScoreFunctionBuilders.weightFactorFunction(1.1f)),
+                new FilterFunctionBuilder(QueryBuilders.termQuery("description",""), ScoreFunctionBuilders.weightFactorFunction(0.5f))};
+
+        QueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MAX).boostMode(CombineFunction.MULTIPLY);
         SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
-        srb.setQuery(boolQuery).setFrom(request.getPageNo() - 1).setSize(request.getPageSize());
+        srb.setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize()).setSize(request.getPageSize());
         log.info(srb.toString());
         SearchResponse response = srb.execute().get();
         List<PromptBean> promptList = new ArrayList<>();
@@ -564,8 +572,8 @@ public class SearchRestApi implements InitializingBean {
 
     protected Map<String, String> intentionRecognition(QueryRequestInternal request){
         Map<String, String> result = new HashMap<>();
-        // 用户输入空格分隔的词列表，而且指定了关键词类型为人或者机构，首先识别用户输入的人和机构
-        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 1
+        // 识别用户输入机构、人物
+        if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 0
                 /*&& (request.getKwType() ==1||request.getKwType()==2)*/ ) {
 
             String userInputPersonName = null;
@@ -586,6 +594,7 @@ public class SearchRestApi implements InitializingBean {
                         result.put("人物", userInputPersonName);
                         log.info("got person:" + userInputPersonName);
                         request.setRecognizedPerson(userInputPersonName);
+                        request.setKw(request.getKw().replace(userInputPersonName, ""));
                     }
                 }else if(org.equals(bean.getClassId())){
                     if (request.getUserSplitSegList().contains(bean.getName())) {
@@ -594,12 +603,13 @@ public class SearchRestApi implements InitializingBean {
                         result.put("机构", userInputOrgName);
                         log.info("got org:" + userInputOrgName);
                         request.setRecognizedOrg(userInputOrgName);
+                        request.setKw(request.getKw().replace(userInputOrgName, ""));
                     }
                 }
 
                 if (!StringUtils.isEmpty(userInputPersonName) && !StringUtils.isEmpty(userInputOrgName)) {
-                    request.setKw(request.getKw().replace(userInputPersonName, ""));
-                    request.setKw(request.getKw().replace(userInputOrgName, ""));
+                    //request.setKw(request.getKw().replace(userInputPersonName, ""));
+                    //request.setKw(request.getKw().replace(userInputOrgName, ""));
                     break;
                 }
             }

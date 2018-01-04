@@ -273,11 +273,11 @@ public class ResultsDetail extends ResultsItem {
         this.project_background = project_background;
     }
 
-    public String getInnovation_point() {
+    public List<String> getInnovation_point() {
         return innovation_point;
     }
 
-    public void setInnovation_point(String innovation_point) {
+    public void setInnovation_point(List<String> innovation_point) {
         this.innovation_point = innovation_point;
     }
 
@@ -383,7 +383,7 @@ public class ResultsDetail extends ResultsItem {
     /**
      * 创新点
      **/
-    private String innovation_point;
+    private List<String> innovation_point;
 
 
     /**
