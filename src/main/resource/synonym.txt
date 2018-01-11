@@ -1,0 +1,2020 @@
+关键控制系统	critical control system
+广域安稳控制	wide area emergency control
+汽轮机监视仪表	汽轮机监视仪表系统
+法制	enforcement
+出口继电器	跳闸继电器
+混合型固态断路器	hybrid circuit breaker
+B树	balanced tree
+线图	graph
+内能	热力学能
+质子交换膜燃料电池	聚合物电解质燃料电池
+质子交换膜燃料电池	固体高分子燃料电池
+信息可视化	information visualization
+复型	复型金相
+宏观	磁流体
+高压直流输电换流器	电网换相换流器
+低油压保护	润滑油压过低保护
+二回路系统	蒸汽和动力转换系统
+玻璃窑炉	电极玻璃熔化炉
+LISP语言	list processing
+分辨率	resolution
+化学电源	化学电池
+化学电源	电化学电池
+统包油浸纸绝缘电缆	带绝缘电缆
+锅炉炉膛	燃烧室
+调节汽阀进入汽轮机第一级喷嘴汽室	汽柜
+调节汽阀进入汽轮机第一级喷嘴汽室	汽室
+线圈	动圈
+毫弧度	mrad
+直流单比电桥	惠斯登电桥
+工程进度计划编制	plan
+一次涂覆	预涂覆
+按单因数轮换方式	网格法
+汽轮机凝汽器抽真空一直到锅筒	汽包
+PROLOG语言	programming in logic
+成重力热管	闭式两相热虹吸管
+无间隙金属氧化物避雷器	metal oxide surge arrester without gaps
+主机间	机组段
+统计指数SARFI	curve
+功率范围	power range
+收缩波道	tapered channel
+种灯	冷阴极灯
+电压互感器	voltage transformer
+空间分集	spatial diversity
+常规能源	传统能源
+调试程序	排错程序
+金属屏蔽笼	法拉第笼
+奇点	平衡点
+锅炉称层燃炉	火床炉
+安全距离	安全净距
+安全距离	安全间距
+反应堆热工学	反应堆热工流体力学
+双边交易市场	bilateral market
+径向钻孔泵调速器	脉冲油泵
+平均传输时间	tpd
+大容量试验站	高电压强电流试验站
+大容量试验站	大功率试验站
+评价指标	属性
+三重故障	triple outage
+折向器	偏流器
+障率	rate
+三角高程测量	电磁波测距三角高程测量
+因子	participation factor
+横电磁波室	TEM小室
+电缆	非径向电场型电缆
+中性点经小电阻接地	大电流接地
+中性点经小电阻接地	中性点有效接地
+等触发角控制	按相控制
+等触发角控制	分相控制
+临时会议	特别会议
+脉冲顺序分配器	节拍脉冲发生器
+脉冲顺序分配器	顺序脉冲发生器
+测量放大器	仪表放大器
+测量放大器	数据放大器
+绝缘电阻表	高阻表
+绝缘电阻表	兆欧表
+场景管理	Case管理
+发电径流调节计算	水能计算
+离子交换除盐	化学除盐
+间接系统	混合式
+恒流区	饱和区
+附加励磁阻尼控制器	supplementary excitation damping controller
+三级处理	高级处理
+直流换流阀	可控硅阀
+三次风	tertiary air
+进支	支路k
+起基本小系统	basic minimum power system
+HTTP	secure hypertext transfer protocol
+HTTP	hypertext transfer protocol
+水冷铜坩埚	结晶器
+可根据需要加配液压松土器	裂土器
+项目财务评价	财务分析
+安妮女王法令》	安娜女王法令
+EoC	ethernet over coax
+最大连续功率	maximum continuous rating
+电力需求预测	电力负荷预测
+换相缺口	commutation notch
+蠕变疲劳交互作用	与时间相关的疲劳
+蠕变疲劳交互作用	高温低周疲劳
+肋墙法	肋拱法
+二次电子崩	子崩
+电动势	霍耳电动势
+小小型	mini
+参考地”	工作地
+参考地”	信号地
+锂离子蓄电池	lithium ion battery
+大地坐标系	地理坐标系
+阅读器	reader
+确保操作人员正确进行电气操作	倒闸操作
+财务评价	财务分析
+简单晶格碳化物	间隙相
+导体屏蔽	内屏蔽
+距离继电器	阻抗继电器
+地应力	岩体初始应力
+地应力	绝对应力
+地应力	原岩应力
+铜的电解提取	电积
+块式制动器	弹簧抱闸
+ADC分辨率	resolution
+太阳能发电	solar energy power generation
+国际核保障监督	核保障
+事故隐患	安全隐患
+视频监视系统	视频监控系统
+空气净化器	空气清洁器
+分布式发电	分散式发电
+分布式发电	分布式供电
+个人电脑	个人计算机
+外置式无极荧光灯	低频无极荧光灯
+调制功能	直流输电系统的附加控制
+调制功能	紧急功率支援
+筒式磨煤机	钢球磨煤机
+单位为乏	var
+太阳能发电站	solar electric generating station
+同步电动机	无刷直流电动机
+校准误差	calibrating error
+业扩接电	工作停电
+数据仓库	data warehouse
+独占性	专有性
+独占性	垄断性
+蒸汽激振	间隙激振
+认可的	approved
+控制用气	仪用气
+检测盲区	非检测区
+程序计数器	指令计数器
+基本电费	两部制电价
+基本电费	两部制计费方式
+隐蔽型照明	暗槽灯
+色散	dispersion
+燃料电池主要由正极	氧化剂电极
+燃料电池主要由正极	电池阴极
+全寿命周期成本	全寿命周期费用
+工程地质坑探	山地勘探
+沼气池	厌氧消化器
+成本定额管理	标准成本管理
+塔式	tower type
+能力	capability
+电介质阻挡放电	介质阻挡电晕放电
+电介质阻挡放电	无声放电
+分类算法	排序算法
+反应堆	核反应堆
+单桥换流器	6脉动换流器
+金属韧性	韧度
+联轴器	靠背轮
+反馈补偿	并联补偿
+自耦减压起动器	起动补偿器
+绿色照明计划	green lights program
+两端	端对端
+FTP	file transfer protocol
+FTU	feeder terminal unit
+微波加热器	微波施加器
+大扰动稳定计算	暂态稳定计算
+电力消费强度	可比价格
+系统	静止无功补偿系统
+系统	交流励磁机他励可控整流器励磁系统
+随动系统	跟随系统
+水锤现象	水击
+该谱线组合	谐波子组
+沉浸感	immersion
+控制器	调节器
+景观照明	夜景照明
+风干生物质	吸附水分
+充裕控制	adequacy control
+预编码	precoding
+想象性	imagination
+金属化电容器	metallized capacitor
+大修停运	major overhaul outage
+转换	transformation
+远方跳闸式	直接跳闸式
+操作故障	switching failure
+过冷奥氏体转变图	C曲线
+过冷奥氏体转变图	CCT曲线
+过冷奥氏体转变图	S曲线
+过冷奥氏体转变图	时间－温度转变曲线
+活度A	衰变率
+冷却设施	堆芯捕集器
+策划	plan
+自部分电容	导体对地的自电容
+紊流	湍流
+传感器	变换器
+传感器	advanced sensor
+最大需量值	合同最大需量值
+最大需量值	核定最大需量值
+细颗粒物	PM2
+细颗粒物	二次污染物
+离岸式	offshore devices
+过程控制采集站	过程站
+热力系统	汽水系统
+平流式沉淀池	卧式沉淀池
+消光法	光电颗粒分析仪法
+相干发光源	coherent light source
+经燃烧器送入炉膛	燃烧室
+工程师站	engineering station
+配电变压器	子母变压器
+紧急控制	emergency control
+BOA	basic office automation
+近场	似稳场
+近场	感应场
+电子式互感器	光电互感器
+水平围绕管圈（拉姆辛型管圈	螺旋围绕管圈
+PMOS集成逻辑门	PMOS集成门
+模型空化系数	临界空化系数
+它由牵引汽车	拖车头
+液体绝缘材料	绝缘油
+通信型子站	通信处理机
+电子脱扣器	智能脱扣器
+横断面测量	横剖面测量
+冷却水系统	湿式冷却水系统
+拉筋	拉金
+回流线	负馈电线
+最大容量	maximum capacity of a unit
+国外	蜡烛过滤器
+递阶结构	层次结构
+万用表	多用表
+万用表	繁用表
+七段字形显示器	七段数码管
+常规法甩负荷试验	甩电负荷试验
+关联分析	association analysis
+配电系统仿真	配电快速仿真与模拟
+多样化保护系统	多样化驱动系统
+煤层气	煤层瓦斯
+煤层气	煤层甲烷
+燃料电池	fuel cell
+空载损耗	不变损耗
+空载损耗	铁损
+空气湿电池	空气电池
+设备重要度	风险
+抽象语法	abstract syntax
+改进	action
+锰干电池	碱性锌－锰干电池
+锰干电池	充电式干电池
+锰干电池	酸性锌－锰干电池
+IGBT	insulated gate bipolar transistor
+发电机无功出力曲线	generator reactive capability curve
+气流床	喷流床
+超高压	extra high voltage
+空气干燥基水分	固有水分
+反应堆动力学	reactor dynamics
+工程进度计划纠偏	action
+状态观测器	状态重构器
+状态观测器	状态估计器
+SSL	secure sockets layer
+浮置栅	栅极
+磁带驱动器	磁带机
+电力线载波信号模式分析计算	模分量分析法
+电力线载波信号模式分析计算	模分量法
+处理规程	A规程
+处理规程	U规程
+溢流坝	滚水坝
+波束成型	beamforming
+磁矢位	磁矢势
+直接影响	即显性影响
+自然对流换热	自由运动换热
+用户	客户
+并联组合	诺顿等效电路
+最小方差估计	条件均值估计
+电网换相变流器	line commutated convertors
+辐射监测计划	监测大纲
+同步振荡（swing; synchronous oscillation	同步摇摆
+絮凝	flocculation
+初阶DSS	传统决策支持系统
+空穴对	光生载流子
+冰川	冰盖冰川
+冰川	高山冰川
+最大超负荷功率	maximum overload capability
+标准大气压	atm
+流变学	麦克斯韦
+流变学	开尔文
+流变学	宾汉体
+控制变量	输入变量
+直流式	平流式
+溶液温度系数STC	solution temperature coefficient
+直流电位差计	直流补偿器
+循环冷却水	温排水
+TTT曲线	time temperature transformation curve
+机组系谱	unit pedigree
+电力系统调度管理	电网调度管理
+电力系统调度管理	dispatching management of electric power system
+红宝石激光	laser
+古河床	古河道
+均衡理论	regime theory
+薄绝缘	绝缘电缆
+电压电流控制型FA	电压－电流－时间控制型FA
+机物	需氧污染物
+丰满水库	松花湖
+势流	无涡
+因子分解法	准静态方法
+感应加热法	油箱铁损法
+劳逊条件	劳逊判据
+运行	service
+离差系数	变差系数
+热力过程	汽轮机膨胀过程
+调幅系统	双边带调制
+安装间	装配场
+安装间	安装场
+安装间	装配间
+安全照明变压器	行灯变压器
+独立强迫停运	independent forced outage
+锌－锰干电池	勒克朗谢电池
+锌－锰干电池	碳－锌干电池
+母线接地开关	母线接地器
+电能表误差	电能表的相对误差
+非具体化的技术进步	索洛残差
+连接体	双极板
+全水分	收到基水分
+独立停运	independent outage
+自动转换开关	双电源开关
+障率函数	failure rate function
+半柱面照度	空间照度
+防振装置	阻尼器
+防振装置	防振器
+地热发电方式	中间介质法
+地热发电方式	双循环法
+安全性评估	transmission system security evaluation
+骚扰电流测量	射频骚扰电流测量
+由分离原理	分离定理
+国家电网”	统调电网
+垂直烧结炉	垂熔炉
+干热岩地热资源生产系统	增强型地热系统
+交流换向器电动机	alternating current commutator motor
+分数谐波	次谐波
+非对称数字专线ADSL	asymmetric digital subscriber line
+钢包	钢水包
+钢包	盛钢桶
+铁氧体	磁性瓷
+铁氧体	铁淦氧
+橡胶	橡皮
+小波	子波
+贸易结算计量点	计费计量点
+需要施加逸出功	功函数
+闪存	flash memory
+平均功率	有功功率
+平均功率	有效功率
+交流整流子电动机	交流换向器电动机
+压水堆控制棒组件	黑棒
+压水堆控制棒组件	棒束控制组件
+平均修复时间MTTR	mean time to repair
+间接影响	后效性影响
+CAPP	computer aided process planning
+动床平整	flat bed
+堆芯熔融物收集与冷却设施	安全壳底板保护系统
+堆芯熔融物收集与冷却设施	堆芯捕集器
+控制棒	吸收棒
+谐波	高次谐波
+些垃圾	可回收资源垃圾
+频率响应法	简称频率法
+频率响应法	频率特性法
+合同需求	contract demand
+电能表	电度表
+电能表	千瓦时表
+SIMULA67语言	simulation language
+Com.	communication
+源滤波装置	有源谐波抑制装置
+远场	辐射场
+进行二次除氧	深度除氧
+工作波长	operating wavelength
+两端直流输电	端对端直流输电
+无功功率与电压自动控制	自动电压控制
+台风	typhoon
+资金池	cash pooling
+零序电流干燥法	零序磁通法
+安全性评价	危险性评价
+安全性评价	安全评价
+安全性评价	危险评价
+抖动	jitter
+管内沸腾换热	流动沸腾换热
+安全壳泄漏率试验系统	安全壳整体密封性试验系统
+投资回收期	investment recovery period
+空中客车	aerobus
+熔融盐蓄电池	高温电池
+双库式	高低库式
+蠕变力学	creep mechanics
+电力电量平衡	电力系统运行模拟
+升压变电站运行监控系统	升压变电站综合自动化系统
+短波长泵浦激发	pumping
+定子	电枢
+OTC	柜台交易市场
+辐照肿胀	空化肿胀
+灰色预测模型	grey model
+坝线	坝轴线
+电化学电容器	大容量电容器
+电化学电容器	超级电容器
+开敞式进水口	无压进水口
+理论建模	分析建模
+可及资源基数	accessible resourses base
+可及资源基数	accessible resources base
+定子绕组	电枢绕组
+《供电营业规则》	供用电规则
+2台反应堆冷却剂泵	主泵
+电气化铁路	电气化铁道
+随机水文过程	水文时间系列
+无限竞争性公开招标	unlimited competitive open bidding
+辉光放电加热	离子加热
+直流电动机调速	直流调速
+二进制同步通信规约	BISYNC
+汽蚀裕量	净正吸入压头
+非辐射工作场所	非限制工作区
+直流电动机调磁调速	直流调磁调速
+阻性耦合	电流场耦合
+等离子体枪	等离子体发生器
+等离子体枪	等离子体炬等
+电力牵引CC供电方式	同轴电缆供电方式
+SARFI	curve
+测功法甩负荷试验	甩汽负荷试验
+甲基橙碱度	全碱度
+兴利库容	有效库容
+兴利库容	调节库容
+网上供电营业厅	互动供电服务网站
+数字水准仪	电子水准仪
+指数	互换性因子
+小型断路器	微型断路器
+起动/备用变压器	公用/备用变压器
+相对电容率	相对介电常数
+收敛约束法	convergence confinement method
+模态法	modal analysis
+连接母线都流过低于工频	次同步
+熔断器	快速熔断器
+丝管式	钢丝式
+云计算	cloud computing
+控制	辅助
+色金属	非铁金属
+主磁极	主极
+工程进度计划检查	check
+制冷工质	制冷剂
+PLCC	plastic leaded chip carrier
+锅炉化学清洗	酸洗
+整车控制器	vehicle control unit
+微弧焊	针弧焊
+微弧焊	微束等离子体弧焊
+串联电容补偿装置	固定串联电容补偿装置
+STATCOM原	新型静止无功补偿装置
+计算机监视系统	数据采集系统
+电缆输送机	履带牵引机
+大气过电压	雷电过电压
+水头	落差
+蓄电池	二次电池
+蓄电池	storage battery
+鲁棒性	robustness
+主氦风机	主氦气循环风机
+静止同步补偿装置	静止无功发生器
+铁碳平衡图	铁碳相图
+压水堆核蒸汽供应系统	核供汽系统
+容性耦合	电场耦合
+临界流	壅塞流
+临界流	声速流
+高压	high voltage
+CAE	computer aided engineering
+前屏	大屏
+前屏	分隔屏
+CAG	condition acquisition gateway
+旋转备用	热备用
+迎面先导	上行先导
+组织反应	确定效应
+电刷	碳刷
+汽轮发电机定子	静子
+要素	资产负债表项目分类
+固定电压法	定电压跟踪法
+固定电压法	恒定电压控制法
+降低初始燃烧区	一次区
+CAQ	computer aidied quality
+单位产品（产值）耗电	产品
+木质素	lignin
+进行输水系统水力过渡过程计算	调节保证计算
+转移因子	转移因数
+纤维素	cellulose
+光再生器	regenerator
+不可用状态	内因不能工作状态
+替代备用	后备备用
+替代备用	冷备用
+TCP	transmission control protocol
+前置预热器	暖风器
+电力系统过电压模拟	暂态网络分析仪
+执行机构	执行器
+配电系统网络重构	配电网络再组合
+顺磁性	常磁性
+铅酸蓄电池	lead acid battery
+涡流	有涡
+ADCP	acoustic doppler corrent profiler
+CBM	capability benefit margin
+吉布斯函数	定温
+吉布斯函数	吉布斯自由能
+固体力学中	蠕变力学
+基本电价	需量电价
+基本电价	容量电价
+基本电价	固定电价
+轮盘系统振动	轮系振动
+安全仪表系统	safe instrument system
+模糊性	fuzziness
+磁机械效应	磁记忆效应
+斜流式水轮机	对角式水轮机
+斜流式水轮机	德里亚水轮机
+欧洲原子能联营	欧洲原子能共同体
+数字	digital
+视频会议系统	会议电视系统
+施工总变电站	施工总降压站
+监理工作	设备监造
+主站	中心站
+主站	管理中心
+主站	主站系统
+菱形晶系	–SiC
+沙浪	antidunes
+电容三点式振荡器	科皮兹振荡器
+换热系数	表面传热系数
+弹性力学	弹性理论
+状态	unavailable
+状态	available
+产生电磁转矩	整步转矩
+膜态沸腾	传热恶化
+晶闸管	晶体闸流管
+晶闸管	thyristor
+预测控制	模型预测控制
+燃料包壳完整性监督	燃料破损监督
+完全译码器	唯一
+NMOS集成逻辑门	NMOS集成门
+分级式可控并联电抗器	分级控制电抗器
+确定性方法	惯用法
+限竞争性选择招标	limited competitive selected bidding
+点腐蚀	孔蚀
+上进行后热	消氢处理
+光时域反射仪	光时域反射计
+质量计划	检查及试验计划
+被动检修	break maintenance
+突然加电压保护	误上电
+年逐日最大发电负荷曲线及年逐月最大发电负荷曲线	年负荷曲线
+职业发展阶段	职业生涯发展阶段
+金属组织性能变化	老化
+核电厂运行状态	运行工况
+碱活性反应	碱－硅酸盐反应
+膜片	膜盒
+刀形动触头	动触刀
+非电保安措施	非电性质的保安措施
+回归	regression
+制造锅炉锅筒	汽包
+转速脉冲发生器	磁阻发生器
+一只叶片一般由叶身	叶型部分
+一只叶片一般由叶身	工作部分
+成员	联络成员
+烟气循环流化床法脱硫	气体悬浮吸收工艺
+电动机	普用电动机
+混合电化学电容器	不对称电化学电容器
+洪水	山洪
+洪水	骤发洪水
+高频保护	电力线载波继电保护
+可靠度函数	reliability function
+第一次引入了类	class
+电解质学	离子学
+国家	库容选择
+漏电流	旁路电流
+弧度	rad
+PPTP	point to point tunneling protocol
+标签	tag
+最大出力	预想出力
+雪崩型二极管	avalanche diode
+星球表面的	星球表面核反应堆电源
+被控制系统	输出回路
+连续操作	continuous operations
+消弧线圈装置	消弧电抗器
+可逆热机	卡诺热机
+开路故障	open circuit failure
+照明器	灯具
+见图2	接地箱壳式
+主账户	一级账户
+万用示波表	掌上示波表
+变压器联结组别	联结组标号
+市瓦基莎	 agisza
+12脉动	脉波
+12脉动	12脉波
+熔融床	熔盐床
+高压直流输电系统	端对端直流输电系统
+活性二氧化硅成分反应产生碱硅酸盐凝胶	碱硅凝胶
+光电三极管	光敏三极管
+综合资源规划	最小成本电力规划
+泄水建筑物	排沙建筑物
+反应堆冷却剂管道	主管道
+并网光伏发电系统	并网光伏电站
+大气边界层	行星边界层
+SCADA	supervisory control and data acquisition
+网络图论	网络拓扑
+吸附剂连续再生装置	净油器
+频次	frequency
+有源配电网	主动配电网
+电力电子器件	电力半导体器件
+反应堆倍周期Tb	doubling time
+恢复控制	restorative control
+堆内下部构件	吊篮
+改善心智模式	improving mental models
+充裕性	充裕度
+充裕性	静态可靠性
+电弧炉电极调节器	电弧炉功率自动调节器
+转动元件由转盘	圆盘
+效能	availability
+齐纳效应	齐纳击穿
+磁场耦合	感性耦合
+纵波	P波
+纵波	longitudinal wave
+纵波	压缩波
+基本统计对象	unit approach
+全停状态	dead state
+压敏电阻器	通流量
+压敏电阻器	等待电流
+击穿电压	着火电压
+互感	磁耦合回路
+剩余电流动作保护器	漏电开关
+剩余电流动作保护器	漏电保护器
+全要素生产率	技术进步率
+项目国民经济评价	经济分析
+额定电流	rms
+Nuclear Reactor Instrumentation	in core
+调度机构	电力系统调度
+电感器	电感线圈
+TLS	transport layer security
+PID调节器	PID控制器
+可变光衰减器	可调光衰
+1980西安坐标系	1980年国家大地坐标系
+原电池	非贮备式电池
+原电池	一次电池
+水电站财务评价	财务分析
+已获利息倍数	利息保障倍数
+继电保护物理模拟试验	继电保护动态模拟试验
+户定制电力技术	custom power
+12脉动换流阀组	12脉动换流器
+局部过热监测系统	发电机状态监测器
+等相位间隔控制	等间隔控制
+等相位间隔控制	等距离脉冲控制
+通过类	class
+称之为系	set
+半纤维素	hemicellulose
+通信控制处理机	通信接口处理机
+无源电子式电压互感器	光学电压互感器
+程氏双流体循环	注蒸汽燃气轮机循环
+脉冲电压法	闪测法
+短网	大电流线路
+燃气轮机发电厂	简单循环发电厂
+超短波通信	甚高频通信
+两台反应堆冷却剂泵	主泵
+网损惩罚因子	penalty factor
+调频器	frequency modulator
+负载损耗	铜损
+负载损耗	短路损耗
+配电网设备状态评估	配电网设备状态评价
+比较法	相对法
+核保险共同体组织	pool
+NSDD	再导通
+NSDD	开断后重燃
+NSDD	滑相
+断电	动力丢失
+水斗式水轮机	切击式水轮机
+例行保养	日常保养
+霓虹灯	气体辉光放电灯
+感应耦合	inductive coupling
+光敏电阻	光导管
+充裕度	adequacy
+充裕度	静态可靠性
+反转	潮流反转
+电子式互感器（应用	光电互感器
+PGP	pretty good privacy
+下垂控制方法	Droop控制
+故障自行烧清	burning clear
+南太平洋无核区条约》	拉罗汤加条约
+弧端损失	斥汽损失
+阿尔卑斯	地中海
+直流电动机恒转矩调速	直流恒转矩调速
+反应堆周期	反应堆稳定周期
+刀开关	闸刀开关
+刀开关	隔离开关
+压缩型T接线夹	不可卸型圆形管体T接线夹
+沙纹	ripples
+需求	demand
+核事故应急措施	应急响应行动
+法国等国	保健物理
+超媒体	hypermedia
+主令电器	主令开关
+调整能源结构	调整能源构成
+后处理贸易	基本用户合同
+聚类分析	cluster analysis
+轻轨交通	轻轨铁路
+电费违约金	电费滞纳金
+水轮机	佩尔顿水轮机
+核电厂应急指挥中心	应急响应中心
+核电厂应急指挥中心	应急控制中心
+海因里希事故因果连锁理论	海因里希模型
+海因里希事故因果连锁理论	多米诺骨牌理论
+按用电容量计算	按变压器容量计算
+相位检波	鉴相
+同步补偿机	调相机
+角销	压板
+进程	任务
+勒夏特列原理	平衡移动原理
+核电厂流出物监测以前	核电厂放射性流出物监测
+不变损耗	铁损
+均匀地流入澄清池第一反应室	混合室
+受迫对流换热	强制对流换热
+星球表面核反应堆电源	星球表面核电厂
+护环	套箍
+经济比较法	method of economic comparison
+TRM	transmission reliability margin
+试载法	拱梁分载法
+视在功率	表观功率
+源撬棒	crowbar
+欧美各国	霍普金森电价制
+第一调度员	班
+电路交换域	circuit switched domain
+多模色散	模式间色散
+Ksps	kilo samples per second
+调节准则	调节方式
+低温氮碳共渗	软氮化
+表层流	壤中流
+水力机械	水轮
+亮度	光亮度
+变压器调压装置	变压器分接开关
+土壤源热泵	地源热泵
+倒顺开关	转换开关
+围带	覆环
+短路故障	short circuit failure
+二次燃料再燃烧	燃料分级
+国家标准化管理委员会	中华人民共和国国家标准化管理局
+锰铜	manganin
+光探测器	photodetector
+量测量	遥测量
+TTC	total transfer capability
+达到平衡浓度	饱和浓度
+陡波前过电压	电力系统特快速瞬态过电压
+用电功率因数	力率
+有用资源	useful resources
+真实气体	实际气体
+转差率	滑差
+转差率	转差
+热头	吸热器
+电力消费构成	电力消费结构
+一兆位	megabit
+上升管	水冷壁
+缩放喷管	拉瓦尔喷管
+元组	tuple
+直接对象	狭义的网络管理环境
+LEG	leadingedge groove
+水能资源	水力资源
+计划停运	planned outage
+多费率电能表	分时计度电能表
+多费率电能表	复费率电能表
+关专家参加核电技术政策研讨会	回龙观会议
+二次风喷口	调风器
+额定出力	rated output
+固体废物储存与处置	飞灰
+固体废物储存与处置	炉底灰
+直接法	电阻法
+直接法	TEF法
+直接法	绝对法
+Q曲线	功率图
+TVS	瞬态抑制二极管
+万维网	world wide web
+保梯电抗	potier reactance
+静止同步补偿器	动态静止同步补偿器
+8位	bit
+概念模型	信息模型
+电气制动	投入制动电阻
+埋弧炉	电弧电阻炉
+节流调节方式	全周进汽
+馈线	馈电线
+电力牵引AT所	自耦变压器所
+最小电压系数	cmin
+数据采集系统	模拟量输入系统
+输电线路走廊	输电线路通道
+手车轨道位于开关柜中部	中置式开关柜
+可靠容量	dependable capacity
+储量	reserves
+波长范围	wavelength range
+HVDC	柔性直流输电系统
+HVDC	常规直流输电系统
+临界区域	critical areas
+行程开关	限位开关
+比换相压降	整流器的伏安特性
+比换相压降	外特性
+科学管理	水务管理
+接电	装表接电
+阈值电压	门限电压
+热量倍增器	heat multiplier
+射频识别技术	电子标签
+射频识别技术	无线射频识别
+辅助蒸汽系统	厂用蒸汽系统
+暂时硬度	永久硬度
+主轴弯曲	永久性弯曲
+团队学习	team learning
+推进功	流动功
+额定容量	rated capacity
+预防性检修	prevention maintenance
+自动频率控制	二次调频
+混流式水轮机	弗朗西斯水轮机
+CMOS集成逻辑门	CMOS集成门
+一体化除氧器	内置式除氧器
+一体化除氧器	者无头除氧器
+电力系统仿真装置	电力系统模拟装置
+电流控制型FA	过流脉冲计数型FA
+电渣重熔炉	电渣铸造炉
+两位控制	继电器型控制
+两位控制	双位控制
+燃气轮机发电	简单循环发电
+语言运行库CRL	common language runtime
+关联的塑性流动	正交的流动法则
+先进轻水堆	第三代轻水堆
+连续开断能力试验	电寿命试验
+焊条电弧焊	手弧焊
+焊条电弧焊	手工电弧焊
+SMTP	simple mail transfer protocol
+光纤	光导纤维
+相对高程	假定高程
+教育	education
+位移量	形式地址
+放射病	辐射损伤
+抽出式动力中心柜	金属铠装式开关柜
+ATM适配层	AAL层
+习惯上液体碳氮共渗	氰化
+预计运行事件	中等频率事件
+标准化原理	标准化方法原理
+时间序列法	历史延伸法
+时间序列法	外推法
+封闭式开关柜	金属封闭开关设备
+谐波测量仪表	在线式谐波监测装置
+输配电价	输配电费用
+基体	连续相
+重水堆慢化剂系统	慢化剂主系统
+交点	不稳定平衡点
+催化剂	触媒剂
+瓷柱式SF6断路器	支柱瓷瓶式
+广域继电保护	wide area relaying protection
+实时网络拓扑分析	实时结线分析
+铁损	可变损耗
+可控串联补偿装置	晶闸管控制的串联补偿器
+太阳能	太阳辐射能
+趸售转送	wholesale wheeling
+有效电量	电力系统可吸收电量
+电力系统容量	电力系统装机容量
+电力系统容量	电力系统发电设备容量
+射线检测	射线照相
+工程质量控制	质量监督
+水电站出力	水电站输出功率
+PDMS	product data management system
+由变流器	调制器
+由变流器	斩波器
+上述理想气体状态方程	克拉珀龙
+交易管理系统	business management system
+雷电监测系统	雷电定位系统
+机组事件	unit event
+床沙质	造床质
+且区分节点	bus
+光线示波器	机械示波器
+降压	buck
+机组额定功率	额定负荷
+机组额定功率	额定出力
+控制技术	控制自动化
+厚拱坝	重力拱坝
+阻抗方向比较式线路纵联保护	距离纵联保护
+热通道因子	热管因子
+架空地线	避雷线
+安全级	1E级
+线路调节器	line conditioner
+光纤内掺杂	doping
+挡油板1	滑环
+心感应熔炼炉	沟槽式感应炉
+锅筒	汽包
+相关停运	dependent outage
+概率论中	统计试验法
+概率论中	统计模拟法
+互部分电容	两个导体之间的互电容
+需求时段	demand interval
+厂站通信	站内通信
+BGL气化炉	液态排渣鲁奇炉
+蒸汽发生器	steam generator
+触发器	锁存器
+主存储器	内存
+壁面函数	湍流输运模型
+翻板闸门	卧倒闸门
+危险状态	at risk
+汽轮机超速试验	汽轮机提升转速试验
+链路层接口将数据组合成数据块	帧
+单位毫巴	mbar
+介质加热器	工作电容器
+恢复状态	restoration state
+离网光伏发电系统	独立光伏发电系统
+岩溶	喀斯特
+检查	check
+牵引变电所	全并联接线牵引变电所
+过渡	transition
+充气管	冷阴极闸流管
+地热井	生产井
+房间空气调节器	空调器
+主绕组	运行绕组
+主绕组	工作绕组
+检修用气	厂用气
+被控对象	调节对象
+压水堆安全注射系统	应急堆芯冷却系统
+外部大气不相通者	密封式
+立方晶系	–SiC
+预知性维修	predictive maintenance
+单斜蓄水构造	自流斜地
+1毫巴	mbar
+再燃烧燃料	二次燃料
+阴极射线示波器	电子示波器
+代理型	agency
+动态优先级划分	dynamic priority coding
+轴流转桨式水轮机	卡普兰水轮机
+细粉分离器	旋风分离器
+圆柱形燃料密实体	燃料组件
+工作接地	系统接地
+双调谐滤波器	双通带滤波器
+发电机电压配电装置室	发电机电压开关室
+电磁波耦合	辐射耦合
+涡轮式	轴向引入式
+微增率；λ	功率平衡乘子
+框图	结构图
+框图	方块图
+框图	方框图
+辅助支承	防断支承
+非受限	informal
+升压站	高压配电装置
+UCE	sat
+输电主干线	trunk transmission lines
+运行监测	在线监测
+运行监测	带电监测
+调节阀门快控	fast valving
+熔渣台	熔渣池
+负荷分布预测	空间负荷预测
+晶体管电压表	电子电压表
+直流发电机	升压发电机
+水轮发电机	凸极发电机
+水轮发电机	灯泡式水轮发电机
+扎伊尔河	刚果河
+期望值EENG	expected energy not generated
+布雷顿循环	等压加热燃气轮机循环
+电子管	真空管
+模拟机	全尺寸
+数据通信网络	数据高速公路
+极小值原理	极大值原理
+聚变核能燃料资源	热核材料
+定单需求	billing demand
+机械加工领域内	轮廓控制
+实时电力交易市场	平衡市场
+场效应半导体器件	单极型半导体器件
+燃料承载器	燃料篮
+多个三相桥式换流电路	6脉动换流器
+UDP	user datagram protocol
+输变电设备状态检修	预知性维修
+保守模型	评价模型
+热力产品成本	售热成本
+面向智能体	agent
+绿色照明	green lights
+齿轮箱	增速箱
+汛前截流	迎水期截流
+调相器	phase modulator
+水电站年运行费	年经营成本
+阳极	燃料极
+轴流式风扇	螺旋桨式风扇
+电力牵引AT供电方式	自耦变压器供电方式
+岩体	岩塞
+泊松比	横向变形系数
+边界层	附面层
+压力检测	计示压力
+职业安全卫生	职业安全健康
+职业安全卫生	劳动保护
+职业安全卫生	职业健康安全
+职业安全卫生	劳动安全卫生
+职业安全卫生	职业安全卫生
+重复降低出力	concurrent derating
+需要进行预鉴定试验	长期高场强热循环试验
+粒子束爆炸	辐射爆炸
+空化	空穴
+空化	空泡
+发电能源构成	电源结构
+强迫停运	forced outage
+模拟量控制系统	闭环控制系统
+模拟量控制系统	自动调节系统
+他行业中	变换
+他行业中	变流
+系数	capacity factor
+系数	service factor
+系数	出力系数
+压水堆余热排出系统	停堆冷却系统
+挤包绝缘电缆	橡塑电缆
+挤包绝缘电缆	固体挤压聚合电缆
+各种嵌入式系统	embedded system
+励磁功率单元	exciter
+阴极	永久性阴极
+阴极	空气极
+液体渗铝法	热浸法
+过热蒸汽温度控制系统	新蒸汽温度控制系统
+过热蒸汽温度控制系统	主蒸汽温度控制系统
+水下爆破	水下扩大炮孔法
+水下爆破	水下表面爆破法
+环网单元	环网站
+于机构内部	on premise
+流动密封阀	U形阀
+横波	剪切波
+横波	S波
+固定床	移动床
+功率二极管	power diode
+小修停运	minor overhaul outage
+计算机	电脑
+带式制动器	皮带抱闸
+UGS	off
+排粉风机等	电站风机
+压水堆屏蔽式冷却剂循环泵	主泵
+磁电系测量机构	表头
+强制对流式电暖器	暖风机
+飞锤	撞击子
+半绝缘变压器	分级绝缘变压器
+液流蓄电池	flow battery
+吸热器	receiver
+需用率	需要系数
+低压绕组	分裂绕组
+绝缘栅双极型晶体管	绝缘门极双极型晶体管
+氙气闪光灯	脉冲氙灯
+调速范围	调速比
+汛后截流	落水期截流
+通用CAD软件	CAD支撑软件
+障安全系统	fail safe system
+吉赫兹横电磁波室	GTEM室
+遥调	远程调节
+直流双比电桥	开尔文电桥
+直流双比电桥	汤姆逊电桥
+层式燃烧	火床燃烧
+光伏组件	太阳能电池板
+光伏组件	光伏方阵
+光伏组件	太阳能电池组件
+粉煤灰	飞灰
+MEDred	reduced mediator
+复合控制系统	开环－闭环控制系统
+复合控制系统	反馈－前馈控制系统
+步进电动机	脉冲电动机
+步进电动机	数字电动机
+电触头材料	触头材料
+外部过电压	大气过电压
+外部过电压	雷电过电压
+电缆软接头	厂制接头
+电缆软接头	检修软接头
+正常状态	normal
+Ac	电枢线负荷
+载流子	自由载流子
+图像匹配与识别	景物匹配与识别
+穿透焊	小孔焊
+交流声	纯音
+交互性	interaction
+电磁线圈	加热线圈
+电磁线圈	感应线圈
+光电传感器	探测器
+单调谐滤波器	单通滤波器
+伺服机构	servo mechanism
+反应堆控制材料	中子吸收材料
+受电工程设计审核	图纸审核
+受电工程设计审核	设计审核
+Flash存储器	闪烁存储器
+辐射式石英管电暖器	远红外线电暖器
+360语言	a programming language
+象鼻电缆终端	变压器电缆终端
+内部结构进行结构测试	进程试验
+数据挖掘	data mining
+专家系统	基于知识型的系统
+非计划停运	unplanned outage
+Bg	气隙磁密
+安全性	security
+安全性	动态可靠性
+电烙印	电斑痕
+远方保护信号传输设备	高频保护收发信机
+应急预案	应急救援预案
+应急预案	应急计划
+CP	clock pulse
+发散冷却	发汗冷却
+挡板	折流板
+热扩散	索瑞
+反孤岛保护	脱离主网保护
+反孤岛保护	防孤岛保护
+反孤岛保护	孤岛保护
+障工作时间MTTF	mean time to failure
+分散控制系统	集散控制系统
+生物质低位发热量	生物质低位热值
+绝缘屏蔽	外屏蔽
+电极电位	电极势
+阻抗继电器	impedance relay
+刷握	刷盒
+人工智能法	机器智能
+全数字化激光成像机	波拉罗伊德阳光干片激光打印成像装置
+非有效接地系统单相接地故障选线	小电流接地故障选线
+DP	decentralization periphery
+国外安稳控制措施	系统保护方案
+主轴	大轴
+电缆室	电缆层
+太阳能光伏发电	光伏发电
+湍流	turbulence
+异步传输	起止式传输
+自动调节励磁	自动电压调节
+转子撬棒	crowbar
+零点漂移	zeroing variation
+接即忘	fix and forget
+感应炉	感应电热装置
+人体触电	触电
+乏燃料处置	开式燃料循环
+乏燃料处置	一次通过式燃料循环
+现货电价	spot price
+光电二极管	光敏二极管
+直流电源室	充电机室
+障停运	double outage
+排渣控制阀	锥形阀
+辅助存储器	外存储器
+辅助存储器	文件存储器
+抽取	extraction
+LISN	line impedance stabilization network
+七段字形译码器	七段译码器
+集成需求	integrated demand
+FF	foundation fieldbus
+状态有时	停运状态
+传统工程经济学	技术经济学
+空化数	空泡数
+空化数	空穴系数
+交流电动机调速	交流调速
+链轮闸门	履带式闸门
+站内通信	intrastation communication
+MEDox	oxidated mediator
+电度电费	电量电费
+检测阻抗	输入单元
+973计划”	国家重点基础研究发展计划
+准电容器	法拉第电容器
+戴维南定理	亥姆霍兹－戴维南定理
+静态特性	外特性
+大负荷退磁	闭路退磁
+共同模式停运	common mode outage
+中值一般	行业值
+可碎推式	马丁式
+计算过程	部分算法
+EEAC	extended equal area criterion
+喷嘴调节方式	部分进汽
+压力－时间法	吉普逊法
+压力－时间法	水锤法
+共享数据调制解调器	modem
+摇头机构	摇摆机构
+GW	网间连接器
+托卡马克装置	环流器
+峰值需求	peak demand
+宜宾到宜昌段	川江
+板片式	福哥
+Dioxin	二氧杂芑
+数字式励磁调节器	微机励磁调节器
+导线表面电场强度	导线表面电位梯度
+FORTRAN语言	formula translation
+正弦波振荡电路	正弦波信号发生器
+核电项目工程保险	核能工程保险
+维修停运	maintenance outage
+预期瞬态未紧急停堆保护系统	ATWS缓解系统
+最大功率	maximum capability
+最大功率	保证最大连续出力
+随机控制理论	随机系统理论
+随机控制理论	随机系统控制理论
+径流式	向心式
+扇区控制运行	限扇区运行
+消力池	水跃消能塘
+DNS	domain name system
+传送语法	transfer syntax
+蓝牙	bluetooth
+换向极	附加极
+换向极	间极
+谐振	相位谐振
+电压暂降	电压跌落
+次暂态电抗	超瞬态
+风电场无功电压控制系统	风电场AVC系统
+横道图	甘特图
+分光光度法	吸光光度法
+薄绝缘浇注式	绕包浇注式
+薄绝缘浇注式	绕包式
+变压器耦合式振荡器	调集振荡器
+送风机选型	二次风机
+避雷器	限压器
+避雷器	tube type surge arrester
+输入输出法	正平衡法
+电网调度管理	电力系统调度管理
+电网调度管理	dispatching management of electric power network
+PEBS	potential energy boundary surface
+检查变流器撬棒电路	crowbar
+IP	internet protocol
+电除盐	电去离子
+狄塞尔循环	等压加热内燃机循环
+应急照明	不间断照明
+技术支援中心	辅助操纵员系统
+技术支援中心	操纵员支援系统
+升压	boost
+中间代码MSIL	microsoft intermediate language
+光控晶闸管	光触发晶闸管
+变动损耗	可变损耗
+变动损耗	短路损耗
+热绝缘材料	隔热材料
+热绝缘材料	保温材料
+平衡盘	平衡活塞
+美国核动力运行研究院	美国核电运行协会
+控制气氛电阻炉	可控气氛电阻炉
+冲击式水轮机	佩尔顿水轮机
+蒸发段	过渡段
+Im	同步的X－Y
+短路干燥法	铜损干燥法
+炉底排渣装置	液压关断门
+炉底排渣装置	大渣预破碎装置
+阀电抗器	桥臂电抗器
+超级电容器	super capacitor
+调度命令	dispatching command
+电力系统过电压	power system overvoltage
+近场耦合	感应场耦合
+岸式	shoreline devices
+人工补偿	移相电容器
+人工补偿	静电电容器
+人工补偿	并联电容器
+直流电压互感器	直流电压分压器
+数字化变电站	digital substation
+风力发电	wind power generation
+电流相位比较式纵联保护	电流相位差动
+空分复用	spatial multiplexing
+半被动	半主动
+供电可靠性管理	用户供电可靠性管理
+低压负荷开关	开关熔断器组
+系统思考	systems thinking
+强磁场退磁	开路退磁
+市场	capacity credit market
+最小频移键控	快速频移键控
+衰变	跃迁
+拒分	failure to open
+强冲击波	激波
+该功率	铭牌功率
+瞬时需求	instantaneous demand
+同调	coherent
+电力系统频率调整	电力系统频率控制
+子站	分中心
+子站	分站
+间谐波	分数次谐波
+间谐波	分数谐波
+热损失法	反平衡法
+计量柱塞泵	比例泵
+开闭所	开关站
+电容率与损耗因数试验	介质损耗角正切
+尼科尔斯图	对数幅值－相位图
+直流电场	合成电场
+预防控制	preventive control
+危急保安器	危急遮断器
+危急保安器	超速保安器
+上述变换	坐标变换
+上述变换	基底变换
+核电厂三维数字化系统	数字核电厂
+DSA	digital signature algorithm
+HCFC22	R22
+遥测	远程测量
+基于互联网	internet
+偏倚	系统偏差
+集成运算放大器	线性集成组件
+推理公式法	合理化法
+冲击吸收能量	impact absorbing energy
+电力电子型故障电流限制器	固态型故障电流限制器
+除尘效率	收尘效率
+除尘效率	捕集效率
+除尘效率	分离效率
+CFC11	R11
+CFC12	R12
+液力联轴器	液力耦合器
+地热能	地热
+地热能	地温梯度
+真空油车	油处理装置
+内锚固段	内锚头
+导爆索	爆炸导火索
+导爆索	传爆线
+叶轮振动	称轮系振动
+叶轮振动	叶片－轮盘系统振动
+光学聚光比	通量聚光比
+DTU	distribution terminal unit
+由于低频扭曲波	torsinal wave
+计划检修	schedule maintenance
+窄频ISDN	integrated services digital network
+含湿量	比湿
+磁通密度	磁感应强度
+固定需求	firm demand
+平均贴现成本	平准化成本
+上两式	散射方程组
+架空输电线路雷电过电压防护	屏蔽失效
+资源	useful resourses
+状态检修	预知性维修
+基准值	目标值
+黑度	发射率
+同步器	转速变换器
+亥姆霍兹函数	定温－定容位
+亥姆霍兹函数	亥姆霍兹自由能
+霍普菲尔德	hopfield
+紧急停堆保护系统	紧急停堆系统
+PA	process automation
+PC	person computer
+PC	personal computer
+系统通信	站间通信
+特种橡胶	耐油橡胶
+特种橡胶	耐热橡胶
+增强型	VMOSFET
+软起动器	固态软起动器
+水平围绕	螺旋围绕
+自行式索道	rope monorail
+PM	project managment
+PN	伪随机码
+PN	伪随机噪声码
+最大发电量	maximum generation
+实际系统	原型
+数字电路	数字逻辑电路
+电力系统在线安全分析	电力系统在线安全评估
+管壳式	列管式
+斩波控制直流调速	脉冲控制直流调速
+调洪库容	防洪库容
+电压源型直流输电	轻型直流输电
+电压源型直流输电	柔性直流输电
+电磁灶	电磁炉
+暂态电抗	瞬态
+及后向散射耦合	backscatter coupling
+碳化硅阀式避雷器	ordinary valve type surge arrester
+快堆冷却剂系统	热传输系统
+照度	光照度
+同调发电机	coherent generator
+有功功率与频率自动控制	自动发电控制
+凝聚	coalescence
+开放输电系统	open transmission access
+电力零售市场	retail market
+灵活交流输电系统	柔性交流输电系统
+核电厂修改项目管理	技术改造
+磁阻电动机	反应式同步电动机
+保护间隙	protective gap
+异常检测	anomaly detection
+调幅器	amplitude modulator
+高程	海拔
+配合系数	间隔系数
+纵断面测量	纵剖面测量
+利润表	损益表
+负荷	load
+特高压	ultra high voltage
+肖特基二极管	其为热载流子二极管
+RC	积分增益
+离子导体	第二类导体
+焊接性能	可焊性
+随机性信号	不确定性信号
+MIS	management information system
+剩余反应性	后备反应性
+电流谐振	并联谐振
+抗性消声器	声学滤波器
+扰动均可能引起次谐波电流	次同步暂态电流
+设计模拟模型	analog model
+混合物	一次风
+业务连续性	business continuity
+科技保密	科学技术保密
+概率	probability of a command failure
+飓风	hurricane
+输入/输出处理机	外围处理机
+大功率电力半导体器件	high power semiconductor devices
+有机发光显示器	OLED显示器
+暗装式	嵌入式插座
+非门	反相器
+电气设备接地装置	接地引下线
+电气设备接地装置	接地极
+带串联间隙金属氧化物避雷器	metal oxide surge arrester with gaps
+电压源逆变器	voltage source inverter
+矿井提升机	矿井卷扬机
+适应控制系统	自适应控制系统
+特种分析	非常规分析
+控制系统	输入回路
+汽轮机热力特性曲线	威廉斯线
+SV	sampled value
+电量电价	变动电价
+超过滤	超滤
+自励磁	凸极同步自励磁
+定期会议	股东常会
+差价合同	contract for differences
+电力系统绝缘配合	insulation coordination
+三部制电价	用户费用
+电子导体	第一类导体
+压力管道	高压管道
+研究对象时	岩体力学
+计划	plan
+备用电源	第二电源
+小型风力发电机组叶根连接结构	叶柄
+底层指标	叶项指标
+标准	reference
+风能资源数值模拟	numerical simulation of wind energy resource
+工艺方法	WSA
+触发角	控制角
+电场耦合	容性耦合
+电源建设规模	在建规模
+磁通计	韦伯计
+磁通计	特斯拉计
+宜昌段	川江
+开槽波导加热器示意图	蛇形波导加热器
+校正控制	corrective control
+获得调节库容	有效库容
+获得调节库容	兴利库容
+里控制信号	地址信号
+控制方式	带有断点的自起停控制
+VB	visual basic
+热能单位是卡	cal
+互联网	因特网
+VR	灵境
+VR	人工环境
+VR	虚拟环境
+汽轮发电机额定功率	额定出力
+杂散损耗	附加损耗
+锌－汞干电池	汞电池
+燃料抓取机	乏燃料水池吊车
+自动同步离合器	3S离合器
+向斜蓄水构造	自流盆地
+两端口	四端
+近岸式	nearshore devices
+数字相位表	数字相位计
+内置式无极荧光灯	高频无极荧光灯
+回馈制动	再生制动
+水电站	水力发电站
+水电站	水力发电厂
+水电站	河床式水电站
+主调节器	校正调节器
+索式挖掘机	拉铲挖掘机
+索式挖掘机	索铲
+成本费用管理	成本管理
+速度控制	一次调频
+磁场强度线	H线
+SSCL	solid state current limiter
+三相桥式换流器	换流桥
+操作员站	operating station
+中压	medium voltage
+棒状燃料元件	燃料棒
+火力发电厂仪表与控制设计	仪表和控制设计
+外部大气相通的	开启式
+避雷针	导闪针
+导轨式风动凿岩机	岩石钻机
+6脉动换流器	换流桥
+对电磁敏感对象	无用信号
+变压运行	滑压运行
+供电管理	输配电系统运行管理
+油囊式轴承	袋式轴承
+物理量	泄漏率密度
+无源分光器	splitter
+该装置进行危急保安器活动试验	充油试验
+防洪限制水位	汛期限制水位
+配电台区	直配台区
+电容率	介电常数
+无心感应熔炼炉	坩埚感应炉
+生物质热解制氢	生物质热分解
+MOS场效应晶体管开关	模拟开关
+轴承合金	轴瓦合金
+介质加热	电极式高频电场加热
+就地型	分散型
+N2O	氧化亚氮
+N2O	笑气
+Z3接成星形	形
+通常取开环增益	开环放大系数
+结构容量	电磁容量
+一级处理	机械处理
+漂移	wander
+热传导	导热
+转换比	增殖比
+料位检测	物位测量
+对干式冷却系统	空冷系统
+分类	classification
+母体暴露时间	population exposure duration
+扩频通信	扩展频谱通信
+对流换热	对流放热
+一兆像素	megapixel
+空蚀	气蚀
+变电站	substation
+机组为主	航改型燃气轮机
+共模停运	common mode outage
+复合绝缘子	合成绝缘子
+T型接头	丁字接头
+通风式低耐压型安全壳	包容体
+堆芯	活性区
+非相干光	noncoherent
+电网标准	输变电标准
+超同步共振	倍频共振
+担峰荷	调峰
+击穿保险器	sparkover protective device
+extreme emergency	部分停机限电状态
+拒合	failure to close
+频率特性	正弦传递函数
+脉动数	脉波数
+敞开式开关柜	开启式开关柜
+弱风化	中等风化
+岩体变形试验	刻槽法
+处理	action
+电力系统经济调度	电网经济调度
+电流互感器	current transformer
+深孔	底孔
+温度标尺或简称温标	绝对温标
+温度标尺或简称温标	开尔文温标
+水能利用学	水能学
+光阴极	反电极
+如铒	erbium
+嵌镶块	亚晶
+嵌镶块	亚结构
+情报检索	广义的情报检索
+鱼梯	鱼道
+实际发电量	actual generation
+概率论安全分析	概率安全分析
+冲击式水轮机尾水槽	泄水槽
+定理	磁路的基尔霍夫第一定律
+定理	磁路的基尔霍夫第二定律
+厂用工作变压器	单元厂用变压器
+管棚支护	超前钢管法
+背靠背直流输电系统	非同步联络站
+感应透热装置	感应加热炉
+管道水力瞬变	管道非恒定流
+布风板阻力	空床阻力
+小扰动稳定计算	静态稳定计算
+对电极	反电极
+对电极	光阴极
+方均根值	rms
+它由许多线圈	元件
+光二极管	photo diode
+生物质水解单元	糖化单元
+相干光	coherent
+对离子	相反离子
+对离子	解离离子
+升阻比	气动效率
+混合工质	多组元工质
+停堆棒	黑棒
+物理仿真装置	物理模型
+物理仿真装置	物理模拟装置
+风力农场	wind farm
+间接效益	二次效益
+间接效益	社会效益
+相位调制	幅度键控
+Z31接成三角形	形
+扭应力继电器	torsional stress relay
+热储层	热储
+热储层	地热储
+数学描述	系统数学模型
+只需测量稳定状态	静态
+中国国家高程控制网	国家水准网
+称重换算成面积	称重法
+蒸汽压力	饱和蒸汽压力
+基尔霍夫第一定律	基尔霍夫电流定律
+不设巡视通道的	半高型布置
+风动凿岩机	风钻
+遥信	远程信号
+IPS	internet protocol security
+耗尽层	内电场
+半导体探测器	固体电离室
+中间负荷	腰荷
+物理交联	辐照交联
+感性耦合	磁场耦合
+保健性因素	维护性因素
+电力公司	electric utility
+中性点不接地	中性点非有效接地
+中性点不接地	小电流接地
+变径床	变径双室浮床
+夹断电压UGS	off
+机电致发光图像电子显示器	有机发光二极管
+荧光灯	日光灯
+手动控制	司机驾驶
+大地构造	地壳构造
+遥信状态一般由1个比特	bit
+标准电池	韦斯顿电池
+直流牵引变电所及接触轨	第三轨
+压水堆轴封式冷却剂循环泵	主泵
+发电系统	闪蒸地热发电系统
+旋转伏特计	场磨
+事先主动检修	condition based proactive maintenance
+三角结构	三部件结构
+锅炉	蒸汽发生器
+水蒸气	蒸汽
+奥托循环	等容加热内燃机循环
+序分量法	对称分量法
+衰减系数	吸收系数
+预制终端	直角电缆终端
+风电机组平均故障间隔时间	平均无故障时间
+IRR	增量投资内部收益率
+万能式断路器	框架式断路器
+石方洞挖	石方暗挖
+沼气发生器	自动净化器
+二次涂覆	套塑
+变开距结构	外喷射式
+雷击过电压	大气过电压
+斩波	chopper
+Verilog HDL更适合RTL	register tansfer level
+间歇式驻波场谐振腔加热器	微波箱
+零伏电压	基准电压UR
+流动边界层	速度边界层
+于机构外部	off premise
+市场交易机构	power exchange
+锁定放大器	锁相放大器
+近地面层	常通量层
+风电场有功功率控制系统	风电场自动发电控制系统
+解析模型	网络模型
+汽轮机油	透平油
+平均持续时间	average duration of a state
+控制装置	远方终端装置
+辐射形配电网	放射式配电网
+电力系统调度	power system operator
+多路选择器	数据选择器
+实施容量机制	capacity mechanism
+联动装置	集中控制盘
+该电缆终端有时	SF6终端
+竖直抓斗式清污机	颚式清污机
+搜索	查找
+压水堆堆芯	活性区
+同步指示器	同步表
+同步指示器	整步表
+危险性因素控制表	危险点预控措施手册等
+危险性因素控制表	危险点控制标准
+混凝式间接空冷系统	海勒式空冷系统
+构成专家控制	expert control
+固定损耗	空载损耗
+掘进台车	多臂钻
+控制循环锅炉	辅助循环锅炉
+控制循环锅炉	强制循环
+信道	channel
+信道	通道
+详算法	水动力学方法
+光生伏打效应	photovoltaic effect
+频率检波	鉴频
+鼓泡流化床锅炉	鼓泡床锅炉
+鼓泡流化床锅炉	沸腾锅炉
+伯德图	对数坐标图
+计算机应用	表达模型
+抗燃液	fire resistant fluid
+调度自动化主站系统	调度控制中心系统
+松弛动态规划	降维动态规划
+FATTn	fracture appearance transition temperature
+贮备电池	活化
+电阻标尺	反向刻度
+指令	访管
+污染物	污染因子
+环境监测地点	断面
+开停机计划	unit commitment
+低压断路器	自动空气开关
+低压断路器	自动开关
+低压断路器	自动断路器
+供电服务热线	供电服务呼叫中心
+反应堆周期T	反应堆时间常数
+余热	废热
+堆芯保护系统	限制系统
+地热异常区	大地热流密度
+地热异常区	地热区
+天然温室效应	natural greenhouse effect
+磁致伸缩效应	焦耳效应
+波浪	液体自由表面波
+电屏蔽（板	磁屏蔽板
+配电网过电压保护	大气过电压
+配电网过电压保护	雷电过电压
+GPRS	general packet radio service
+里约热内卢宣言》	地球宪章
+失效分析	损坏分析
+库仑岛	量子点
+模拟	analog
+枝江到城陵矶段	荆江
+回火脆性	不可逆回火脆性
+该炉型	携带床气化炉
+自我超越	personal mastery
+中压配电网中性点接地方式	中压配电网中性点运行方式
+珠光体耐热钢	珠光体热强钢
+边界状态	marginal
+用电电价结构	销售电价结构
+交流弧焊电源	弧焊变压器
+地温	地表温度
+纵倾排水量修正曲线	纵倾1cm排水量变化曲线
+控制向量	输入向量
+康铜	constantan
+联络线交换计划	transaction schedule
+AHP	analysis hierarchy process
+备用	reserve
+大功率电力电子器件	大功率电力半导体器件
+高效微粒空气过滤器	绝对过滤器
+指令计数器	程序计数器
+夏时制	经济时
+暴露次数	exposure times
+特紧急状态	extreme emergency
+叶片	桨叶
+公众辐射防护评价	环境辐射防护评价
+保护接地	安全接地
+模型预测控制	model predictive control
+碳化硅电炉	金刚砂电炉
+能源	能量资源
+工业电视	工业
+GPSS	general purpose system simulator
+绝缘特性服从巴申定律Ud＝f	p d
+有效值	方均根值
+属安全级	IE级
+炉膛安全监控系统	燃烧器管理系统
+密切尔式径向轴承	自动调节中心式轴承
+质量检测仪表	在线化学检测仪表
+金属箔电容器	metal foil capacitor
+电磁暂态计算程序EMTP	electromagnetic transient program
+容量	available capacity
+月负荷特性指标	月不均衡率
+区域控制	region control
+调度管理体制	dispatching management institution
+共同愿景	building share division
+关联	association
+感应电动机	异步电动机
+受限	formal
+电力晶体管GTR	giant transistor
+小型	small
+工程阶段验收	过程验收
+供电营业厅	供电营业网点
+核燃料资源	裂变核燃料
+核燃料资源	核燃料矿产资源
+核燃料资源	重氢
+核燃料资源	聚变核燃料
+停电自锁照明控制	二次开关
+组织结构	组织框架体系
+时钟	频率同步
+6脉动	6脉波
+泡克尔	pockels
+可倾瓦轴承	称自动调节中心式轴承
+可倾瓦轴承	密切尔式径向轴承
+L棒组	负荷棒组
+季节性减少出力	seasonal derating
+ETC	existing transmission commitment
+发电机	运行系统与待并系统
+岸边溢洪道	溢洪道
+准确度	accuracy
+汽轮发电机出力图	发电机无功出力曲线
+相关器	相敏检波器
+金属与非金属组合护套	简易金属护套
+金属与非金属组合护套	综合护套
+混合用户	mix customer
+水轮发电机组动力特性	微增率
+水轮发电机组动力特性	机组出力
+数字频率表	数字频率计
+中间继电器	辅助继电器
+项目核准制	企业投资项目核准制
+单位阶跃响应曲线	单位飞升曲线
+隐极同步发电机	cylindrical rotor synchronous machine
+电能表保证金	电表保证金
+进行梯级利用	接力开发
+微型	micro
+光分配网全部由光分路器	splitter
+坩埚	水冷铜结晶器
+坩埚	结晶器
+矫正性检修	corrective maintenance
+网络接口板	通信适配器
+网络接口板	通信控制卡
+微电网	微网
+安全可靠性	零排放系统
+置0维持线	置1阻塞线
+走行部分	转向架
+该模式	电力库模式
+CDMA	code division multiple access
+重力水	自由水
+抗燃油	抗燃液
+国民经济评价	经济分析
+违章用电	违约用电
+㶲	有效能
+㶲	可用能
+农村电力网电气设备	农网装备
+螺栓型T接线夹	可卸型夹板式T接线夹
+富氧燃烧	纯氧燃烧
+直接序列扩频	direct sequence spread spectrum
+复杂度为O	nlogn
+极限波长λ0	红限
+热焓	hfg
+事故闸门	快速闸门
+降阶观测器	降维观测器
+洗衣干衣一体机	洗干一体机
+锅筒水位控制系统	给水调节系统
+生物质发电	biomass power generation
+企业成员账户	二级账户
+电力系统中期发展规划	电力系统设计
+池内沸腾换热	大容器沸腾换热
+供电可靠性	用户供电可靠性
+床下加热点火装置	风道燃烧器
+使离子交换膜电解法	离子膜电解法
+低压	low voltage
+巴	bar
+来世界一次能源供应总量	一次能源消费总量
+高可用性	high availability
+电子束精密加工装置	电子束加工机
+定时信号	节拍信号
+全站型电子速测仪	electronic total station
+冲泻质	非造床质
+电感三点式振荡器	哈特莱振荡器
+现实模型	最佳估算模型
+主控系统	负荷控制系统
+沙垄	dunes
+电压谐振	串联谐振
+光伏发电标准	standard for photo voltaic
+静态安全分析	N－1潮流计算
+钝化发射极背部局域扩散	passivated emitter real local contact
+障树分析方法	fault tree analysis
+人机界面	人机系统
+机组降低出力	unit derating
+发电系统模型	容量模型
+发电系统模型	容量停运概率表
+斯塔德福森	stadsforsen
+充电接口技术	充电接口连接技术
+定桨距风电机组	失速型风电机组
+科技评价	科学技术评价
+拖曳力	推移力
+推荐性标准	非强制性标准
+推荐性标准	自愿性标准
+等百分比型	对数型
+隐性故障	hidden failure
+本征型电致发光原理	德斯特里奥电致发光原理制成的
+水泵水轮机	可逆式水轮机
+太阳能电池	光伏电池
+钎焊	真空钎焊
+环境风洞	大气边界层风洞
+按用电最大需量计算	按最大需量计算
+最大比热区也能发生传热恶化	类膜态沸腾
+前馈控制	开环控制
+系数法	流明法
+空间电荷区	耗尽层
+切弹性模量	刚性模量
+切弹性模量	剪切模量
+切弹性模量	切变模量
+重水堆热传输系统	主热传输系统
+无延性转变温度	脆性转变温度
+COBOL语言	common business oriented language
+乏	无功伏安
+盘形悬式绝缘子	帽－脚形悬式绝缘子
+负极	燃料电极
+负极	电池阳极
+叶尖扰流器	叶尖刹车
+单位冲激函数δ（t	狄拉克函数
+瑞典克昆	kockums
+电力市场运营系统	电力市场技术支持系统
+积毒阶段	碘坑最大值
+转子位置传感器	位置检测器
+载氧体	载氧剂
+甚高温气冷堆	超高温气冷堆
+辐射	光子
+偏差系数	偏态系数
+拉线绝缘子	隔地绝缘子
+内网	intranet
+磁吹避雷器	magnet valve surge arrester
+节点	平衡节点
+节点	缓冲节点等
+高压功率MOSFET门极驱动电路	高压浮动MOS门极驱动器
+式中B	bias
+起爆组件	点火器
+砷化镓场效应晶体管	金属－半导体场效应晶体管
+蠕变	徐变
+低温气体氮碳共渗	气体软氮化
+接触线	电车线
+电介质击穿	电气强度
+提高引水线	引水拐脚
+奈奎斯特图	极坐标图
+分组交换域	packet switched domain
+静止移相器	电子移相变压器
+静止移相器	晶闸管控相角调节器
+出厂试验	例行试验
+立堵法	进占法
+隧道	电缆隧道
+状态量	遥信量
+磁屏蔽	磁分路
+诊断试验	补充试验
+明渠不恒定流	明渠非恒定流
+节能	节约能源
+交流变频器	直接变频器
+交流变频器	周波变流器
+交流变频器	正弦型交流－交流变频器
+远场耦合	电磁波耦合
+无线电通信	无线通信
+编程器	烧录器
+巴拉那河	拉普拉塔河
+差动放大电路	差分放大电路
+风险告知	风险指引
+数据服务器	数据处理中心
+数据处理终端	data processing
+记忆模型	controlled interval and memory model
+SAFER	stress analysis and fracture evaluation of rotor
+火电计划	thermal schedule
+CCT曲线	continuous cooling temperature
+混凝土骨料	混凝土集料
+耗差分析	偏差分析
+绝对值	真空度
+额定功率	rated power
+红外加热	电红外辐射加热
+输水管	配水环
+施工预算	工料机预算
+施工预算	计划成本
+施工预算	工程施工成本计划
+限扇区控制运行	扇区控制运行
+后备备用	冷备用
+新装增容	增容用电
+新装增容	新装用电
+三相并励换向器电动机	施拉盖电动机
+除应提出计划任务书	设计任务书
+管理业务	网络管理环境
+锅炉经济运行	保持最高锅炉净效率的运行
+较量仪器	比较式仪器
+脱硫技术	reflux circulating fluid bed flue gas desulfurization
+全球卫星导航系统	global navigation satellite system
+棒式绝缘子	瓷拉棒
+拉丁美洲禁止核武器条约》	特拉特洛科条约
+欧洲ENIQ	european network for inspection qualification
+水汽质量监测仪表	在线化学监测仪表
+水文测验	水信息技术
+大卡	kcal
+贯流式水泵水轮机	双向可逆式水轮机
+两部制电价	准备费
+产电比	ratio of output value to unit electric energy consumption
+自激振荡	等幅振荡
+发裂	白点
+发裂	鱼眼
+支撑平台	支撑环境
+支撑平台	支撑软件
+快速型NOx	瞬态NOx
+核聚变三乘积条件	核聚变三乘积判据
+确定性准则	deterministic criteria of transmission system reliability
+知识控制	knowledge control
+水电计划	hydro schedule
+UMTS	universal mobile telecommunications system
+美国及欧洲核电厂业主互保组织	mutual
+半不变量	cumulant
+间隙	磁头的浮动高度
+间隙	火花间隙
+STATCOM	DSTATCOM
+离散控制系统	离散时间系统
+离散控制系统	采样数据系统
+离散控制系统	离散数据系统
+离散控制系统	离散系统
+电力系统调度机构	power system operator
+图中CAC	condition acquisition controller
+及联锁电路	允许电路
+可靠性等重要性能指标	performance indices
+最低励磁限制	欠励限制
+装载	load
+消能设施	消能工
+单向脉冲宽度调制交－直－交变流器	全功率变流器
+合成气	syngas
+汽轮发电机	隐极同步发电机
+汽轮发电机	透平型发电机
+汽轮发电机	隐极发电机
+离网光伏逆变器	独立逆变器
+额定负载	额定容量
+能源强度	能源消费强度
+锌电积	锌电解
+放大电路的频率特性	频率响应
+热力学系统	系统
+热力学系统	热力系
+模拟乘法器	模拟相乘器
+阻燃电缆	难燃电缆
+一兆字节	megabyte
+蒙特卡罗模拟法	随机模拟法
+蒙特卡罗模拟法	统计试验法
+工程技术	engineering
+相电抗器	桥臂电抗器
+相电抗器	阀电抗器
+D棒组	多卜勒
+电极极化	极化
+自容式充油电力电缆	充油电力电缆
+自容式充油电力电缆	OF电力电缆
+广域网	远程网
+水锤	水击
+电热锅炉	电锅炉
+履带牵引机	输送机
+导热系数	导热率
+导热系数	热导率
+铜铁损电量	变压器的负载损耗电量和空载损耗电量
+属性	attribute
+金属氢化物	贮氢合金
+潮流计算P-Q分解法	快速分解法
+表凝式间接空冷系统	哈蒙式空冷系统
+灾难恢复	disaster recovery
+单一故障	安全组合
+深潭	chutes and pools
+电缆护层保护器	金属屏蔽层电压限制器
+核电厂汽轮发电机	透平型发电机
+电力拖动典型负载特性	负载转矩特性
+输入/输出设备控制器	外围设备控制器
+必需容量	替代容量
+多重故障	multiple failure
+电压控制型FA	电压－时间控制型FA
+执行过程分成几个基本周期	机器周期
+骚扰电压测量	传导发射电压测量
+交错式绕组	交叠式绕组
+汽轮发电机最大容量	最大输出功率
+溶解氧表	在线溶解氧表
+光热发电标准	standard for solar thermal
+压水堆冷却剂系统	一次冷却剂系统
+压水堆冷却剂系统	一回路主系统
+APT语言	automatically programmed tools
+基尔霍夫第二定律	基尔霍夫电压定律
+CIM模型交换格式CIM RDF	resource description framework
+规范型	标准型
+爬模法	提模法
+数字信号电路中	逻辑地
+输电容量	输送容量
+输电容量	输电能力
+最大连续铭牌出力	maximum continuous rating
+合金元素迁移	合金元素再分配
+电抛光	电解抛光
+财务集约化管理	finance intensification management
+床上燃烧器	起动燃烧器
+核能	原子能
+施工详图设计阶段	施工建设阶段
+功能性接地	工作接地
+噪声	noise
+辅助绕组	起动绕组
+激光工作物质	激活媒质
+舱室冷却系统	余热排出系统
+实际电气照明设计中	逐点计算法
+环形配电网	环式配电网
+报警过滤	alarm filtering
+绝缘栅场效应晶体管	MOSFET
+燃气透平	涡轮
+遥控	远程控制
+增强温室效应	enhanced greenhouse effect
+最大电压系数	cmax
+热力学性质	平衡性质
+市场主体	marker participants
+配电地理信息系统	自动绘图/设备管理/地理信息系统
+电力半导体器件	power semiconductor devices
