@@ -2,6 +2,7 @@ package com.hiekn.search.rest;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Floats;
+import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
@@ -13,10 +14,10 @@ import com.hiekn.search.bean.request.QueryRequest;
 import com.hiekn.search.bean.request.QueryRequestInternal;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.BaseException;
+import com.hiekn.search.exception.JsonException;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
 import com.hiekn.service.nlp.NLPServiceImpl;
-import com.hiekn.util.CommonResource;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
@@ -30,7 +31,6 @@ import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder.FilterFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -49,7 +49,10 @@ import org.springframework.stereotype.Controller;
 import javax.annotation.Resource;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -87,6 +90,8 @@ public class SearchRestApi implements InitializingBean {
     private StandardService standardService = null;
     private ResultsService resultsService = null;
     private BaikeService baikeService = new BaikeService();
+
+    private Map<String, String> synDicts = new ConcurrentHashMap<>();
 
     @GET
     @Path("/detail")
@@ -210,11 +215,13 @@ public class SearchRestApi implements InitializingBean {
         }
         log.info("query keywords:" + tokens);
         QueryRequestInternal queryInternal = new QueryRequestInternal(request);
-        queryInternal.setUserSplitSegList(tokens);
+        queryInternal.setUserSplitSegList(new ArrayList<>());
+        queryInternal.getUserSplitSegList().addAll(tokens);
 
         //
         intentionRecognition(queryInternal);
 
+        synonymExtension(tokens, queryInternal);
 
         List<String> indices = new ArrayList<>();
         List<AbstractService> services = new ArrayList<>();
@@ -332,7 +339,10 @@ public class SearchRestApi implements InitializingBean {
         if (!isChinese(request.getKw())) {
             titleTerm = QueryBuilders.prefixQuery("name.pinyin", request.getKw()).boost(2);
         } else {
-            titleTerm = QueryBuilders.termQuery("name", request.getKw()).boost(2);
+            BoolQueryBuilder bool = QueryBuilders.boolQuery();
+            bool.should(QueryBuilders.termQuery("name", request.getKw()).boost(2));
+            bool.should(QueryBuilders.prefixQuery("name.keyword", request.getKw()));
+            titleTerm = bool;
         }
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -363,6 +373,10 @@ public class SearchRestApi implements InitializingBean {
             bean.setDescription(getString(descObj));
             bean.setGraphId(getString(source.get("graphId")));
 
+            if (request.getKwType()!=null && request.getKwType()==1 && StringUtils.isEmpty(bean.getDescription())) {
+                //continue;
+                bean.setGraphId(null);
+            }
             if (bean.getName() != null && promptList.indexOf(bean) < 0) {
                 promptList.add(bean);
             }
@@ -484,6 +498,33 @@ public class SearchRestApi implements InitializingBean {
     }
 
     @POST
+    @Path("/list")
+    @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> getListByIds(@ApiParam(value = "id列表") @FormParam("docIds") String docIds,@QueryParam("tt") Long tt)
+            throws InterruptedException, ExecutionException {
+        if (StringUtils.isEmpty(docIds)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        List<String> idList;
+        try {
+            idList = com.hiekn.plantdata.util.JSONUtils.fromJson(docIds, new TypeToken<List<String>>() {
+            }.getType());
+        }catch (Exception e) {
+            log.error("parse to json error", e);
+            throw JsonException.newInstance();
+        }
+        SearchRequestBuilder srb = esClient.prepareSearch(new String[]{PATENT_INDEX,PAPER_INDEX,STANDARD_INDEX,RESULTS_INDEX});
+        srb.setQuery(QueryBuilders.idsQuery().addIds(idList.toArray(new String[]{})));
+        SearchResponse response = srb.execute().get();
+        SearchResultBean result = new SearchResultBean("");
+        setResultData(result, response);
+
+        return new RestResp<>(result, tt);
+    }
+
+    @POST
     @Path("/segments")
     @Consumes(MediaType.APPLICATION_JSON)
     @ApiOperation(value = "分词", notes = "句子分词")
@@ -589,6 +630,9 @@ public class SearchRestApi implements InitializingBean {
             for(EntityBean bean: rsList){
                 if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
                     if (request.getUserSplitSegList().contains(bean.getName())) {
+                        if (isChinese(bean.getName()) && (bean.getName().length() > 4 || bean.getName().length() < 2)) {
+                            continue;
+                        }
                         userInputPersonName = bean.getName();
                         request.getUserSplitSegList().remove(bean.getName());
                         result.put("人物", userInputPersonName);
@@ -617,6 +661,16 @@ public class SearchRestApi implements InitializingBean {
         return result;
     }
 
+    private void synonymExtension(List<String> tokens, QueryRequestInternal request) {
+        for (String token : tokens) {
+            String syn = synDicts.get(token);
+            if (!StringUtils.isEmpty(syn)) {
+                request.getUserSplitSegList().add(syn);
+                log.info("extend synonym word: " + syn);
+            }
+        }
+    }
+
     @Override
     public void afterPropertiesSet() throws Exception {
         paperService = new PaperService(esClient, generalSSEService, kgName);
@@ -627,5 +681,22 @@ public class SearchRestApi implements InitializingBean {
 
         word2vec = new Word2VEC();
         word2vec.loadJavaModel(modelLocation);
+
+        try(BufferedReader reader = new BufferedReader(new InputStreamReader(
+                this.getClass().getClassLoader().getResourceAsStream("synonym.txt")))) {
+
+            String line;
+            while((line=reader.readLine())!=null){
+                String[] kws = StringUtils.split(line,'\t');
+                if (kws.length == 2) {
+                    if (kws[1].contains("\\")) {
+                        continue;
+                    }
+                    synDicts.put(kws[0],kws[1]);
+                }
+            }
+        }catch (Exception e) {
+            log.error("init syn dictionary failed.", e);
+        }
     }
 }

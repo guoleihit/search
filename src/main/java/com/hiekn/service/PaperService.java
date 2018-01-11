@@ -13,6 +13,7 @@ import com.hiekn.search.bean.result.paper.PaperType;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -276,9 +277,10 @@ public class PaperService extends AbstractService{
         makeFilters(request, boolQuery);
 
         if (!StringUtils.isEmpty(request.getId())) {
-            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
+            boolQuery.must(QueryBuilders.nestedQuery("annotation_tag", QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f), ScoreMode.Max));
+            //boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
             boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
-            return boolQuery;
+            return adjustPaperTypeBoost(boolQuery);
         }
 
         if (!StringUtils.isEmpty(request.getCustomQuery())) {
@@ -322,7 +324,7 @@ public class PaperService extends AbstractService{
         QueryBuilder authorTerm = createTermsQuery("authors.name.keyword", request.getUserSplitSegList(), CommonResource.search_person_weight);
         QueryBuilder orgsTerm = createTermsQuery("authors.organization.name", request.getUserSplitSegList(), CommonResource.search_org_weight);
         QueryBuilder kwsTerm = createTermsQuery("keywords.keyword", request.getUserSplitSegList(), 1f);
-        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 1f);
+        QueryBuilder annotationTagTerm = createNestedQuery("annotation_tag","annotation_tag.name", request.getUserSplitSegList(), 1f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
@@ -335,16 +337,23 @@ public class PaperService extends AbstractService{
             should(termQuery, annotationTagTerm);
             if(userInputPersonName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.name.keyword", userInputPersonName).boost(CommonResource.search_recognized_person_weight));
-                should(termQuery, QueryBuilders.termQuery("first_author", userInputPersonName).boost(CommonResource.search_recognized_person_weight));
+                should(termQuery, QueryBuilders.termQuery("first_author", userInputPersonName).boost(CommonResource.search_person_weight));
             }else{
                 should(termQuery,authorTerm);
             }
 
             if(userInputOrgName != null){
                 should(termQuery, QueryBuilders.termQuery("authors.organization.name", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
-                should(termQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
+                should(termQuery, QueryBuilders.termQuery("first_author_org", userInputOrgName).boost(CommonResource.search_org_weight));
             }else{
                 should(termQuery,orgsTerm);
+            }
+
+            if (userInputPersonName != null && userInputOrgName != null) {
+                BoolQueryBuilder bool = QueryBuilders.boolQuery().boost(CommonResource.search_recognized_org_weight * CommonResource.search_recognized_person_weight);
+                bool.should(QueryBuilders.termQuery("authors.organization.name", userInputOrgName));
+                bool.should(QueryBuilders.termQuery("authors.name.keyword", userInputPersonName));
+                should(termQuery,bool);
             }
         } else if(request.getKwType() == 1){
             if (userInputPersonName != null) {
@@ -401,14 +410,47 @@ public class PaperService extends AbstractService{
     }
 
     private FunctionScoreQueryBuilder adjustPaperTypeBoost(BoolQueryBuilder boolQuery) {
-        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                QueryBuilders.termQuery("paperType","JOURNAL"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_journal_paper_weight)),
-        new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                QueryBuilders.termQuery("paperType","DEGREE"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_degree_paper_weight)),
-        new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                QueryBuilders.termQuery("paperType","CONFERENCE"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_conference_paper_weight))};
+        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("paperType","JOURNAL"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_journal_paper_weight)),
+                // TODO 倒入数据需要把空格去掉！！！damn ideadata
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","中国电机工程学报 "), ScoreFunctionBuilders.weightFactorFunction(0.09f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统自动化 "), ScoreFunctionBuilders.weightFactorFunction(0.08f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电网技术 "), ScoreFunctionBuilders.weightFactorFunction(0.07f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电工技术学报 "), ScoreFunctionBuilders.weightFactorFunction(0.06f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统维护与控制 "), ScoreFunctionBuilders.weightFactorFunction(0.05f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("journal.journal_chinese_name","高电压技术 "), ScoreFunctionBuilders.weightFactorFunction(0.04f)),
 
-        return QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MULTIPLY);
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("paperType","DEGREE"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_degree_paper_weight)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("degree_awarded_organization","清华大学"), ScoreFunctionBuilders.weightFactorFunction(0.02f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("degree_awarded_organization","北京大学"), ScoreFunctionBuilders.weightFactorFunction(0.02f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("degree_awarded_organization","哈尔滨工业大学"), ScoreFunctionBuilders.weightFactorFunction(0.02f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("degree_awarded_organization","上海交通大学"), ScoreFunctionBuilders.weightFactorFunction(0.02f)),
+
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("paperType","CONFERENCE"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_conference_paper_weight)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.wildcardQuery("conference.conference_name","*IEEE*"), ScoreFunctionBuilders.weightFactorFunction(0.03f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.wildcardQuery("conference.conference_name","*ACM*"), ScoreFunctionBuilders.weightFactorFunction(0.03f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.wildcardQuery("conference.conference_name","*中国电机工程学会*"), ScoreFunctionBuilders.weightFactorFunction(0.09f))
+
+
+        };
+
+        return QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.SUM);
     }
 
     @Override
@@ -534,7 +576,11 @@ public class PaperService extends AbstractService{
                     buildQueryCondition(themeQuery, reqItem, "_kg_annotation_1.name", false,false, Operator.OR);
                     buildQueryCondition(themeQuery, reqItem, "_kg_annotation_2.name", false,false, Operator.OR);
                     buildQueryCondition(themeQuery, reqItem, "_kg_annotation_3.name", false,false, Operator.OR);
-					buildQueryCondition(themeQuery, reqItem, "annotation_tag.name", false,false, Operator.OR);
+					//buildQueryCondition(themeQuery, reqItem, "annotation_tag.name", false,false, Operator.OR);
+                    if (reqItem.getKv() != null && reqItem.getKv().getV() != null && reqItem.getKv().getV().size() > 0) {
+                        QueryBuilder annotation = createNestedQuery("annotation_tag", "annotation_tag.name", reqItem.getKv().getV(), 1f);
+                        themeQuery.should(annotation);
+                    }
                     buildQueryCondition(themeQuery, reqItem, "keywords.keyword", false,false, Operator.OR);
 					setOperator(boolQuery, reqItem, themeQuery);
 				}else if ("keyword".equals(key)) {
@@ -578,7 +624,13 @@ public class PaperService extends AbstractService{
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, op);
-        buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
+
+        //buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
+        if (reqItem.getKv() != null && reqItem.getKv().getV() != null && reqItem.getKv().getV().size() > 0) {
+            QueryBuilder annotation = createNestedQuery("annotation_tag", "annotation_tag.name", reqItem.getKv().getV(), 1f);
+            setOperator(allQueryBuilder, op, annotation);
+        }
+
         buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "authors.organization.name", false,false, op);

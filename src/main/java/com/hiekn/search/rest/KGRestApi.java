@@ -172,6 +172,8 @@ public class KGRestApi implements InitializingBean{
                                   @FormParam("statsLimit") Integer statsLimit, @QueryParam("pageNo") Integer pageNo,
                                   @QueryParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
                                   @ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
+                                  @ApiParam("是否查顶层父概念")@DefaultValue("false")@FormParam("isTop") Boolean isTop,
+                                  @ApiParam("不查顶层父概念")@FormParam("excludeClassIds") String excludeClassIds,
                                   @QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
 
         if (StringUtils.isEmpty(kw) && StringUtils.isEmpty(id)) {
@@ -180,7 +182,7 @@ public class KGRestApi implements InitializingBean{
         log.info("kw:"+kw+",tt:"+tt+",pageNo:"+pageNo+",pageSize:"+pageSize);
         List<Long> allowAttList = null;
         List<Long> allowTypeList = null;
-
+        List<Long> excludeClassIdList = null;
         if (pageNo == null) {
             pageNo = 1;
         }
@@ -197,6 +199,8 @@ public class KGRestApi implements InitializingBean{
             allowAttList = JSONUtils.fromJson(allowAtts, new TypeToken<List<Long>>() {
             }.getType());
             allowTypeList = JSONUtils.fromJson(allowTypes, new TypeToken<List<Long>>() {
+            }.getType());
+            excludeClassIdList = JSONUtils.fromJson(excludeClassIds, new TypeToken<List<Long>>() {
             }.getType());
         } catch (Exception e) {
             log.error("parse to json error", e);
@@ -258,7 +262,7 @@ public class KGRestApi implements InitializingBean{
 
         if (entityId != null) {
            graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
-                    true, pageNo, pageSize, isInherit);
+                    true, pageNo, pageSize, isInherit, isTop, excludeClassIdList);
 
 //            graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
 //                    true, pageNo, pageSize, isInherit);

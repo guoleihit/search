@@ -8,6 +8,7 @@ import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.exception.BaseException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -220,6 +221,13 @@ public abstract class AbstractService {
     protected QueryBuilder createTermsQuery(String key, List<String> values, float boost){
         if(values != null && !values.isEmpty()){
             return QueryBuilders.termsQuery(key, values).boost(boost);
+        }
+        return null;
+    }
+
+    protected QueryBuilder createNestedQuery(String path, String key, List<String> values, float boost) {
+        if(values != null && !values.isEmpty()){
+            return QueryBuilders.nestedQuery(path,QueryBuilders.termsQuery(key, values).boost(boost), ScoreMode.Max);
         }
         return null;
     }

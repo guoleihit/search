@@ -7,6 +7,7 @@ import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.util.CommonResource;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -316,7 +317,7 @@ public class PatentService extends AbstractService {
         makeFilters(request, boolQuery);
 
         if (!StringUtils.isEmpty(request.getId())) {
-            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
+            boolQuery.must(QueryBuilders.nestedQuery("annotation_tag", QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f), ScoreMode.Max));
             boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
             return boolQuery;
         }
@@ -344,7 +345,7 @@ public class PatentService extends AbstractService {
         QueryBuilder inventorTerm = createTermsQuery("inventors.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_person_weight);
         QueryBuilder applicantTerm = createTermsQuery("applicants.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_org_weight);
         QueryBuilder agenciesTerm = createTermsQuery("agencies_standerd.agency", request.getUserSplitSegList(),CommonResource.search_org_weight);
-        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 1f);
+        QueryBuilder annotationTagTerm = createNestedQuery("annotation_tag","annotation_tag.name", request.getUserSplitSegList(), 1f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
@@ -368,6 +369,13 @@ public class PatentService extends AbstractService {
                 should(termQuery, QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName).boost(CommonResource.search_recognized_org_weight));
             }else{
                 should(termQuery,applicantTerm);
+            }
+
+            if (userInputOrgName != null && userInputPersonName != null) {
+                BoolQueryBuilder bool = QueryBuilders.boolQuery().boost(CommonResource.search_recognized_person_weight * CommonResource.search_recognized_org_weight);
+                bool.should(QueryBuilders.termQuery("inventors.name.original.keyword", userInputPersonName));
+                bool.should(QueryBuilders.termQuery("applicants.name.original.keyword", userInputOrgName));
+                should(termQuery,bool);
             }
         } else if (request.getKwType() == 1) {
             if (userInputPersonName != null) {
