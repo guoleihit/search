@@ -21,6 +21,7 @@ public final class CommonResource {
 
 	public static final String kg_public_service_url = props.getProperty("kg_public_service_url");
 
+	public static final Float search_title_weight = Float.valueOf(props.getProperty("search_title_weight"));
 	public static final Float search_person_weight = Float.valueOf(props.getProperty("search_person_weight"));
 	public static final Float search_recognized_person_weight = Float.valueOf(props.getProperty("search_recognized_person_weight"));
 	public static final Float search_org_weight = Float.valueOf(props.getProperty("search_org_weight"));

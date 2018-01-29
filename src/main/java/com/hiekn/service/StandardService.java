@@ -273,10 +273,10 @@ public class StandardService extends AbstractService{
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery,reqItem, allQueryBuilder);
-                }else if ("author".equals(key)) {
-                    //TODO 专利起草人
+                }else if ("author".equals(key)){
+                    buildQueryCondition(boolQuery, reqItem, "persons", false, false);
                 }else if ("authorOrg".equals(key)) {
-                    //TODO 专利起草单位
+                    buildQueryCondition(boolQuery, reqItem, "author_dep", false, false);
                 }else if ("status".equals(key)) {
                     // TODO 标准状态: implement,publish,annull
                     buildQueryCondition(boolQuery, reqItem, "state", false, false);

@@ -1,15 +1,19 @@
 package com.hiekn.search.rest;
 
 import com.alibaba.fastjson.JSONObject;
+import com.google.common.collect.Lists;
 import com.google.gson.reflect.TypeToken;
+import com.hiekn.kg.service.bean.GraphHasAttsItem;
+import com.hiekn.kg.service.bean.KGResultItem;
 import com.hiekn.plantdata.bean.TypeBean;
 import com.hiekn.plantdata.bean.graph.*;
 import com.hiekn.plantdata.bean.rest.RestReturnCode;
 import com.hiekn.plantdata.exception.ServiceException;
+import com.hiekn.plantdata.parser.graph.GraphParser;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.plantdata.util.HttpClient;
 import com.hiekn.plantdata.util.JSONUtils;
-import com.hiekn.search.bean.graph.MyGraphBean;
+import com.hiekn.plantdata.util.SseUtils;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
@@ -41,7 +45,7 @@ import static com.hiekn.service.Helper.types;
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"搜索"})
-public class KGRestApi implements InitializingBean{
+public class KGRestApi implements InitializingBean {
 
     @Value("${kg_name}")
     private String kgName;
@@ -104,8 +108,8 @@ public class KGRestApi implements InitializingBean{
             JSONObject result = JSONUtils.fromJson(rs, JSONObject.class);
             List<EntityBean> rsList = new ArrayList<>();
             for (Object e : ((java.util.Map) result.get("data")).values()) {
-                if(e instanceof List) {
-                    for (Object elem: (List)e) {
+                if (e instanceof List) {
+                    for (Object elem : (List) e) {
                         JSONObject element = (JSONObject) elem;
                         EntityBean bean = new EntityBean();
                         bean.setId(element.getLong("id"));
@@ -113,7 +117,7 @@ public class KGRestApi implements InitializingBean{
                             bean.setName(element.getString("entityName"));
                         if (element.get("meaningTag") != null)
                             bean.setMeaningTag(element.getString("meaningTag"));
-                        if (element.get("classId")!=null)
+                        if (element.get("classId") != null)
                             bean.setClassId(element.getLong("classId"));
                         if (element.get("type") != null)
                             bean.setKgType(element.getInteger("type"));
@@ -127,39 +131,171 @@ public class KGRestApi implements InitializingBean{
         }
     }
 
-    private MyGraphBean new_kg_graph_full_hasatts(String kgName, Long entityId,
-                                                Integer distance, Integer direction, String allowAtts,
-                                                String allowTypes, boolean isMergeRelation,
-                                                Integer pageNo,Integer pageSize,Integer isInherit){
+    public RestResp<GraphBean> kg2(@FormParam("kw") String kw, @FormParam("id") String id, @FormParam("allowAtts") String allowAtts,
+                                   @FormParam("allowTypes") String allowTypes, @QueryParam("pageNo") Integer pageNo,
+                                   @QueryParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
+                                   @ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
+                                   @ApiParam("是否查顶层父概念") @DefaultValue("false") @FormParam("isTop") Boolean isTop,
+                                   @ApiParam("不查顶层父概念") @FormParam("excludeClassIds") String excludeClassIds,
+                                   @QueryParam("tt") Long tt) {
 
-        MultivaluedMap<String, Object> form = new MultivaluedHashMap<>();
-        form.add("kgName", kgName);
-        form.add("id", entityId);
-        form.add("distance", distance);
-        form.add("direction", direction);
-        form.add("isInherit", isInherit);
-        form.add("allowAtts", allowAtts);
-        form.add("allowTypes", allowTypes);
-        form.add("isMergeRelation", isMergeRelation);
-
-        MultivaluedHashMap<String,Object> query = new MultivaluedHashMap<>();
-        query.add("pageNo", pageNo);
-        query.add("pageSize", pageSize);
-
-        String rs;
-        try{
-            String url = com.hiekn.util.CommonResource.new_plantdata_service_url+"sdk/specialGraph";
-            log.info("send request to " + url);
-            rs = HttpClient.sendPost(url, query, form);
-        }catch(Exception e){
-            log.error("invoke remote service error.", e);
-            throw ServiceException.newInstance(RestReturnCode.REMOTE_INVOKE_ERROR);
+        if (StringUtils.isEmpty(kw) && StringUtils.isEmpty(id)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+        log.info("kw:" + kw + ",tt:" + tt + ",pageNo:" + pageNo + ",pageSize:" + pageSize);
+        List<Long> excludeClassIdList = null;
+        if (pageNo == null) {
+            pageNo = 1;
         }
 
-        RestResp<MyGraphBean> result = com.hiekn.util.JSONUtils.fromJson(rs,
-                new com.google.gson.reflect.TypeToken<RestResp<MyGraphBean>>(){}.getType());
-        return result.getData().getRsData().get(0);
+        if (pageSize == null || pageSize == 0) {
+            pageSize = 20;
+        }
+
+        if (kw == null) {
+            kw = "";
+        }
+
+        String[] kws = kw.trim().split(" ");
+        if (kws.length > 0) {
+            kw = kws[0];
+        }
+
+        try {
+            excludeClassIdList = JSONUtils.fromJson(excludeClassIds, new TypeToken<List<Long>>() {
+            }.getType());
+        } catch (Exception e) {
+            log.error("parse to json error", e);
+            throw JsonException.newInstance();
+        }
+
+
+        List<EntityBean> rsList = null;
+        if (StringUtils.isEmpty(id)) {
+            rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
+        }
+
+        Long entityId = getEntityId(kw, kwType, kws, rsList);
+        if (!StringUtils.isEmpty(id)) {
+            try {
+                entityId = Long.valueOf(id);
+            } catch (Exception e) {
+            }
+        }
+
+        GraphBean graphBean = null;
+        if (entityId != null) {
+            GraphHasAttsItem graphHasAttsItem = doQueryKgInternal(kgName, entityId, 1, 0, allowAtts, allowTypes,
+                    pageNo, pageSize, isInherit);
+            graphBean = GraphParser.GraphItem2GraphBean(graphHasAttsItem, true);
+            if (isTop) {
+                List<EntityBean> entityList = graphBean.getEntityList();
+                List<Long> ids = Lists.newArrayList();
+                for (EntityBean entityBean : entityList) {
+                    if (Objects.nonNull(excludeClassIdList) && !excludeClassIdList.isEmpty() && excludeClassIdList.contains(entityBean.getClassId())) {
+                        continue;
+                    }
+                    ids.add(entityBean.getId());
+
+                }
+                Map<Long, List<Long>> parentConcept = generalSSEService.getParentConcept(kgName, ids, 1);
+                if (Objects.nonNull(parentConcept) && !parentConcept.isEmpty()) {
+                    for (EntityBean entityBean : entityList) {
+                        Long eId = entityBean.getId();
+                        if (parentConcept.containsKey(eId)) {
+                            entityBean.setClassId(parentConcept.get(eId).get(0));
+                        }
+                    }
+                }
+            }
+        }
+        return new RestResp<>(graphBean, 0L);
     }
+
+    private Long getEntityId(@FormParam("kw") String kw, @FormParam("kwType") Integer kwType, String[] kws, List<EntityBean> rsList) {
+        Long entityId = null;
+        if (rsList != null && rsList.size() > 0) {
+            if (kwType != null && kwType > 0) {
+                if (kwType == 2) { // 机构
+                    for (EntityBean entity : rsList) {
+                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("机构")) && kw.equals(entity.getName())) {
+                            entityId = entity.getId();
+                            break;
+                        }
+                    }
+                } else if (kwType == 1) { // 人物
+                    for (EntityBean entity : rsList) {
+                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("人物"))) {
+                            if (kws.length > 1 && !StringUtils.isEmpty(entity.getMeaningTag())) {
+                                if (kws[1].indexOf(entity.getMeaningTag()) >= 0 || (entity.getMeaningTag() != null
+                                        || entity.getMeaningTag().indexOf(kws[1]) >= 0)) {
+                                    entityId = entity.getId();
+                                    break;
+                                }
+                            }
+
+                            if (!StringUtils.isEmpty(entity.getMeaningTag()) && entity.getName().length() >= 2
+                                    && entity.getName().length() <= 4) {
+                                entityId = entity.getId();
+                                break;
+                            }
+
+                        }
+                    }
+                } else if (kwType == 3) { // 知识点
+                    for (EntityBean entity : rsList) {
+                        if (entity.getClassId() != null && knowledgeIds.contains(entity.getClassId()) && kw.equals(entity.getName())) {
+                            entityId = entity.getId();
+                            log.info("found knowledge:" + entityId + ",classId:" + entity.getClassId());
+                            break;
+                        }
+                    }
+                }
+            }else {
+                for (EntityBean entity : rsList) {
+                    if (kw.equals(entity.getName())) {
+                        entityId = entity.getId();
+                        log.info("found entity:" + entityId + ",classId:" + entity.getClassId());
+                        break;
+                    }
+                }
+            }
+        }
+        return entityId;
+    }
+
+    private GraphHasAttsItem doQueryKgInternal(String kgName, Long entityId,
+                                               Integer distance,
+                                               Integer direction, String allowAtts,
+                                               String allowTypes, Integer pageNo, Integer pageSize, Integer isInherit) {
+        String url = com.hiekn.plantdata.util.CommonResource.KG_SERVICE_PUBLIC_PATH + "/kg/graph/full/hasatts";
+        MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>();
+        para.add("kgName", kgName);
+        para.add("entityId", entityId);
+        para.add("distance", distance);
+        para.add("direction", direction);
+        if (distance == 1) {
+            para.add("level1PageNo", pageNo);
+            para.add("level1PageSize", pageSize);
+        }
+        para.add("typeInherit", isInherit);
+
+        List<Long> keyList = new ArrayList<>(distance);
+        for (int d = 1; d <= distance; d++) {
+            keyList.add(Long.valueOf(d));
+        }
+
+        if (allowAtts != null) {
+            para.add("allowAtts", allowAtts);
+        }
+        if (allowTypes != null) {
+            para.add("allowTypes", allowTypes);
+        }
+
+        return SseUtils.sendPost(url, null, para, new TypeToken<KGResultItem<GraphHasAttsItem>>() {
+        }.getType());
+    }
+
 
     @POST
     @Path("/graph")
@@ -172,14 +308,14 @@ public class KGRestApi implements InitializingBean{
                                   @FormParam("statsLimit") Integer statsLimit, @QueryParam("pageNo") Integer pageNo,
                                   @QueryParam("pageSize") Integer pageSize, @FormParam("kwType") Integer kwType,
                                   @ApiParam("0表示不继承，1表示继承,默认0") @DefaultValue("0") @FormParam("isInherit") Integer isInherit,
-                                  @ApiParam("是否查顶层父概念")@DefaultValue("false")@FormParam("isTop") Boolean isTop,
-                                  @ApiParam("不查顶层父概念")@FormParam("excludeClassIds") String excludeClassIds,
+                                  @ApiParam("是否查顶层父概念") @DefaultValue("false") @FormParam("isTop") Boolean isTop,
+                                  @ApiParam("不查顶层父概念") @FormParam("excludeClassIds") String excludeClassIds,
                                   @QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
 
         if (StringUtils.isEmpty(kw) && StringUtils.isEmpty(id)) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
-        log.info("kw:"+kw+",tt:"+tt+",pageNo:"+pageNo+",pageSize:"+pageSize);
+        log.info("kw:" + kw + ",tt:" + tt + ",pageNo:" + pageNo + ",pageSize:" + pageSize);
         List<Long> allowAttList = null;
         List<Long> allowTypeList = null;
         List<Long> excludeClassIdList = null;
@@ -211,47 +347,13 @@ public class KGRestApi implements InitializingBean{
             kw = kws[0];
         }
         List<EntityBean> rsList = null;
-        if(StringUtils.isEmpty(id)) {
+        if (StringUtils.isEmpty(id) || !Helper.isNumber(id)) {
             rsList = this.generalSSEService.kg_semantic_seg(kw, kgName, false, true, false);
         }
 
         GraphBean graphBean = null;
 
-        Long entityId = null;
-        if (rsList != null && rsList.size() > 0) {
-            entityId = rsList.get(0).getId();
-            if (kwType != null && kwType > 0) {
-                if (kwType == 2) { // 机构
-                    for (EntityBean entity : rsList) {
-                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("机构")) && kw.equals(entity.getName())) {
-                            entityId = entity.getId();
-                            break;
-                        }
-                    }
-                } else if (kwType == 1) { // 人物
-                    for (EntityBean entity : rsList) {
-                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("人物"))) {
-                            if (kws.length > 1 && !StringUtils.isEmpty(entity.getMeaningTag())) {
-                                if (kws[1].indexOf(entity.getMeaningTag()) >= 0 || (entity.getMeaningTag() != null
-                                        || entity.getMeaningTag().indexOf(kws[1]) >= 0)) {
-                                    entityId = entity.getId();
-                                    break;
-                                }
-                            }
-
-                        }
-                    }
-                } else if (kwType == 3) { // 知识点
-                    for (EntityBean entity : rsList) {
-                        if (entity.getClassId() != null && knowledgeIds.contains(entity.getClassId()) && kw.equals(entity.getName())) {
-                            entityId = entity.getId();
-                            log.info("found knowledge:"+entityId + ",classId:"+entity.getClassId());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        Long entityId = getEntityId(kw, kwType, kws, rsList);
         if (!StringUtils.isEmpty(id)) {
             try {
                 entityId = Long.valueOf(id);
@@ -259,13 +361,10 @@ public class KGRestApi implements InitializingBean{
             }
         }
 
-
         if (entityId != null) {
-           graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
+            graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
                     true, pageNo, pageSize, isInherit, isTop, excludeClassIdList);
 
-//            graphBean = this.new_kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAtts, allowTypes,
-//                    true, pageNo, pageSize, isInherit);
             if (entitiesLimit != null && entitiesLimit > 0) {
                 List<EntityBean> entities = graphBean.getEntityList();
                 if (entities != null && entities.size() > entitiesLimit) {
@@ -313,36 +412,36 @@ public class KGRestApi implements InitializingBean{
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        try{
+        try {
             FutureTask f = new java.util.concurrent.FutureTask(new Callable() {
                 @Override
                 public Object call() throws Exception {
-                     getGraphKnowledge();
-                     return null;
+                    getGraphKnowledge();
+                    return null;
                 }
             });
 
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
             executor.schedule(f, 60, TimeUnit.SECONDS);
             executor.shutdown();
-        }catch(Exception e){
+        } catch (Exception e) {
             log.error("initializing error:", e);
         }
     }
 
     private void getGraphKnowledge() {
-        Map<String,Long> types = new HashMap<>();
+        Map<String, Long> types = new HashMap<>();
         Set<Long> knowledgeIds = new HashSet<>();
         RestResp<SchemaBean> rest = kgSchema(0L);
-        for(SchemaBean bean :rest.getData().getRsData()){
+        for (SchemaBean bean : rest.getData().getRsData()) {
             log.info("begin to get knowledge...");
-            for(TypeBean type:bean.getTypes()){
-                if("人物".equals(type.getV())){
+            for (TypeBean type : bean.getTypes()) {
+                if ("人物".equals(type.getV())) {
                     types.put("人物", type.getK());
-                }else if ("机构".equals(type.getV())) {
+                } else if ("机构".equals(type.getV())) {
                     types.put("机构", type.getK());
-                }else if ("知识点".equals(type.getV())) {
-                    types.put("知识点",type.getK());
+                } else if ("知识点".equals(type.getV())) {
+                    types.put("知识点", type.getK());
                     knowledgeIds.add(type.getK());
                 }
 
@@ -350,7 +449,7 @@ public class KGRestApi implements InitializingBean{
                     knowledgeIds.add(type.getK());
                 }
             }
-            log.info("get knowledge end."+knowledgeIds.size());
+            log.info("get knowledge end." + knowledgeIds.size());
             break;
         }
         Helper.knowledgeIds = knowledgeIds;

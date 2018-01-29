@@ -29,6 +29,7 @@ public class Helper {
 
 	static public volatile Map<String,Long> types = new HashMap<>();
 	static public volatile Set<Long> knowledgeIds = new HashSet<>();
+	static public volatile Map<String, Map<String, List<String>>> book = new HashMap<>();
 
 	public static String getString(Object obj) {
 		return obj == null ? "" : obj.toString();
@@ -98,15 +99,48 @@ public class Helper {
 		return annotationField;
 	}
 
-    public static void setKnowledgeAggResult(SearchResponse response, SearchResultBean result, String annotation) {
+    public static void setKnowledgeAggResult(QueryRequest request, SearchResponse response, SearchResultBean result, String annotation) {
         if (annotation != null) {
             Terms knowledgeClasses = response.getAggregations().get("knowledge_class");
             KVBean<String, Map<String, ? extends Object>> knowledgeClassFilter = new KVBean<>();
             knowledgeClassFilter.setD("知识体系");
             knowledgeClassFilter.setK(annotation);
+
+            String value = null;
+            String field1=null, field2=null;
+            if (request.getFilters() != null) {
+                for (KVBean<String, List<String>> filter : request.getFilters()) {
+                    if (annotation.equals(filter.getK())) {
+                        value = filter.getV().get(0);
+                    }
+                    if ("_kg_annotation_1.name".equals(filter.getK())) {
+                        field1 = filter.getV().get(0);
+                    } else if ("_kg_annotation_2.name".equals(filter.getK())) {
+                        field2 = filter.getV().get(0);
+                    }
+                }
+            }
+
+            List<String> validNames = new ArrayList<>();
+            if (field1 != null) {
+                Map<String,List<String>> mids = Helper.book.get(field1);
+                if (mids != null && field2 != null) {
+                    validNames = mids.get(field2);
+                }else if (field2 == null && mids != null) {
+                    for (String key: mids.keySet()) {
+                        validNames.add(key);
+                    }
+                }
+            }else {
+                for (String key: Helper.book.keySet()) {
+                    validNames.add(key);
+                }
+            }
             Map<String, Long> knowledgeMap = new HashMap<>();
             for (Terms.Bucket bucket : knowledgeClasses.getBuckets()) {
-                knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+                if (validNames.contains(bucket.getKeyAsString())) {
+                    knowledgeMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+                }
             }
             if (annotation.indexOf("3") > 0) {
                 knowledgeMap.put("_end", -1l);
@@ -133,7 +167,11 @@ public class Helper {
 		docTypeFilter.setK(filterK);
 		Map<String, Long> docMap = new HashMap<>();
 		for (Terms.Bucket bucket : docTypes.getBuckets()) {
-			docMap.put(bucket.getKeyAsString(), bucket.getDocCount());
+			String key = bucket.getKeyAsString();
+			if (key == null || key.length()==0) {
+				key = "其他";
+			}
+			docMap.put(key, bucket.getDocCount());
 		}
 		docMap.put("_end",-1l);
 		docTypeFilter.setV(docMap);
@@ -145,7 +183,12 @@ public class Helper {
 		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
 		yearFilter.setD(filterD);
 		yearFilter.setK(filterK);
-		Map<String, Long> yearMap = new HashMap<>();
+		Map<String, Long> yearMap = new TreeMap<>(new Comparator<String>() {
+			@Override
+			public int compare(String o1, String o2) {
+				return o2.compareTo(o1);
+			}
+		});
 		for (Histogram.Bucket bucket : yearAgg.getBuckets()) {
 			if (bucket.getKey() instanceof Number) {
 				Double year = Double.valueOf(bucket.getKeyAsString());
@@ -227,6 +270,15 @@ public class Helper {
 		Pattern chinesePattern = Pattern.compile("[\\u4E00-\\u9FA5]+");
 		Matcher matcherResult = chinesePattern.matcher(words);
 		return matcherResult.find();
+	}
+
+	public static boolean isNumber(String str) {
+		try{
+			Double.parseDouble(str);
+		}catch(Exception e){
+			return false;
+		}
+		return true;
 	}
 
     public static JSONObject getItemFromHbase(String rowKey, DocType docType){

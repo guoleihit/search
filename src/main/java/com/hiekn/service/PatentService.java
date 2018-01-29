@@ -11,10 +11,13 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -284,11 +287,13 @@ public class PatentService extends AbstractService {
                 Text[] frags = entry.getValue().getFragments();
                 switch (entry.getKey()) {
                     case "title.original":
+                    case "title.original.smart":
                         if (frags != null && frags.length > 0) {
                             item.setTitle(frags[0].string());
                         }
                         break;
                     case "abstract.original":
+                    case "abstract.original.smart":
                         if (frags != null && frags.length > 0) {
                             item.setAbs(frags[0].string());
                         }
@@ -319,7 +324,7 @@ public class PatentService extends AbstractService {
         if (!StringUtils.isEmpty(request.getId())) {
             boolQuery.must(QueryBuilders.nestedQuery("annotation_tag", QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f), ScoreMode.Max));
             boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
-            return boolQuery;
+            return adjustPatentsBoost(boolQuery);
         }
 
         if (!StringUtils.isEmpty(request.getCustomQuery())) {
@@ -327,7 +332,7 @@ public class PatentService extends AbstractService {
             query.filter(QueryBuilders.termQuery("_type", "patent_data"));
             boolQuery.should(query);
             if(StringUtils.isEmpty(request.getKw())){
-                return boolQuery.boost(CommonResource.search_patent_weight);
+                return adjustPatentsBoost(boolQuery);
             }
         }
 
@@ -417,9 +422,42 @@ public class PatentService extends AbstractService {
         }
 
         boolQuery.must(termQuery);
-        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(CommonResource.search_patent_weight);
-        return boolQuery;
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
+        return adjustPatentsBoost(boolQuery);
 
+    }
+
+    private FunctionScoreQueryBuilder adjustPatentsBoost(BoolQueryBuilder boolQuery) {
+        FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("type",1), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_patent_weight + 0.03f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("type",2), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_patent_weight + 0.02f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("type",3), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_patent_weight + 0.01f)),
+
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("legal_status",1), ScoreFunctionBuilders.weightFactorFunction(0.03f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("legal_status",2), ScoreFunctionBuilders.weightFactorFunction(0.02f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("legal_status",3), ScoreFunctionBuilders.weightFactorFunction(0.01f)),
+
+
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","华为技术有限公司"), ScoreFunctionBuilders.weightFactorFunction(0.009f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","国家电网公司"), ScoreFunctionBuilders.weightFactorFunction(0.009f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","中兴通讯股份有限公司"), ScoreFunctionBuilders.weightFactorFunction(0.008f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","三星电子株式会社"), ScoreFunctionBuilders.weightFactorFunction(0.007f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","松下电器产业株式会社"), ScoreFunctionBuilders.weightFactorFunction(0.006f)),
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                        QueryBuilders.termQuery("applicants.name.original.keyword","鸿海精密工业股份有限公司"), ScoreFunctionBuilders.weightFactorFunction(0.005f))
+        };
+        return QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.SUM);
     }
 
     public QueryBuilder buildEnhancedQuery(CompositeQueryRequest request) {
@@ -479,8 +517,8 @@ public class PatentService extends AbstractService {
             }
         }
 
-        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data")).boost(1.1f);
-        return boolQuery;
+        boolQuery.filter(QueryBuilders.termQuery("_type", "patent_data"));
+        return adjustPatentsBoost(boolQuery);
 
     }
 
@@ -534,6 +572,8 @@ public class PatentService extends AbstractService {
 
         HighlightBuilder highlighter = new HighlightBuilder().field("title.original")
                 .field("abstract.original")
+                .field("title.original.smart")
+                .field("abstract.original.smart")
                 .field("applicants.name.original.keyword")
                 .field("inventors.name.original.keyword");
 
@@ -594,7 +634,7 @@ public class PatentService extends AbstractService {
         KVBean<String, Map<String, ?>> patentTypeFilter = new KVBean<>();
         patentTypeFilter.setD("专利类型");
         patentTypeFilter.setK("type");
-        Map<String, Long> patentMap = new HashMap<>();
+        Map<String, Long> patentMap = new TreeMap<>();
         for (Terms.Bucket bucket : patentTypes.getBuckets()) {
             String key = patentTypeNameMap.get(bucket.getKeyAsString());
             if (key != null) {
@@ -646,7 +686,7 @@ public class PatentService extends AbstractService {
         KVBean<String, Map<String, ?>> mainIpcTypeFilter = new KVBean<>();
         mainIpcTypeFilter.setD("主IPC分类");
         mainIpcTypeFilter.setK("main_ipc");
-        Map<String, Long> ipcMap = new HashMap<>();
+        Map<String, Long> ipcMap = new TreeMap<>();
         for (Terms.Bucket bucket : mainIpcTypes.getBuckets()) {
             ipcMap.put(bucket.getKeyAsString(), bucket.getDocCount());
         }

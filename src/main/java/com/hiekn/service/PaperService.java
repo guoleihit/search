@@ -196,6 +196,7 @@ public class PaperService extends AbstractService{
 					case "title":
                     case "title.english":
                     case "title.keyword":
+                    case "title.smart":
 						if (frags != null && frags.length > 0 && frags[0].string().length()>1) {
 							item.setTitle(frags[0].string());
 						}
@@ -203,6 +204,7 @@ public class PaperService extends AbstractService{
 					case "abstract":
                     case "abstract.english":
                     case "abstract.keyword":
+                    case "abstract.smart":
 						if (frags != null && frags.length > 0) {
 							item.setAbs(frags[0].string());
 						}
@@ -267,6 +269,15 @@ public class PaperService extends AbstractService{
                 item = j;
             }
         }
+        // TODO 多个来源和多个url，目前艾迪特数据没确定
+        String url = getString(source.get("url"));
+        item.setUrl(url);
+        item.setOrigin(getString(source.get("origin")));
+        if (item.getOrigin() != null) {
+            Map<String, String> urls = new HashMap<>();
+            urls.put(item.getOrigin(), url);
+            item.setUrls(urls);
+        }
         return item;
     }
 
@@ -278,7 +289,6 @@ public class PaperService extends AbstractService{
 
         if (!StringUtils.isEmpty(request.getId())) {
             boolQuery.must(QueryBuilders.nestedQuery("annotation_tag", QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f), ScoreMode.Max));
-            //boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
             boolQuery.filter(QueryBuilders.termQuery("_type", "paper_data")).boost(3f);
             return adjustPaperTypeBoost(boolQuery);
         }
@@ -413,19 +423,18 @@ public class PaperService extends AbstractService{
         FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[]{
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
                         QueryBuilders.termQuery("paperType","JOURNAL"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_journal_paper_weight)),
-                // TODO 倒入数据需要把空格去掉！！！damn ideadata
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","中国电机工程学报 "), ScoreFunctionBuilders.weightFactorFunction(0.09f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","中国电机工程学报"), ScoreFunctionBuilders.weightFactorFunction(0.09f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统自动化 "), ScoreFunctionBuilders.weightFactorFunction(0.08f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统自动化"), ScoreFunctionBuilders.weightFactorFunction(0.08f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","电网技术 "), ScoreFunctionBuilders.weightFactorFunction(0.07f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电网技术"), ScoreFunctionBuilders.weightFactorFunction(0.07f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","电工技术学报 "), ScoreFunctionBuilders.weightFactorFunction(0.06f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电工技术学报"), ScoreFunctionBuilders.weightFactorFunction(0.06f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统维护与控制 "), ScoreFunctionBuilders.weightFactorFunction(0.05f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","电力系统维护与控制"), ScoreFunctionBuilders.weightFactorFunction(0.05f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                        QueryBuilders.termQuery("journal.journal_chinese_name","高电压技术 "), ScoreFunctionBuilders.weightFactorFunction(0.04f)),
+                        QueryBuilders.termQuery("journal.journal_chinese_name","高电压技术"), ScoreFunctionBuilders.weightFactorFunction(0.04f)),
 
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
                         QueryBuilders.termQuery("paperType","DEGREE"), ScoreFunctionBuilders.weightFactorFunction(CommonResource.search_degree_paper_weight)),
@@ -446,10 +455,7 @@ public class PaperService extends AbstractService{
                         QueryBuilders.wildcardQuery("conference.conference_name","*ACM*"), ScoreFunctionBuilders.weightFactorFunction(0.03f)),
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
                         QueryBuilders.wildcardQuery("conference.conference_name","*中国电机工程学会*"), ScoreFunctionBuilders.weightFactorFunction(0.09f))
-
-
         };
-
         return QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.SUM);
     }
 
@@ -646,6 +652,7 @@ public class PaperService extends AbstractService{
 		SearchRequestBuilder srb = esClient.prepareSearch(PAPER_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abstract")
                 .field("title.english").field("abstract.english")
+                .field("title.smart").field("abstract.smart")
                 .field("keywords.keyword").field("authors.name.keyword");
 
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
@@ -680,7 +687,7 @@ public class PaperService extends AbstractService{
 		}
 
         String annotation = getAnnotationFieldName(request);
-        setKnowledgeAggResult(response, result, annotation);
+        setKnowledgeAggResult(request, response, result, annotation);
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         //Helper.setTermAggFilter(result,response, "paper_type", "文献类型", "paperType");

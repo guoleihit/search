@@ -1,5 +1,7 @@
 package com.hiekn.search.bean.result;
 
+import java.util.List;
+
 public class ResultsItem extends ItemBean {
 
     /**
@@ -10,7 +12,7 @@ public class ResultsItem extends ItemBean {
     /**
      * 来源
      **/
-    private String from;
+    private String origin;
 
     /**
      * 省市
@@ -25,7 +27,7 @@ public class ResultsItem extends ItemBean {
     /**
      * 完成单位
      **/
-    private String complete_department;
+    private List<String> complete_department;
 
     /**
      * 成果类型
@@ -48,12 +50,12 @@ public class ResultsItem extends ItemBean {
         this.no = no;
     }
 
-    public String getFrom() {
-        return from;
+    public String getOrigin() {
+        return origin;
     }
 
-    public void setFrom(String from) {
-        this.from = from;
+    public void setOrigin(String origin) {
+        this.origin = origin;
     }
 
     public String getProvince_city() {
@@ -72,11 +74,11 @@ public class ResultsItem extends ItemBean {
         this.tech_type = tech_type;
     }
 
-    public String getComplete_department() {
+    public List<String> getComplete_department() {
         return complete_department;
     }
 
-    public void setComplete_department(String complete_department) {
+    public void setComplete_department(List<String> complete_department) {
         this.complete_department = complete_department;
     }
 }

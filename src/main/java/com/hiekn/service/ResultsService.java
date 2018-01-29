@@ -1,12 +1,17 @@
 package com.hiekn.service;
 
+import com.google.common.collect.Lists;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
-import com.hiekn.search.bean.request.*;
+import com.hiekn.search.bean.request.CompositeQueryRequest;
+import com.hiekn.search.bean.request.CompositeRequestItem;
+import com.hiekn.search.bean.request.Operator;
+import com.hiekn.search.bean.request.QueryRequestInternal;
 import com.hiekn.search.bean.result.*;
 import com.hiekn.search.exception.ServiceException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -26,7 +31,6 @@ import org.elasticsearch.search.sort.SortOrder;
 import java.util.*;
 
 import static com.hiekn.service.Helper.*;
-import static com.hiekn.service.Helper.setHighlightElements;
 import static com.hiekn.util.CommonResource.RESULTS_INDEX;
 
 public class ResultsService extends AbstractService {
@@ -49,11 +53,13 @@ public class ResultsService extends AbstractService {
                 Text[] frags = entry.getValue().getFragments();
                 switch (entry.getKey()) {
                     case "title":
+                    case "title.smart":
                         if (frags != null && frags.length > 0 && frags[0].string().length()>1) {
                             item.setTitle(frags[0].string());
                         }
                         break;
                     case "abs":
+                    case "abs.smart":
                         if (frags != null && frags.length > 0) {
                             item.setAbs(frags[0].string());
                         }
@@ -66,7 +72,10 @@ public class ResultsService extends AbstractService {
                         break;
                     case "complete_department":
                         if (frags != null && frags.length > 0) {
-                            item.setComplete_department(frags[0].string());
+                            List<String> values = Lists.newArrayList(item.getComplete_department());
+                            ListIterator<String> itr = values.listIterator();
+                            setHighlightElements(frags, itr);
+                            item.setComplete_department(values);
                         }
                         break;
                 }
@@ -78,8 +87,8 @@ public class ResultsService extends AbstractService {
     private void doSetItemData(SearchHit hit, ResultsItem item, Map<String, Object> source) {
         item.setDocId(hit.getId());
         item.setTitle(getString(source.get("title")));
-        item.setComplete_department(getString(source.get("complete_department")));
-        item.setFrom(getString(source.get("from")));
+        item.setComplete_department(toStringList(source.get("complete_department")));
+        item.setOrigin(getString(source.get("origin")));
         item.setNo(getString(source.get("no")));
         item.setProvince_city(getString(source.get("province_city")));
         item.setTech_type(getString(source.get("type")));
@@ -87,6 +96,9 @@ public class ResultsService extends AbstractService {
         item.setAuthors(toStringList(source.get("complete_persons")));
         if(source.get("earliest_publication_date")!=null) {
             item.setPubDate(Helper.toDateString(source.get("earliest_publication_date").toString(), "-"));
+        }
+        if(source.get("year")!=null){
+            item.setPubDate(getString(source.get("year")));
         }
 
         item.setDocType(DocType.RESULTS);
@@ -97,7 +109,7 @@ public class ResultsService extends AbstractService {
         ResultsDetail item = new ResultsDetail();
         Map<String, Object> source = hit.getSource();
         doSetItemData(hit, item, source);
-
+        item.setUrl(getString(source.get("url")));
         item.setAttribute(getString(source.get("attribute")));
         item.setAuthorized_department(getString(source.get("authorized_department")));
         item.setProject_number(getString(source.get("project_number")));
@@ -111,6 +123,23 @@ public class ResultsService extends AbstractService {
         item.setProject_end(getString(source.get("project_end")));
         item.setInnovation_point(toStringList(source.get("innovation_point")));
         item.setProject_background(getString(source.get("project_background")));
+
+        if (item.getInnovation_point() == null || item.getInnovation_point().isEmpty()) {
+            item.setInnovation_point(new ArrayList<>());
+            item.getInnovation_point().add(getString(source.get("innovation_point")));
+        }
+        if(source.get("related_patent") != null && source.get("related_patent") instanceof List) {
+            item.setRelated_patent((List)source.get("related_patent"));
+        }
+        if(source.get("related_standard") != null && source.get("related_standard") instanceof List) {
+            item.setRelated_standard((List)source.get("related_standard"));
+        }
+        if(source.get("related_scholar") != null && source.get("related_scholar") instanceof List) {
+            item.setRelated_scholar((List)source.get("related_scholar"));
+        }
+        if(source.get("related_term") != null && source.get("related_term") instanceof List) {
+            item.setRelated_term((List)source.get("related_term"));
+        }
         //TODO 成果密级、获奖信息、鉴定负责人、经济效益、社会效益、推广应用情况
 
         return item;
@@ -124,7 +153,8 @@ public class ResultsService extends AbstractService {
         }
         SearchRequestBuilder srb = esClient.prepareSearch(RESULTS_INDEX);
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("abs")
-                .field("keywords").field("complete_persons");
+                .field("abs.smart").field("title.smart")
+                .field("keywords").field("complete_persons").field("complete_department");
 
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
@@ -151,8 +181,13 @@ public class ResultsService extends AbstractService {
 
         // 成果水平 TODO
         AggregationBuilder resultsLevel =  AggregationBuilders.terms("results_level")
-                .field("type").minDocCount(1);
+                .field("review_level").minDocCount(1);
         srb.addAggregation(resultsLevel);
+
+        // 成果类型
+        AggregationBuilder resultsType =  AggregationBuilders.terms("results_type")
+                .field("resultsType").minDocCount(1);
+        srb.addAggregation(resultsType);
 
         System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
@@ -164,11 +199,12 @@ public class ResultsService extends AbstractService {
         }
 
         String annotation = getAnnotationFieldName(request);
-        setKnowledgeAggResult(response, result, annotation);
+        setKnowledgeAggResult(request, response, result, annotation);
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         Helper.setTermAggFilter(result,response,"address_province","所在省市","province_city");
         Helper.setTermAggFilter(result,response,"results_level","成果水平","results_level");
+        Helper.setTermAggFilter(result,response,"results_type","成果类型","results_type");
         return result;
     }
 
@@ -179,7 +215,7 @@ public class ResultsService extends AbstractService {
         makeFilters(request, boolQuery);
 
         if (!StringUtils.isEmpty(request.getId())) {
-            boolQuery.must(QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f));
+            boolQuery.must(QueryBuilders.nestedQuery("annotation_tag", QueryBuilders.termQuery("annotation_tag.id", Long.valueOf(request.getId())).boost(8f), ScoreMode.Max));
             boolQuery.filter(QueryBuilders.termQuery("_type", "results_data")).boost(3f);
             return boolQuery;
         }
@@ -197,7 +233,6 @@ public class ResultsService extends AbstractService {
         String userInputOrgName = request.getRecognizedOrg();
 
         BoolQueryBuilder boolTitleQuery = null;
-        // 已经识别出人和机构，或者用户输入的不是人也不是机构
         if (request.getUserSplitSegList()!=null && !request.getUserSplitSegList().isEmpty()) {
             boolTitleQuery = createSegmentsTermQuery(request, RESULTS_INDEX, "title");
         }
@@ -207,7 +242,7 @@ public class ResultsService extends AbstractService {
         QueryBuilder authorTerm = createTermsQuery("complete_persons", request.getUserSplitSegList(), 3f);
         QueryBuilder orgsTerm = createTermsQuery("complete_department", request.getUserSplitSegList(), 3f);
         QueryBuilder kwsTerm = createTermsQuery("keywords", request.getUserSplitSegList(), 3f);
-        QueryBuilder annotationTagTerm = createTermsQuery("annotation_tag.name", request.getUserSplitSegList(), 3f);
+        QueryBuilder annotationTagTerm = createNestedQuery("annotation_tag","annotation_tag.name", request.getUserSplitSegList(), 1f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
@@ -333,7 +368,13 @@ public class ResultsService extends AbstractService {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         //TODO 成果水平过滤
-                        filterQuery.should(QueryBuilders.termQuery("type",v));
+                        filterQuery.should(QueryBuilders.termQuery("review_level",v));
+                    }
+                    boolQuery.must(filterQuery);
+                }else if ("results_type".equals(filter.getK())) {
+                    BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                    for (String v : filter.getV()) {
+                        filterQuery.should(QueryBuilders.termQuery("resultsType",v));
                     }
                     boolQuery.must(filterQuery);
                 }
@@ -348,38 +389,47 @@ public class ResultsService extends AbstractService {
             return;
         }
         ResultsDetail detail = (ResultsDetail) item;
-        //TODO
+
+        List<Object> relatedPatent = new ArrayList<>();
+        List<Object> relatedStandard = new ArrayList<>();
+        List<Object> relatedScholar = new ArrayList<>();
+        List<String> relatedKeyword = new ArrayList<>();
+        if ("KEJI".equals(detail.getResultsType())) {
+            relatedPatent = detail.getRelated_patent();
+            relatedStandard = detail.getRelated_standard();
+            relatedScholar = detail.getRelated_scholar();
+            relatedKeyword = detail.getRelated_term();
+        }else if("GUOWANG".equals(detail.getResultsType())) {
+
+        }
 
         KVBean<String, List<Object>> similarPatents = new KVBean<>();
         similarPatents.setD("相似专利");
         similarPatents.setK("similarPatent");
         similarPatents.setV(new ArrayList<>());
         result.getSimilarData().add(similarPatents);
-        //TODO
-        similarPatents.getV().add(fakePatent());
+        similarPatents.getV().addAll(relatedPatent);
 
         KVBean<String, List<Object>> similarStandards = new KVBean<>();
         similarStandards.setD("相似标准");
         similarStandards.setK("similarStandard");
         similarStandards.setV(new ArrayList<>());
         result.getSimilarData().add(similarStandards);
-        //TODO
-        similarStandards.getV().add(fakeStandard());
+        similarStandards.getV().addAll(relatedStandard);
 
         KVBean<String, List<Object>> similarAuthors = new KVBean<>();
         similarAuthors.setD("相关学者");
         similarAuthors.setK("related_authors");
         similarAuthors.setV(new ArrayList<>());
         result.getSimilarData().add(similarAuthors);
-        similarAuthors.getV().addAll(Arrays.asList("谢开","姚远"));
+        similarAuthors.getV().addAll(relatedScholar);
 
         KVBean<String, List<Object>> similarKeywords = new KVBean<>();
         similarKeywords.setD("相关关键词");
         similarKeywords.setK("related_keywords");
         similarKeywords.setV(new ArrayList<>());
         result.getSimilarData().add(similarKeywords);
-        similarKeywords.getV().addAll(Arrays.asList("直流系统","维护"));
-
+        similarKeywords.getV().addAll(relatedKeyword);
     }
 
     @Override
@@ -391,10 +441,13 @@ public class ResultsService extends AbstractService {
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_1.name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_2.name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "_kg_annotation_3.name", false,false, op);
-        buildQueryCondition(allQueryBuilder, reqItem, "annotation_tag.name", false,true, op);
+        if (reqItem.getKv() != null && reqItem.getKv().getV() != null && reqItem.getKv().getV().size() > 0) {
+            QueryBuilder annotation = createNestedQuery("annotation_tag", "annotation_tag.name", reqItem.getKv().getV(), 1f);
+            setOperator(allQueryBuilder, op, annotation);
+        }
         buildQueryCondition(allQueryBuilder, reqItem, "keywords", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "complete_persons", false,false, op);
-
+        buildQueryCondition(allQueryBuilder, reqItem, "complete_department", false,false, op);
         return allQueryBuilder;
     }
 

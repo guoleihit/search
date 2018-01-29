@@ -5,6 +5,7 @@ import com.hiekn.search.bean.result.paper.PaperType;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
@@ -29,6 +30,26 @@ public class PaperItem extends ItemBean {
     private PaperType paperType;
 
     private String origin;
+
+    private String url;
+
+    private Map<String, String> urls;
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public Map<String, String> getUrls() {
+        return urls;
+    }
+
+    public void setUrls(Map<String, String> urls) {
+        this.urls = urls;
+    }
 
     public String getOrigin() {
         return origin;

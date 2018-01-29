@@ -7,6 +7,7 @@ import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
+import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.SimpleTerm;
 import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
@@ -50,6 +51,8 @@ import javax.annotation.Resource;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,6 +73,8 @@ public class SearchRestApi implements InitializingBean {
     private String kgName;
     @Value("${word2vector_model_location}")
     private String modelLocation;
+    @Value("${knowledge_book_location}")
+    private String bookLocation;
 
     @Resource
     private IGeneralSSEService generalSSEService;
@@ -248,7 +253,7 @@ public class SearchRestApi implements InitializingBean {
         setTermAggFilter(result, response, "document_type", "资源类型", "_type");
 
         String annotation = getAnnotationFieldName(request);
-        setKnowledgeAggResult(response,result,annotation);
+        setKnowledgeAggResult(request, response,result,annotation);
     }
 
     private void setSearchResource(DocType docType, List<AbstractService> services, List<String> indices){
@@ -502,7 +507,9 @@ public class SearchRestApi implements InitializingBean {
     @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<SearchResultBean> getListByIds(@ApiParam(value = "id列表") @FormParam("docIds") String docIds,@QueryParam("tt") Long tt)
+    public RestResp<SearchResultBean> getListByIds(@ApiParam(value = "id列表") @FormParam("docIds") String docIds,
+                                                   @FormParam("filter") String filter,
+                                                   @QueryParam("tt") Long tt)
             throws InterruptedException, ExecutionException {
         if (StringUtils.isEmpty(docIds)) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
@@ -516,11 +523,33 @@ public class SearchRestApi implements InitializingBean {
             throw JsonException.newInstance();
         }
         SearchRequestBuilder srb = esClient.prepareSearch(new String[]{PATENT_INDEX,PAPER_INDEX,STANDARD_INDEX,RESULTS_INDEX});
-        srb.setQuery(QueryBuilders.idsQuery().addIds(idList.toArray(new String[]{})));
+        srb.setQuery(QueryBuilders.idsQuery().addIds(idList.toArray(new String[]{}))).setSize(20);
         SearchResponse response = srb.execute().get();
         SearchResultBean result = new SearchResultBean("");
         setResultData(result, response);
 
+        Iterator<ItemBean> itr = result.getRsData().iterator();
+        if (filter != null && filter.length() > 0) {
+            while (itr.hasNext()) {
+                ItemBean bean = itr.next();
+                if (bean.getTitle()==null || !bean.getTitle().contains(filter)) {
+                    itr.remove();
+                }
+            }
+        }
+
+        // 按照id入参顺序排序
+        List<ItemBean> sorted = new LinkedList<>();
+        for (int i = 0; i< idList.size(); i++) {
+            String id = idList.get(i);
+            for (ItemBean itemBean: result.getRsData()) {
+                if (id.equals(itemBean.getDocId())) {
+                    sorted.add(itemBean);
+                    break;
+                }
+            }
+        }
+        result.setRsData(sorted);
         return new RestResp<>(result, tt);
     }
 
@@ -698,5 +727,55 @@ public class SearchRestApi implements InitializingBean {
         }catch (Exception e) {
             log.error("init syn dictionary failed.", e);
         }
+
+
+        File file = new File(bookLocation);
+        File[] files = file.listFiles();
+        if (file.isDirectory() && (Objects.isNull(files) || files.length == 0)) {
+            return;
+        }
+        Map<String, Map<String,List<String>>> top = new HashMap<>();
+
+        for (File f : files) {
+            try(BufferedReader br = new BufferedReader(new FileReader(f))){
+                String txt;
+                String currentTopword = null;
+                String currentMidword = null;
+
+                while((txt=br.readLine())!=null){
+                    if (txt.startsWith("\t\t") && !txt.startsWith("\t\t\t")) {
+                        // bottom word
+                        Map<String,List<String>> mid = top.get(currentTopword);
+                        List<String> bottom = mid.get(currentMidword);
+                        bottom.add(txt.trim());
+                    }else if (txt.startsWith("\t") && !txt.startsWith("\t\t")) {
+                        // middle word
+                        if (currentTopword!=null) {
+                            txt = txt.trim();
+                            Map<String,List<String>> mid = top.get(currentTopword);
+                            if(mid != null) {
+                                if(mid.get(txt) == null){
+                                    mid.put(txt,new ArrayList());
+                                }
+                            }
+                            currentMidword = txt;
+                        }
+                    }else if (!txt.startsWith("\t")) {
+                        // top word
+                        txt = txt.trim();
+                        if (top.get(txt)==null) {
+                            Map<String,List<String>> mid = new HashMap<>();
+                            top.put(txt, mid);
+                        }
+                        currentTopword = txt;
+                    }
+                }
+            }catch(Exception e){
+                log.error("reading book error.", e);
+            }
+        }
+
+        System.out.println(top);
+        Helper.book = top;
     }
 }

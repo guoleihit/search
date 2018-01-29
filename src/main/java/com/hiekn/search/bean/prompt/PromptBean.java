@@ -2,12 +2,14 @@ package com.hiekn.search.bean.prompt;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 /**
  * 提示结果条目
  * @author leiguo
  *
  */
+@JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
 public class PromptBean {
 	
 	/**

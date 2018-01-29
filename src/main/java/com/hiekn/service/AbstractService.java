@@ -145,6 +145,7 @@ public abstract class AbstractService {
             termQuery.should(QueryBuilders.prefixQuery(esField, value.toString()));
         }else if (Integer.valueOf(1).equals(reqItem.getPrecision()) || value instanceof Integer) { // 精确匹配
             termQuery.should(QueryBuilders.termQuery(esField, value));
+            //termQuery.should(QueryBuilders.matchPhraseQuery(esField, value).slop(50).analyzer("ik_smart"));
             if(esField.indexOf(".keyword") < 0 && value instanceof String){
                 esField = esField.concat(".keyword");
             }
@@ -184,12 +185,23 @@ public abstract class AbstractService {
             QueryRequest rq = new QueryRequest();
             rq.setKw(reqItem.getKv().getV().get(0));
             QueryBuilder absQuery = createSegmentsTermQuery(new QueryRequestInternal(rq), index, field);
-            if (op != null)
-                setOperator(boolQuery, op,  absQuery);
-            else
+            if (op != null) {
+                setOperator(boolQuery, op, absQuery);
+            } else {
                 setOperator(boolQuery, reqItem, absQuery);
+            }
         } else {
-            buildQueryCondition(boolQuery, reqItem, field, needPrefix, ignoreStrCase, op);
+            String str = reqItem.getKv().getV().get(0);
+            if(!field.endsWith(".smart")){
+                field = field.concat(".smart");
+            }
+            QueryBuilder builder = QueryBuilders.matchPhraseQuery(field, str).analyzer("ik_smart");
+            if (op != null) {
+                setOperator(boolQuery, op, builder);
+            } else {
+                setOperator(boolQuery, reqItem, builder);
+            }
+            //buildQueryCondition(boolQuery, reqItem, field, needPrefix, ignoreStrCase, op);
         }
     }
 

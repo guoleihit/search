@@ -1640,7 +1640,7 @@ FATTn	fracture appearance transition temperature
 开停机计划	unit commitment
 低压断路器	自动空气开关
 低压断路器	自动开关
-低压断路器	自动断路器
+断路器	开关
 供电服务热线	供电服务呼叫中心
 反应堆周期T	反应堆时间常数
 余热	废热

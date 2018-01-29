@@ -30,6 +30,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.InternalFilter;
 import org.elasticsearch.search.aggregations.bucket.nested.InternalNested;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,10 +40,7 @@ import org.springframework.stereotype.Controller;
 import javax.annotation.Resource;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 @Controller
@@ -50,6 +49,8 @@ import java.util.concurrent.ExecutionException;
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"可视化数据"})
 public class Visualization implements InitializingBean, DisposableBean {
+
+    private static Logger log = LoggerFactory.getLogger(Visualization.class);
 
     @Resource
     private KGRestApi kgApi;
@@ -66,8 +67,6 @@ public class Visualization implements InitializingBean, DisposableBean {
     private MongoClient mongoClient;
 
     private MongoDatabase mapDB;
-
-    private MongoDatabase kgDB;
 
     @Value("${kg_name}")
     private String kgName;
@@ -89,7 +88,6 @@ public class Visualization implements InitializingBean, DisposableBean {
         Map r = new JSONObject();
         if(d!=null) {
             d.remove("_id");
-            String results = d.toJson();
             r = d;
         }
 
@@ -112,7 +110,26 @@ public class Visualization implements InitializingBean, DisposableBean {
                                   @QueryParam("tt") Long tt) throws InterruptedException, ExecutionException {
         RestResp<SchemaBean> rest = kgApi.kgSchema(tt);
 
-        RestResp<GraphBean> restGraph = kgApi.kg(kw,id,allowAtts,allowTypes,entitiesLimit,relationsLimit,conceptsLimit,statsLimit,pageNo,pageSize,kwType,isInherit, isTop, excludeClassIds, tt);
+        log.info(allowAtts+","+allowTypes);
+        List<Long> allowAttList;
+        List<Long> allowTypeList;
+        try {
+            allowAttList = JSONUtils.fromJson(allowAtts, new TypeToken<List<Long>>() {
+            }.getType());
+            allowTypeList = JSONUtils.fromJson(allowTypes, new TypeToken<List<Long>>() {
+            }.getType());
+        }catch(Exception e) {
+            allowAttList = null;
+            allowTypeList = null;
+        }
+
+        RestResp<GraphBean> restGraph;
+        if (allowAttList!=null || allowTypeList != null) {
+            restGraph = kgApi.kg(kw, id, allowAtts, allowTypes, entitiesLimit, relationsLimit, conceptsLimit, statsLimit, pageNo, pageSize, kwType, isInherit, isTop, excludeClassIds, tt);
+        }else {
+            restGraph = kgApi.kg2(kw, id, allowAtts, allowTypes, pageNo, pageSize, kwType, isInherit, isTop, excludeClassIds, tt);
+        }
+
         GraphBean bean = null;
         if(restGraph.getData() != null && restGraph.getData().getRsData() != null) {
             bean = restGraph.getData().getRsData().get(0);
@@ -136,7 +153,7 @@ public class Visualization implements InitializingBean, DisposableBean {
                 }
                 Map<String, Object> result = new HashMap<>();
                 result.put("name", entityBeanList.get(0).getName());
-                List<Map> topChildren = new ArrayList<Map>();
+                List<Map> topChildren = new ArrayList<>();
                 result.put("children", topChildren);
                 for(Map.Entry<Long, List<EntityBean>> entry: treeClassId.entrySet()){
                     Long classId = entry.getKey();
@@ -171,15 +188,33 @@ public class Visualization implements InitializingBean, DisposableBean {
         if (size !=null && size > 100) {
             throw new RuntimeException("size is too large.");
         }
+        if (docType != null && !DocType.PAPER.equals(docType) && !DocType.PATENT.equals(docType)) {
+            throw new RuntimeException("doc type not supported. only PAPER and PATENT are acceptable.");
+        }
+
+        BoolQueryBuilder bool = QueryBuilders.boolQuery();
 
         String defaultIndex = CommonResource.PATENT_INDEX;
         if (DocType.PAPER.equals(docType)) {
             defaultIndex = CommonResource.PAPER_INDEX;
+
+            if (organization!=null && !StringUtils.isEmpty(organization.trim())) {
+                BoolQueryBuilder b = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                b.should(QueryBuilders.termQuery("authors.organization.name", organization.trim()));
+                b.should(QueryBuilders.termQuery("parent_associated_tag.name", organization.trim()));
+                bool.must(b);
+            }
+
+        }else { // 专利
+            if (organization!=null && !StringUtils.isEmpty(organization.trim())) {
+                BoolQueryBuilder b = QueryBuilders.boolQuery().minimumShouldMatch(1);
+                b.should(QueryBuilders.termQuery("applicants.name.original.keyword", organization.trim()));
+                b.should(QueryBuilders.termQuery("parent_associated_tag.name", organization.trim()));
+                bool.must(b);
+            }
         }
-        BoolQueryBuilder bool = QueryBuilders.boolQuery();
-        if (organization!=null && !StringUtils.isEmpty(organization.trim())) {
-            bool.must(QueryBuilders.termQuery("applicants.name.original.keyword", organization.trim()));
-        }
+
+
 
         if (knowledge != null && !StringUtils.isEmpty(knowledge.trim())) {
             knowledge = knowledge.trim();
@@ -193,9 +228,15 @@ public class Visualization implements InitializingBean, DisposableBean {
         SearchRequestBuilder srb = esClient.prepareSearch(defaultIndex);
         srb.setQuery(bool);
 
+        int sizeHack = size;
+        if (sizeHack * 1.5 <= 50) {
+            sizeHack = 50;
+        }else {
+            sizeHack = 100;
+        }
         AggregationBuilder topN = AggregationBuilders.nested("annotation_tag","annotation_tag")
                 .subAggregation(AggregationBuilders.filter("person_tag", QueryBuilders.termQuery("annotation_tag.classId", 2))
-                        .subAggregation(AggregationBuilders.terms("person_id").field("annotation_tag.id").size(size).order(Terms.Order.count(false))));
+                        .subAggregation(AggregationBuilders.terms("person_id").field("annotation_tag.id").size(sizeHack).order(Terms.Order.count(false))));
         srb.addAggregation(topN);
 
         SearchResponse response =  srb.execute().get();
@@ -217,12 +258,13 @@ public class Visualization implements InitializingBean, DisposableBean {
             ids.add(id);
         }
 
-
-        MongoCollection entities = kgDB.getCollection("entity_id");
-        MongoCursor<Document> dbCursor = entities.find(Filters.in("id", ids)).iterator();
+        String dbName = getDBNameOfKg();
+        MongoDatabase kgDB = mongoClient.getDatabase(dbName);
+        MongoCollection entities = kgDB.getCollection("basic_info");
+        MongoCursor<Document> dbCursor = entities.find(Filters.in("_id", ids)).iterator();
         while (dbCursor.hasNext()) {
             Document doc = dbCursor.next();
-            Long id = doc.getLong("id");
+            Long id = doc.getLong("_id");
             String name = doc.getString("name");
             if (name == null || name.length()<2 || name.length() > 4) {
                 Map<String,Object> v = resultMap.remove(id);
@@ -230,43 +272,35 @@ public class Visualization implements InitializingBean, DisposableBean {
                 continue;
             }
             String meaningTags = null;
-            Object meta = doc.get("meta_info");
-            if (meta != null){
-                List<String> meaning_tags = new ArrayList<>();
-                Object d2r = ((Document) meta).get("d2r");
-                if (d2r != null) {
-                    Object idsObj = ((Document) d2r).get("id");
-                    if (idsObj != null && idsObj instanceof List) {
-                        for (Object idObj : (List) idsObj) {
-                            Document idDoc = (Document) idObj;
-                            if (idDoc.get("org") != null) {
-                                meaning_tags.add(idDoc.getString("org"));
-                            }
-                        }
+            if (doc.get("meaning_tag")!=null) {
+                meaningTags = doc.getString("meaning_tag");
+                if (meaningTags != null) {
+                    // 如果用户搜索的是机构 国家电网公司 ，append它到原来的 meaningtag 上面
+                    if ("国家电网公司".equals(organization) && !meaningTags.equals(organization)) {
+                        meaningTags = meaningTags.concat(",国家电网公司");
                     }
-                }
-                if (!meaning_tags.isEmpty()) {
-                    StringBuilder builder = new StringBuilder();
-                    int counter = 0;
-                    for (String str : meaning_tags) {
-                        counter++;
-                        builder.append(str);
-                        if (meaning_tags.size() > counter) {
-                            builder.append(",");
-                        }
+                    // 如果用户搜索机构，去掉非当前机构的人物
+                    else if (!StringUtils.isEmpty(organization) && !meaningTags.contains(organization)) {
+                        Map<String,Object> v = resultMap.remove(id);
+                        results.remove(v);
+                        continue;
                     }
-                    meaningTags = builder.toString();
                 }
             }
 
             Map<String,Object> info = resultMap.get(id);
-            info.put("name",name);
-
-            if (meaningTags != null) {
-                info.put("meaningTags", meaningTags);
+            if (info != null) {
+                info.put("name", name);
+                if (meaningTags != null) {
+                    info.put("meaningTags", meaningTags);
+                }
             }
         }
         dbCursor.close();
+
+        if (results.size() > size) {
+            results = results.subList(0,size);
+        }
         return new RestResp(results, tt);
     }
 
@@ -294,8 +328,29 @@ public class Visualization implements InitializingBean, DisposableBean {
         try {
             mongoClient = new MongoClient(mongoIP, Integer.valueOf(mongoPort));
             mapDB = mongoClient.getDatabase("knowledge_map");
-            kgDB = mongoClient.getDatabase(kgName);
         }catch(Exception e){
         }
+    }
+
+    private String getDBNameOfKg() {
+        String name = kgName;
+        MongoDatabase db = mongoClient.getDatabase("kg_attribute_definition");
+        MongoCollection<Document> kgDBMap = db.getCollection("kg_db_name");
+        try(MongoCursor<Document> cursor = kgDBMap.find(Filters.eq("kg_name", kgName)).iterator()){
+            while (cursor.hasNext()){
+                Document d = cursor.next();
+                if (d.get("db_name") != null) {
+                    String n = d.get("db_name").toString();
+                    if (n.length() > 0) {
+                        name = n;
+                    }
+                    break;
+                }
+            }
+        }catch(Exception ex){
+
+        }
+        log.info("got kgDbName:" + name);
+        return name;
     }
 }
