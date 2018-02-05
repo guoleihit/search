@@ -7,7 +7,6 @@ import com.hiekn.plantdata.bean.graph.EntityBean;
 import com.hiekn.plantdata.bean.graph.SchemaBean;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
-import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.SimpleTerm;
 import com.hiekn.search.bean.prompt.PromptBean;
 import com.hiekn.search.bean.request.CompositeQueryRequest;
@@ -374,7 +373,7 @@ public class SearchRestApi implements InitializingBean {
             PromptBean bean = new PromptBean();
             if (typeObj != null)
                 bean.setType(Integer.valueOf(getString(typeObj)));
-            bean.setName(getString(nameObj));
+            bean.setName(getString(nameObj).trim());
             bean.setDescription(getString(descObj));
             bean.setGraphId(getString(source.get("graphId")));
 
@@ -640,7 +639,7 @@ public class SearchRestApi implements InitializingBean {
         }
     }
 
-    protected Map<String, String> intentionRecognition(QueryRequestInternal request){
+    private Map<String, String> intentionRecognition(QueryRequestInternal request){
         Map<String, String> result = new HashMap<>();
         // 识别用户输入机构、人物
         if (request.getUserSplitSegList() != null && request.getUserSplitSegList().size() > 0

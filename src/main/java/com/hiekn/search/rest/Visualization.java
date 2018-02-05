@@ -1,6 +1,8 @@
 package com.hiekn.search.rest;
 
 import com.alibaba.fastjson.JSONObject;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.gson.reflect.TypeToken;
 import com.hiekn.plantdata.bean.TypeBean;
 import com.hiekn.plantdata.bean.graph.EntityBean;
@@ -11,6 +13,7 @@ import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.result.Code;
 import com.hiekn.search.bean.result.RestResp;
 import com.hiekn.search.exception.BaseException;
+import com.hiekn.service.Helper;
 import com.hiekn.util.CommonResource;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -30,6 +33,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.InternalFilter;
 import org.elasticsearch.search.aggregations.bucket.nested.InternalNested;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.metrics.sum.Sum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -131,7 +135,8 @@ public class Visualization implements InitializingBean, DisposableBean {
         }
 
         GraphBean bean = null;
-        if(restGraph.getData() != null && restGraph.getData().getRsData() != null) {
+        if(restGraph.getData() != null && restGraph.getData().getRsData() != null
+                && restGraph.getData().getRsData().size() > 0) {
             bean = restGraph.getData().getRsData().get(0);
         }
         if (bean != null) {
@@ -172,6 +177,103 @@ public class Visualization implements InitializingBean, DisposableBean {
         return new RestResp<>(tt);
     }
 
+
+    @POST
+    @Path("/journal/cite")
+    @ApiOperation(value = "")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public com.hiekn.search.bean.result.RestData<Object> journalCiteStats(@FormParam("journalName")String journalName,
+                                                                 @ApiParam("1表示机构，2表示作者，3表示主题、知识点") @FormParam("statsType")Integer statsType,
+                                                                 @ApiParam("0=echart,1=kv")@DefaultValue("0")  @FormParam("returnType")Integer returnType,
+                                                                 @DefaultValue("10") @FormParam("size") Integer size,
+                                                                 @QueryParam("tt") Long tt) throws ExecutionException, InterruptedException {
+
+        BoolQueryBuilder bool = QueryBuilders.boolQuery();
+        bool.filter(QueryBuilders.termQuery("paperType","JOURNAL"));
+        bool.must(QueryBuilders.termQuery("journal.journal_chinese_name",journalName));
+
+        SearchRequestBuilder srb = esClient.prepareSearch(CommonResource.PAPER_INDEX);
+        srb.setQuery(bool).setSize(0);
+
+        if (statsType == 1) { // 机构
+            AggregationBuilder orgsCiteAggs = AggregationBuilders.terms("parent").field("authors.organization.name")
+                    .order(Terms.Order.aggregation("citeCount", false)).size(size);
+            AggregationBuilder citeCountAggs = AggregationBuilders.sum("citeCount").field("citeCount");
+            orgsCiteAggs.subAggregation(citeCountAggs);
+            srb.addAggregation(orgsCiteAggs);
+        } else if (statsType == 2) { //作者
+            bool.mustNot(QueryBuilders.termQuery("authors.name.keyword","(missing)"));
+
+            AggregationBuilder authorCiteAggs = AggregationBuilders.terms("parent").field("authors.name.keyword")
+                    .order(Terms.Order.aggregation("citeCount", false)).size(size);
+            AggregationBuilder citeCountAggs = AggregationBuilders.sum("citeCount").field("citeCount");
+            authorCiteAggs.subAggregation(citeCountAggs);
+            srb.addAggregation(authorCiteAggs);
+        } else if (statsType == 3) { //主题、知识点
+            AggregationBuilder knowledgeCiteAggs = AggregationBuilders.terms("parent").field("keywords")
+                    .order(Terms.Order.aggregation("citeCount", false)).size(size);
+            AggregationBuilder citeCountAggs = AggregationBuilders.sum("citeCount").field("citeCount");
+            knowledgeCiteAggs.subAggregation(citeCountAggs);
+            srb.addAggregation(knowledgeCiteAggs);
+        }
+
+        SearchResponse response =  srb.execute().get();
+
+        Terms parents = response.getAggregations().get("parent");
+        Map<String, Long> results = new HashMap<>();
+        for (Terms.Bucket parent: parents.getBuckets()) {
+            String key = parent.getKey().toString();
+            Sum sum = parent.getAggregations().get("citeCount");
+            Long value = Double.valueOf(sum.getValue()).longValue();
+            results.put(key, value);
+        }
+
+        results = Helper.sortMapByValue(results);
+
+        Map<String, Object> internal = new HashMap<>();
+        if (returnType == 0) {
+            List xAxis = Lists.newArrayList();
+            List xDataList = Lists.newArrayList();
+            Map xData = Maps.newHashMap();
+            xData.put("data",xDataList);
+            xAxis.add(xData);
+
+            List series = Lists.newArrayList();
+            List sDataList = Lists.newArrayList();
+            Map sData = Maps.newHashMap();
+            sData.put("data",sDataList);
+            series.add(sData);
+
+            internal.put("xAxis", xAxis);
+            internal.put("series", series);
+
+
+            for(Map.Entry<String, Long> entry: results.entrySet()) {
+                String key = entry.getKey();
+                Long value = entry.getValue();
+                xDataList.add(key);
+                sDataList.add(value);
+            }
+
+        } else if (returnType == 1) {
+            List xAxis = new ArrayList();
+            Map xData = Maps.newHashMap();
+            xData.put("data",Lists.newArrayList());
+            xAxis.add(xData);
+
+            List series = Lists.newArrayList();
+            for(Map.Entry<String, Long> entry: results.entrySet()) {
+                JSONObject e = new JSONObject();
+                e.put("name", entry.getKey());
+                e.put("value", entry.getValue());
+                series.add(e);
+            }
+            internal.put("xAxis", xAxis);
+            internal.put("series", series);
+        }
+        return new com.hiekn.search.bean.result.RestData<>(internal);
+    }
 
     @POST
     @Path("/top/persons")
@@ -333,23 +435,7 @@ public class Visualization implements InitializingBean, DisposableBean {
     }
 
     private String getDBNameOfKg() {
-        String name = kgName;
-        MongoDatabase db = mongoClient.getDatabase("kg_attribute_definition");
-        MongoCollection<Document> kgDBMap = db.getCollection("kg_db_name");
-        try(MongoCursor<Document> cursor = kgDBMap.find(Filters.eq("kg_name", kgName)).iterator()){
-            while (cursor.hasNext()){
-                Document d = cursor.next();
-                if (d.get("db_name") != null) {
-                    String n = d.get("db_name").toString();
-                    if (n.length() > 0) {
-                        name = n;
-                    }
-                    break;
-                }
-            }
-        }catch(Exception ex){
-
-        }
+        String name = CommonResource.getDBNameOfKg(kgName, mongoClient);
         log.info("got kgDbName:" + name);
         return name;
     }

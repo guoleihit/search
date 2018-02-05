@@ -160,6 +160,75 @@ public class Helper {
 		}
 	}
 
+    public static List<Map<String, Integer>> hightedwords(String highlighted) {
+        //int targeted = 0;
+        int countEm = 0;
+        boolean emStart = false;
+        boolean emed = false;
+        boolean emEnd = false;
+        char[] chars = highlighted.toCharArray();
+        List<Character> word = new ArrayList<>();
+        List<Map<String, Integer>> results = new ArrayList<>();
+        int position = 0;
+        for (int i = 0; i < chars.length; i++) {
+            char c = chars[i];
+            if (!emed && ((c == '<' && !emStart) || (c == 'e' && emStart) || (c == 'm' && emStart)
+                    || (c == '>' && emStart))) {
+                emStart = true;
+                countEm++;
+                if (c == '>') { // found an em started tag
+                    emed = true;
+                    emStart = false;
+                    countEm = 0;
+                    word.clear();
+                }
+            } else if (emStart && !emed && c != 'e' && c != 'm' && c != '>') {
+                emStart = false;
+            } else if (emed && ((c == '<' && !emEnd) || (c == '/' && emEnd) || (c == 'e' && emEnd)
+                    || (c == 'm' && emEnd) || (c == '>' && emEnd))) {
+                emEnd = true;
+                countEm++;
+                if (c == '>') { // found an em end tag
+                    emed = false;
+                    emEnd = false;
+                    countEm = 0;
+
+                    String w = characterListToString(word);
+                    Map<String, Integer> map = new HashMap<>();
+                    map.put(w, position++);
+                    results.add(map);
+                }
+            } else if (emEnd && !emed && c != 'e' && c != 'm' && c != '>' && c != '/') {
+                emEnd = false;
+            } else if (emed) {
+                if (countEm != 0) {
+                    //targeted += countEm;
+                    countEm = 0;
+                }
+                //targeted++;
+                word.add(c);
+                if (emEnd) {
+                    emEnd = false;
+                }
+                if (emStart) {
+                    emStart = false;
+                }
+            } else {
+                position++;
+            }
+        }
+
+        return results;
+    }
+
+    private static String characterListToString(List<Character> word) {
+        StringBuilder sb = new StringBuilder(word.size());
+        for (Character ch : word)
+            sb.append(ch.charValue());
+        String result = sb.toString();
+        return result;
+    }
+
 	public static void setTermAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
 		Terms docTypes = response.getAggregations().get(aggName);
 		KVBean<String, Map<String, ?>> docTypeFilter = new KVBean<>();
@@ -281,6 +350,24 @@ public class Helper {
 		return true;
 	}
 
+    public static Map<String, Long> sortMapByValue(Map<String, Long> oriMap) {
+        if (oriMap == null || oriMap.isEmpty()) {
+            return null;
+        }
+        Map<String, Long> sortedMap = new LinkedHashMap<String, Long>();
+        List<Map.Entry<String, Long>> entryList = new ArrayList<Map.Entry<String, Long>>(
+                oriMap.entrySet());
+        Collections.sort(entryList, new MapValueComparator());
+
+        Iterator<Map.Entry<String, Long>> iter = entryList.iterator();
+        Map.Entry<String, Long> tmpEntry = null;
+        while (iter.hasNext()) {
+            tmpEntry = iter.next();
+            sortedMap.put(tmpEntry.getKey(), tmpEntry.getValue());
+        }
+        return sortedMap;
+    }
+
     public static JSONObject getItemFromHbase(String rowKey, DocType docType){
         String table = getHBaseTableName(docType);
         String response = HttpClient.sendGet("http://10.10.20.8:20550/"+table+"/"+rowKey,null,null);
@@ -346,4 +433,10 @@ public class Helper {
         }
     }
 
+    static class MapValueComparator implements Comparator<Map.Entry<String, Long>> {
+        @Override
+        public int compare(Map.Entry<String, Long> o1, Map.Entry<String, Long> o2) {
+            return o2.getValue().compareTo(o1.getValue());
+        }
+    }
 }

@@ -25,9 +25,12 @@ public class FactoryBean {
 	
     @Bean
     public TransportClient esClient(){ 
-    	TransportClient client = null;
+    	TransportClient client;
     	if(es_name != null && !"".equals(es_name)){
-			Settings settings = Settings.builder().put("cluster.name", es_name).build();
+			Settings settings = Settings.builder()
+					.put("cluster.name", es_name)
+                    //.put("xpack.security.user", "leiguo:123456")
+                    .build();
 			client = new PreBuiltTransportClient(settings);
 		}else{
 			client = new PreBuiltTransportClient(Settings.EMPTY);

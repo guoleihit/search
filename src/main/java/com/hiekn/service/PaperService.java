@@ -165,7 +165,7 @@ public class PaperService extends AbstractService{
 		}
 		Object absObj = source.get("abstract");
 		if (absObj != null) {
-			item.setAbs(absObj.toString().replaceAll(",","，"));
+			item.setAbs(absObj.toString());
 		}
 		Object keywords = source.get("keywords");
 		List<String> kws = toStringList(keywords);
@@ -205,8 +205,15 @@ public class PaperService extends AbstractService{
                     case "abstract.english":
                     case "abstract.keyword":
                     case "abstract.smart":
-						if (frags != null && frags.length > 0) {
-							item.setAbs(frags[0].string());
+						if (frags != null && frags.length > 0 && !StringUtils.isEmpty(item.getAbs())) {
+							for (Text frag: frags) {
+							    String fragStr = frag.string();
+							    String noEmStr = fragStr.replaceAll("<em>", "");
+                                noEmStr = noEmStr.replaceAll("</em>", "");
+                                String abs = item.getAbs();
+                                abs = abs.replace(noEmStr, fragStr);
+                                item.setAbs(abs);
+                            }
 						}
 						break;
 					case "keywords.keyword":
@@ -233,6 +240,12 @@ public class PaperService extends AbstractService{
 				}
 			}
 		}
+
+
+
+
+		item.setAbs(item.getAbs().replaceAll(",","，"));
+
 		return item;
 	}
 
@@ -476,7 +489,7 @@ public class PaperService extends AbstractService{
             AggregationBuilder relatedOrgs = AggregationBuilders.terms("related_orgs").field("authors.organization.name");
             spq.addAggregation(relatedOrgs);
 
-            AggregationBuilder relatedKeywords = AggregationBuilders.terms("related_keywords").field("keywords.keyword");
+            AggregationBuilder relatedKeywords = AggregationBuilders.terms("related_keywords").field("keywords");
             spq.addAggregation(relatedKeywords);
 
             Future<SearchResponse> similarPaperFuture = spq.execute();

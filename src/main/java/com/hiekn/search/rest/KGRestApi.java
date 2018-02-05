@@ -20,10 +20,17 @@ import com.hiekn.search.exception.BaseException;
 import com.hiekn.search.exception.JsonException;
 import com.hiekn.service.Helper;
 import com.hiekn.util.CommonResource;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import io.swagger.annotations.*;
 import org.apache.commons.lang3.StringUtils;
+import org.bson.Document;
+import org.elasticsearch.client.transport.TransportClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -45,12 +52,20 @@ import static com.hiekn.service.Helper.types;
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"搜索"})
-public class KGRestApi implements InitializingBean {
+public class KGRestApi implements InitializingBean, DisposableBean {
 
     @Value("${kg_name}")
     private String kgName;
     @Resource
     private IGeneralSSEService generalSSEService;
+
+    @Value("${mongo_ip}")
+    private String mongoIP;
+
+    @Value("${mongo_port}")
+    private String mongoPort;
+
+    private MongoClient mongoClient;
 
     private static Logger log = LoggerFactory.getLogger(KGRestApi.class);
 
@@ -182,6 +197,8 @@ public class KGRestApi implements InitializingBean {
             } catch (Exception e) {
             }
         }
+        entityId = getEntityIdByTrick(kw, id, kwType, entityId);
+
 
         GraphBean graphBean = null;
         if (entityId != null) {
@@ -210,6 +227,45 @@ public class KGRestApi implements InitializingBean {
             }
         }
         return new RestResp<>(graphBean, 0L);
+    }
+
+    /**
+     * ugly trick
+     * @param kw
+     * @param id
+     * @param kwType
+     * @param entityId
+     * @return
+     */
+    private Long getEntityIdByTrick(String kw,String id, Integer kwType, Long entityId) {
+        // 实体识别没有考虑概率值，直接读库吧。。。
+        if (StringUtils.isEmpty(id) && kwType == 1 && Helper.types.get("人物") != null) {
+            String kgDb = CommonResource.getDBNameOfKg(kgName, mongoClient);
+            MongoDatabase db = mongoClient.getDatabase(kgDb);
+            MongoCollection<Document> collection = db.getCollection("entity_id");
+            Document doc = collection.find(Filters.and(Filters.eq("name",kw),
+                    Filters.exists("meta_info.d2r.id.org"),
+                    Filters.ne("meta_info.d2r.id.org",""),
+                    Filters.eq("concept_id", Long.valueOf(Helper.types.get("人物")))))
+                    .sort(new Document().append("meta_data.meta_data_4", -1)).first();
+            if (doc != null && doc.get("id")!=null) {
+                entityId = doc.getLong("id");
+                log.info("for kwType=2, got an entity with highest score from kg db :" + entityId);
+            }
+        }
+        // 期刊图谱，命名实体识别失败，直接读库吧。。。
+        else if (entityId == null && kwType == 4 && Helper.types.get("期刊") != null) {
+            String kgDb = CommonResource.getDBNameOfKg(kgName, mongoClient);
+            MongoDatabase db = mongoClient.getDatabase(kgDb);
+            MongoCollection<Document> collection = db.getCollection("entity_id");
+            Document doc = collection.find(Filters.and(Filters.regex("name","^"+kw),
+                    Filters.eq("concept_id", Long.valueOf(Helper.types.get("期刊"))))).first();
+            if (doc != null && doc.get("id")!=null) {
+                entityId = doc.getLong("id");
+                log.info("for kwType=4, got entity from kg db :" + entityId);
+            }
+        }
+        return entityId;
     }
 
     private Long getEntityId(@FormParam("kw") String kw, @FormParam("kwType") Integer kwType, String[] kws, List<EntityBean> rsList) {
@@ -247,6 +303,13 @@ public class KGRestApi implements InitializingBean {
                         if (entity.getClassId() != null && knowledgeIds.contains(entity.getClassId()) && kw.equals(entity.getName())) {
                             entityId = entity.getId();
                             log.info("found knowledge:" + entityId + ",classId:" + entity.getClassId());
+                            break;
+                        }
+                    }
+                } else if (kwType == 4) { // 期刊
+                    for (EntityBean entity : rsList) {
+                        if (entity.getClassId() != null && entity.getClassId().equals(types.get("期刊")) && kw.equals(entity.getName())) {
+                            entityId = entity.getId();
                             break;
                         }
                     }
@@ -360,7 +423,7 @@ public class KGRestApi implements InitializingBean {
             } catch (Exception e) {
             }
         }
-
+        entityId = getEntityIdByTrick(kw,id,kwType,entityId);
         if (entityId != null) {
             graphBean = generalSSEService.kg_graph_full_hasatts(kgName, entityId, 1, 0, allowAttList, allowTypeList,
                     true, pageNo, pageSize, isInherit, isTop, excludeClassIdList);
@@ -409,24 +472,40 @@ public class KGRestApi implements InitializingBean {
         return new RestResp<SchemaBean>(schema, tt);
     }
 
+    @POST
+    @Path("/invalidate")
+    @ApiOperation(value = "重建缓存")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SchemaBean> cacheInvalidate(@QueryParam("tt") Long tt) {
+        asyncGetKnowledge();
+        log.info("begin to reconstruct kg cache...");
+        return new RestResp<>(tt);
+    }
 
     @Override
     public void afterPropertiesSet() throws Exception {
         try {
-            FutureTask f = new java.util.concurrent.FutureTask(new Callable() {
-                @Override
-                public Object call() throws Exception {
-                    getGraphKnowledge();
-                    return null;
-                }
-            });
+            asyncGetKnowledge();
 
-            ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
-            executor.schedule(f, 60, TimeUnit.SECONDS);
-            executor.shutdown();
+            mongoClient = new MongoClient(mongoIP, Integer.valueOf(mongoPort));
         } catch (Exception e) {
             log.error("initializing error:", e);
         }
+    }
+
+    private void asyncGetKnowledge() {
+        FutureTask f = new FutureTask(new Callable() {
+            @Override
+            public Object call() throws Exception {
+                getGraphKnowledge();
+                return null;
+            }
+        });
+
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+        executor.schedule(f, 60, TimeUnit.SECONDS);
+        executor.shutdown();
     }
 
     private void getGraphKnowledge() {
@@ -443,6 +522,8 @@ public class KGRestApi implements InitializingBean {
                 } else if ("知识点".equals(type.getV())) {
                     types.put("知识点", type.getK());
                     knowledgeIds.add(type.getK());
+                } else if ("期刊".equals(type.getV())) {
+                    types.put("期刊", type.getK());
                 }
 
                 if (knowledgeIds.contains(type.getParentId())) {
@@ -454,5 +535,12 @@ public class KGRestApi implements InitializingBean {
         }
         Helper.knowledgeIds = knowledgeIds;
         Helper.types = types;
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        if(mongoClient != null){
+            mongoClient.close();
+        }
     }
 }

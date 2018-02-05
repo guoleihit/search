@@ -1,5 +1,12 @@
 package com.hiekn.util;
 
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import org.bson.Document;
+
 import java.util.Properties;
 
 public final class CommonResource {
@@ -31,4 +38,27 @@ public final class CommonResource {
 	public static final Float search_conference_paper_weight = Float.valueOf(props.getProperty("search_conference_paper_weight"));
 	public static final Float search_journal_paper_weight = Float.valueOf(props.getProperty("search_journal_paper_weight"));
     public static final Float search_user_input_title_weight = Float.valueOf(props.getProperty("search_user_input_title_weight"));
+
+
+	public static String getDBNameOfKg(String kgName, MongoClient mongoClient) {
+		String name = kgName;
+		MongoDatabase db = mongoClient.getDatabase("kg_attribute_definition");
+		MongoCollection<Document> kgDBMap = db.getCollection("kg_db_name");
+		try(MongoCursor<Document> cursor = kgDBMap.find(Filters.eq("kg_name", kgName)).iterator()){
+			while (cursor.hasNext()){
+				Document d = cursor.next();
+				if (d.get("db_name") != null) {
+					String n = d.get("db_name").toString();
+					if (n.length() > 0) {
+						name = n;
+					}
+					break;
+				}
+			}
+		}catch(Exception ex){
+
+		}
+		return name;
+	}
+
 }
