@@ -237,6 +237,14 @@ public abstract class AbstractService {
         return null;
     }
 
+    protected QueryBuilder createMatchPhraseQuery(String key, List<String> values, float boost){
+        if(values != null && !values.isEmpty()){
+            String v = String.join(" ", values);
+            return QueryBuilders.matchPhraseQuery(key, v).boost(boost);
+        }
+        return null;
+    }
+
     protected QueryBuilder createNestedQuery(String path, String key, List<String> values, float boost) {
         if(values != null && !values.isEmpty()){
             return QueryBuilders.nestedQuery(path,QueryBuilders.termsQuery(key, values).boost(boost), ScoreMode.Max);

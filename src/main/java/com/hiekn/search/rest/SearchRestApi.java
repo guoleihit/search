@@ -18,6 +18,9 @@ import com.hiekn.search.exception.JsonException;
 import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
 import com.hiekn.service.nlp.NLPServiceImpl;
+import com.hiekn.util.CommonResource;
+import com.hiekn.util.HBaseUtils;
+import com.hiekn.util.HttpClient;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
 import com.hiekn.word2vector.WordEntry;
@@ -27,6 +30,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FiltersFunctionScoreQuery;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -42,6 +46,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -53,6 +58,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.InputStreamReader;
+import java.net.URLEncoder;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -66,7 +72,7 @@ import static com.hiekn.util.CommonResource.*;
 @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 @Produces(MediaType.APPLICATION_JSON + ";charset=utf-8")
 @Api(tags = {"搜索"})
-public class SearchRestApi implements InitializingBean {
+public class SearchRestApi implements InitializingBean, DisposableBean {
 
     @Value("${kg_name}")
     private String kgName;
@@ -167,8 +173,13 @@ public class SearchRestApi implements InitializingBean {
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> baike(@QueryParam("baike") String baike, @QueryParam("pageNo") Integer pageNo,
-                                            @QueryParam("pageSize") Integer pageSize, @QueryParam("tt") Long tt) throws Exception {
+                                            @QueryParam("pageSize") Integer pageSize, @QueryParam("type") Integer type,
+                                            @QueryParam("tt") Long tt) throws Exception{
         log.info("search baike item:" + baike);
+        if (StringUtils.isEmpty(baike)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+
         if (pageNo == null) {
             pageNo = 1;
         }
@@ -177,18 +188,33 @@ public class SearchRestApi implements InitializingBean {
         }
         SearchResultBean result = new SearchResultBean(baike);
 
-        BoolQueryBuilder baikeQuery = baikeService.buildQuery(baike);
-        QueryRequest request = new QueryRequest();
-        request.setKw(baike);
-        request.setPageNo(pageNo);
-        request.setPageSize(pageSize);
-        SearchResponse baikeResp = searchBaikeIndex(request, baikeQuery);
-        if (baikeResp.getHits().getHits().length > 0) {
-            SearchHit hit = baikeResp.getHits().getAt(0);
-            BaikeItem item = baikeService.extractItem(hit);
-            result.getRsData().add(item);
+        if (!Integer.valueOf(4).equals(type)) {
+            BoolQueryBuilder baikeQuery = baikeService.buildQuery(baike);
+            QueryRequest request = new QueryRequest();
+            request.setKw(baike);
+            request.setPageNo(pageNo);
+            request.setPageSize(pageSize);
+            SearchResponse baikeResp = searchBaikeIndex(request, baikeQuery);
+            if (baikeResp.getHits().getHits().length > 0) {
+                SearchHit hit = baikeResp.getHits().getAt(0);
+                BaikeItem item = baikeService.extractItem(hit);
+                result.getRsData().add(item);
+            }
         }
-        return new RestResp<>(result, request.getTt());
+
+        if (Integer.valueOf(4).equals(type) || result.getRsData().size() == 0) {
+            try {
+                String encodeTitle = URLEncoder.encode(baike, "utf-8");
+                String response = HttpClient.sendGet(CommonResource.internal_journal_service_url+"findByTitle/" + encodeTitle, null, null);
+                BaikeItem item = JSONUtils.fromJson(response, BaikeItem.class);
+                if (item.getContents() != null && item.getContents().size() > 0) {
+                    result.getRsData().add(item);
+                }
+            }catch (Exception e){
+                log.error("get journal http service error:",e );
+            }
+        }
+        return new RestResp<>(result, tt);
     }
 
     @POST
@@ -209,13 +235,20 @@ public class SearchRestApi implements InitializingBean {
         }
         SearchResultBean result = new SearchResultBean(request.getKw());
         String[] kws = StringUtils.split(request.getKw());
-        List<String> tokens = Lists.newArrayList(kws);
+        List<String> tokens = Lists.newArrayList();
         for(String kw:kws){
             if(kw.indexOf('+')>=0){
                 tokens.addAll(Lists.newArrayList(StringUtils.split(kw,'+')));
             }else if (kw.indexOf('/')>=0) {
                 tokens.addAll(Lists.newArrayList(StringUtils.split(kw,'/')));
+            }else if (kw.indexOf(',')>=0) {
+                tokens.addAll(Lists.newArrayList(StringUtils.split(kw,',')));
+            }else if (kw.indexOf('，')>=0) {
+                tokens.addAll(Lists.newArrayList(StringUtils.split(kw,'，')));
             }
+        }
+        if (tokens.isEmpty()) {
+            tokens = Lists.newArrayList(kws);
         }
         log.info("query keywords:" + tokens);
         QueryRequestInternal queryInternal = new QueryRequestInternal(request);
@@ -356,10 +389,11 @@ public class SearchRestApi implements InitializingBean {
         }
 
         FilterFunctionBuilder[] functions = new FilterFunctionBuilder[]{
-                new FilterFunctionBuilder(QueryBuilders.wildcardQuery("description","*电*"), ScoreFunctionBuilders.weightFactorFunction(1.1f)),
-                new FilterFunctionBuilder(QueryBuilders.termQuery("description",""), ScoreFunctionBuilders.weightFactorFunction(0.5f))};
+                // new FilterFunctionBuilder(QueryBuilders.wildcardQuery("description","*电*"), ScoreFunctionBuilders.weightFactorFunction(1.1f)),
+                new FilterFunctionBuilder(ScoreFunctionBuilders.fieldValueFactorFunction("score").modifier(FieldValueFactorFunction.Modifier.LOG1P).factor(10).missing(1)),
+                new FilterFunctionBuilder(QueryBuilders.termQuery("description",""), ScoreFunctionBuilders.weightFactorFunction(0.05f))};
 
-        QueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MAX).boostMode(CombineFunction.MULTIPLY);
+        QueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MULTIPLY).boostMode(CombineFunction.MULTIPLY);
         SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
         srb.setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize()).setSize(request.getPageSize());
         log.info(srb.toString());
@@ -776,5 +810,10 @@ public class SearchRestApi implements InitializingBean {
 
         System.out.println(top);
         Helper.book = top;
+    }
+
+    @Override
+    public void destroy() throws Exception {
+
     }
 }

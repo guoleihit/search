@@ -129,10 +129,17 @@ public class ResultsService extends AbstractService {
             item.getInnovation_point().add(getString(source.get("innovation_point")));
         }
         if(source.get("related_patent") != null && source.get("related_patent") instanceof List) {
-            item.setRelated_patent((List)source.get("related_patent"));
+            List patents = new ArrayList();
+            patents.addAll((List)source.get("related_patent"));
+            item.setRelated_patent(patents);
+            item.getRelated_patent().sort(getMapComparator("publish_date"));
         }
         if(source.get("related_standard") != null && source.get("related_standard") instanceof List) {
-            item.setRelated_standard((List)source.get("related_standard"));
+            List standards = new ArrayList();
+            standards.addAll((List)source.get("related_standard"));
+            item.setRelated_standard(standards);
+            item.getRelated_standard().sort(getMapComparator("publish_date"));
+
         }
         if(source.get("related_scholar") != null && source.get("related_scholar") instanceof List) {
             item.setRelated_scholar((List)source.get("related_scholar"));
@@ -203,7 +210,8 @@ public class ResultsService extends AbstractService {
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         Helper.setTermAggFilter(result,response,"address_province","所在省市","province_city");
-        Helper.setTermAggFilter(result,response,"results_level","成果水平","results_level");
+        Helper.setTermAggFilter(result,response,"results_level","成果水平","results_level",
+                Arrays.asList("特等奖","一等奖","二等奖","二等奖;三等奖","三等奖","中国电力科技三等奖","特别奖","特别"));
         Helper.setTermAggFilter(result,response,"results_type","成果类型","results_type");
         return result;
     }
@@ -368,7 +376,12 @@ public class ResultsService extends AbstractService {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
                         //TODO 成果水平过滤
-                        filterQuery.should(QueryBuilders.termQuery("review_level",v));
+                        if ("其他".equals(v)){
+                            filterQuery.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("review_level")));
+                            filterQuery.should(QueryBuilders.termQuery("review_level",""));
+                        }else {
+                            filterQuery.should(QueryBuilders.termQuery("review_level", v));
+                        }
                     }
                     boolQuery.must(filterQuery);
                 }else if ("results_type".equals(filter.getK())) {

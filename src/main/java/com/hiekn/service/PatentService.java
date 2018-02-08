@@ -346,6 +346,7 @@ public class PatentService extends AbstractService {
         }
 
         QueryBuilder titleTerm = createTermsQuery("title.original",request.getUserSplitSegList(), CommonResource.search_user_input_title_weight);
+        QueryBuilder titleExactQuery = createMatchPhraseQuery("title.original.smart",request.getUserSplitSegList(), CommonResource.search_user_input_title_weight);
         QueryBuilder abstractTerm = createTermsQuery("abstract.original", request.getUserSplitSegList(), 1f);
         QueryBuilder inventorTerm = createTermsQuery("inventors.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_person_weight);
         QueryBuilder applicantTerm = createTermsQuery("applicants.name.original.keyword", request.getUserSplitSegList(), CommonResource.search_org_weight);
@@ -355,6 +356,7 @@ public class PatentService extends AbstractService {
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             should(termQuery, titleTerm);
+            should(termQuery, titleExactQuery);
             if(boolTitleQuery!=null) {
                 termQuery.should(boolTitleQuery);
             }
@@ -741,6 +743,7 @@ public class PatentService extends AbstractService {
                 }
                 similarPatents.getV().add(item);
             }
+            similarPatents.getV().sort(getItemBeanComparatorForPubDate());
 
             KVBean<String, List<Object>> inventorsPatents = new KVBean<>();
             inventorsPatents.setD("发明人专利");
@@ -754,6 +757,7 @@ public class PatentService extends AbstractService {
                 }
                 inventorsPatents.getV().add(item);
             }
+            inventorsPatents.getV().sort(getItemBeanComparatorForPubDate());
 
             KVBean<String, List<Object>> applicantsPatents = new KVBean<>();
             applicantsPatents.setD("申请人专利");
@@ -767,6 +771,7 @@ public class PatentService extends AbstractService {
                 }
                 applicantsPatents.getV().add(item);
             }
+            applicantsPatents.getV().sort(getItemBeanComparatorForPubDate());
         }
     }
 

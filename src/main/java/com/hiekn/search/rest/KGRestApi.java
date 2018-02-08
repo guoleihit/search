@@ -239,7 +239,7 @@ public class KGRestApi implements InitializingBean, DisposableBean {
      */
     private Long getEntityIdByTrick(String kw,String id, Integer kwType, Long entityId) {
         // 实体识别没有考虑概率值，直接读库吧。。。
-        if (StringUtils.isEmpty(id) && kwType == 1 && Helper.types.get("人物") != null) {
+        if (StringUtils.isEmpty(id) && kwType!=null && kwType == 1 && Helper.types.get("人物") != null) {
             String kgDb = CommonResource.getDBNameOfKg(kgName, mongoClient);
             MongoDatabase db = mongoClient.getDatabase(kgDb);
             MongoCollection<Document> collection = db.getCollection("entity_id");
@@ -254,7 +254,7 @@ public class KGRestApi implements InitializingBean, DisposableBean {
             }
         }
         // 期刊图谱，命名实体识别失败，直接读库吧。。。
-        else if (entityId == null && kwType == 4 && Helper.types.get("期刊") != null) {
+        else if (entityId == null && kwType!=null && kwType == 4 && Helper.types.get("期刊") != null) {
             String kgDb = CommonResource.getDBNameOfKg(kgName, mongoClient);
             MongoDatabase db = mongoClient.getDatabase(kgDb);
             MongoCollection<Document> collection = db.getCollection("entity_id");

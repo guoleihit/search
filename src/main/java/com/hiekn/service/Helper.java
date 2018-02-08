@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.QueryRequest;
+import com.hiekn.search.bean.result.ItemBean;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.util.HttpClient;
 import org.apache.commons.lang3.StringUtils;
@@ -21,6 +22,8 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -247,6 +250,52 @@ public class Helper {
 		result.getFilters().add(docTypeFilter);
 	}
 
+    /**
+     * 按照规则排序
+     * @param result
+     * @param response
+     * @param aggName
+     * @param filterD
+     * @param filterK
+     * @param sortRule
+     */
+    public static void setTermAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK, List<String> sortRule) {
+        Terms docTypes = response.getAggregations().get(aggName);
+        KVBean<String, Map<String, ?>> docTypeFilter = new KVBean<>();
+        docTypeFilter.setD(filterD);
+        docTypeFilter.setK(filterK);
+        Map<String, Long> docMap = new LinkedHashMap<>();
+        for(String s : sortRule) {
+            for (Terms.Bucket bucket : docTypes.getBuckets()) {
+                String key = bucket.getKeyAsString();
+                if (key == null || key.length()==0) {
+                    key = "其他";
+                }
+
+                if (key.equals(s)) {
+                    docMap.put(key, bucket.getDocCount());
+                }
+            }
+        }
+
+        if (docMap.size() < docTypes.getBuckets().size()) {
+            for (Terms.Bucket bucket : docTypes.getBuckets()) {
+                String key = bucket.getKeyAsString();
+                if (key == null || key.length()==0) {
+                    key = "其他";
+                }
+
+                if (!docMap.containsKey(key)) {
+                    docMap.put(key, bucket.getDocCount());
+                }
+            }
+        }
+
+        docMap.put("_end",-1l);
+        docTypeFilter.setV(docMap);
+        result.getFilters().add(docTypeFilter);
+    }
+
 	public static void setYearAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
 		Histogram yearAgg = response.getAggregations().get(aggName);
 		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
@@ -360,7 +409,7 @@ public class Helper {
         Collections.sort(entryList, new MapValueComparator());
 
         Iterator<Map.Entry<String, Long>> iter = entryList.iterator();
-        Map.Entry<String, Long> tmpEntry = null;
+        Map.Entry<String, Long> tmpEntry;
         while (iter.hasNext()) {
             tmpEntry = iter.next();
             sortedMap.put(tmpEntry.getKey(), tmpEntry.getValue());
@@ -392,6 +441,50 @@ public class Helper {
             return "json_beijixing_data_news";
         }
         return "";
+    }
+
+    public static Comparator<Object> getMapComparator(final String key) {
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy年mm月",Locale.CHINESE);
+        return (o1, o2)->{
+            if (o1 instanceof Map && o2 instanceof Map) {
+                String str1 = (String)((Map) o1).get(key);
+                String str2 = (String)((Map) o2).get(key);
+                return doCompareString(sdf, str1, str2);
+            }
+            return 0;
+        };
+    }
+
+    public static Comparator<Object> getItemBeanComparatorForPubDate() {
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        return (o1, o2)->{
+            if (o1 instanceof ItemBean && o2 instanceof ItemBean) {
+                String str1 = ((ItemBean)o1).getPubDate();
+                String str2 = ((ItemBean)o2).getPubDate();
+
+                return doCompareString(sdf, str1, str2);
+            }
+            return 0;
+        };
+    }
+
+    private static int doCompareString(SimpleDateFormat sdf, String str1, String str2) {
+        if(str1 !=null && str2 != null){
+                try {
+                    Date d1 = sdf.parse(str1);
+                    Date d2 = sdf.parse(str2);
+                    return d2.compareTo(d1);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            return str2.compareTo(str1);
+        }else if(str1 == null && str2 == null){
+            return 0;
+        }else if (str1 == null) {
+            return 1;
+        }else {
+            return -1;
+        }
     }
 
     static class HBaseResultHandler extends DefaultHandler{

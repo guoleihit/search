@@ -340,7 +340,10 @@ public class PaperService extends AbstractService{
         enWordList.addAll(enWords);
 
         QueryBuilder titleTerm = createTermsQuery("title", cnWordList, CommonResource.search_user_input_title_weight);
+        QueryBuilder titleExactQuery = createMatchPhraseQuery("title.smart", cnWordList, CommonResource.search_user_input_title_weight);
         QueryBuilder abstractTerm = createTermsQuery("abstract", cnWordList, 1f);
+        QueryBuilder journalTerm = createTermsQuery("journal.journal_chinese_name", cnWordList, CommonResource.search_user_input_title_weight);
+
         QueryBuilder entitleTerm = createTermsQuery("title.english", enWordList, CommonResource.search_user_input_title_weight);
         QueryBuilder enabstractTerm = createTermsQuery("abstract.english", enWordList, 1f);
 
@@ -352,6 +355,8 @@ public class PaperService extends AbstractService{
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         if (request.getKwType() == null || request.getKwType() == 0) {
             should(termQuery, titleTerm);
+            should(termQuery, journalTerm);
+            should(termQuery, titleExactQuery);
             should(termQuery, boolTitleQuery);
             should(termQuery, entitleTerm);
             should(termQuery, enabstractTerm);
@@ -508,6 +513,7 @@ public class PaperService extends AbstractService{
                     }
                     similarPapers.getV().add(item);
                 }
+                similarPapers.getV().sort(getItemBeanComparatorForPubDate());
 
                 Terms relatedPersonAgg = similarPaperResp.getAggregations().get("related_persons");
                 KVBean<String, List<Object>> relatedPersonFilter = new KVBean<>();
