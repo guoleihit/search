@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.google.common.collect.Maps;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
@@ -362,10 +363,7 @@ public class StandardService extends AbstractService{
         AggregationBuilder status = AggregationBuilders.terms("status").field("state");
         srb.addAggregation(status);
 
-        if (request.getSort() != null) {
-            if(Integer.valueOf(1).equals(request.getSort()))
-                srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
-        }
+        Helper.addSortByPubDate(request, srb);
 
         System.out.println(srb.toString());
         SearchResponse response =  srb.execute().get();
@@ -431,5 +429,27 @@ public class StandardService extends AbstractService{
         buildLongTextQueryCondition(allQueryBuilder, reqItem, STANDARD_INDEX,"name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, op);
         return allQueryBuilder;
+    }
+
+    @Override
+    public Map<String, String> formatCite(ItemBean bean, Integer format, List<String> customizedFields) throws Exception {
+        String type = "[S]";
+        String pubDate = bean.getPubDate();
+        StringBuilder citeBuilder = new StringBuilder();
+        citeBuilder.append(bean.getTitle());
+
+        if (bean instanceof StandardItem) {
+            StandardItem item = (StandardItem)bean;
+            citeBuilder.append(":").append(item.getNum()).append(type).append(".");
+            if (!StringUtils.isEmpty(pubDate)) {
+                citeBuilder.append("[").append(pubDate).append("]");
+            }
+
+            Map<String, String> results = new HashMap<>();
+            results.put("cite",citeBuilder.toString());
+            return results;
+        }
+
+        return Maps.newHashMap();
     }
 }

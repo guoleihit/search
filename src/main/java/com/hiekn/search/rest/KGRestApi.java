@@ -76,6 +76,7 @@ public class KGRestApi implements InitializingBean, DisposableBean {
                            @FormParam("kw") String kw, @FormParam("pageSize") @DefaultValue("3") Integer pageSize,
                            @FormParam("allowTypes") String allowTypes,
                            @FormParam("isCaseSensitive") @DefaultValue("false") Boolean isCaseSensitive,
+                           @FormParam("metaDataOption") @DefaultValue("{'sorts':{'4':-1}}") String metaDataOption,
                            @QueryParam("token") String token, @QueryParam("tt") Long tt) {
 
         List<Long> allowTypesList;
@@ -84,13 +85,13 @@ public class KGRestApi implements InitializingBean, DisposableBean {
         allowTypesList = JSONUtils.fromJson(allowTypes, new TypeToken<List<Long>>() {
         }.getType());
 
-        rsList = getPrompt(kgName, kw, allowTypesList, isCaseSensitive, pageSize);
+        rsList = getPrompt(kgName, kw, allowTypesList, isCaseSensitive, pageSize, metaDataOption);
         RestResp<EntityBean> rs = new RestResp<>(rsList, tt);
         return Response.ok().entity(rs).build();
     }
 
     public List<EntityBean> getPrompt(String kgName, String kw, List<Long> allowTypes, boolean isCaseSensitive,
-                                      Integer pageSize) {
+                                      Integer pageSize, String metaDataOption) {
         String url = CommonResource.kg_public_service_url + "/kg/prompt";
 
         MultivaluedMap<String, Object> para = new MultivaluedHashMap<String, Object>();
@@ -99,6 +100,7 @@ public class KGRestApi implements InitializingBean, DisposableBean {
         para.add("type", 1);
         para.add("size", pageSize);
         para.add("isCaseInsensitive", false);
+        para.add("metaDataOption", metaDataOption);
 
         if (allowTypes != null && allowTypes.size() > 0) {
             para.add("conceptIds", allowTypes);

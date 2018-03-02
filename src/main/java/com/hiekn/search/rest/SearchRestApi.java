@@ -1,5 +1,6 @@
 package com.hiekn.search.rest;
 
+import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Floats;
 import com.google.gson.reflect.TypeToken;
@@ -19,7 +20,6 @@ import com.hiekn.search.exception.ServiceException;
 import com.hiekn.service.*;
 import com.hiekn.service.nlp.NLPServiceImpl;
 import com.hiekn.util.CommonResource;
-import com.hiekn.util.HBaseUtils;
 import com.hiekn.util.HttpClient;
 import com.hiekn.util.JSONUtils;
 import com.hiekn.word2vector.Word2VEC;
@@ -102,6 +102,61 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
     private BaikeService baikeService = new BaikeService();
 
     private Map<String, String> synDicts = new ConcurrentHashMap<>();
+
+    @GET
+    @Path("/detailByKg")
+    @ApiOperation(value = "通过kgId获取详情")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<SearchResultBean> detailByKgId(@QueryParam("kgId") String kgId,
+                                             @QueryParam("tt") Long tt) throws Exception {
+        log.info("kgId=" + kgId);
+        if (StringUtils.isEmpty(kgId)) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+
+        if (!Helper.isNumber(kgId)) {
+            throw new RuntimeException("invalid kgId:"+ kgId);
+        }
+
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        boolQuery.must(QueryBuilders.termQuery("kg_id", Long.valueOf(kgId).longValue()));
+
+        SearchRequestBuilder srb = esClient.prepareSearch(new String[]{PATENT_INDEX,PAPER_INDEX,STANDARD_INDEX,RESULTS_INDEX});
+        srb.setQuery(boolQuery).setSize(1);
+        SearchResponse docResp = srb.execute().get();
+
+        SearchResultBean result = new SearchResultBean(kgId);
+        DocType docType = null;
+        AbstractService service = null;
+        String docId = null;
+
+        if (docResp.getHits().getHits().length > 0) {
+            SearchHit hit = docResp.getHits().getAt(0);
+            if ("paper_data".equals(hit.getType())) {
+                docType = DocType.PAPER;
+                service = paperService;
+            } else if ("patent_data".equals(hit.getType())) {
+                docType = DocType.PATENT;
+                service = patentService;
+            } else if ("results_data".equals(hit.getType())) {
+                docType = DocType.RESULTS;
+                service = resultsService;
+            } else if ("standard_data".equals(hit.getType())) {
+                docType = DocType.STANDARD;
+                service = standardService;
+            }
+            ItemBean item = extractDetail(hit, docType);
+            result.getRsData().add(item);
+            docId = item.getDocId();
+        }
+
+        // 详情页推荐信息
+        if(result.getRsData().size() > 0 && service != null && docId != null){
+            service.searchSimilarData(docId, result);
+        }
+        return new RestResp<>(result, tt);
+    }
 
     @GET
     @Path("/detail")
@@ -334,6 +389,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         if (request.getSort() != null) {
             if(Integer.valueOf(1).equals(request.getSort()))
                 srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+            else if (Integer.valueOf(10).equals(request.getSort()))
+                srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.ASC));
         }
 
         String annotationField = getAnnotationFieldName(request);
@@ -537,7 +594,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
 
     @POST
     @Path("/list")
-    @ApiOperation(value = "搜索", notes = "搜索过滤及排序")
+    @ApiOperation(value = "列表", notes = "返回请求ids的资源数据列表")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
     public RestResp<SearchResultBean> getListByIds(@ApiParam(value = "id列表") @FormParam("docIds") String docIds,
@@ -652,6 +709,52 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         return new RestResp<>(result, 0L);
     }
 
+    @POST
+    @Path("/cite")
+    @ApiOperation(value = "引用", notes = "生成引用数据")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public RestResp<Map<String,String>> cite(
+            @ApiParam(value = "文档ID列表") @FormParam("docIds") String docIds,
+            @ApiParam(value = "引用格式，1=参考文献格式;2=查新格式;3=自定义格式") @FormParam("format") Integer format,
+            @ApiParam(value = "自定义字段列表, [\"title\",\"abs\"]") @FormParam("customContent") String customContent,
+            @QueryParam("tt") Long tt)
+            throws Exception {
+
+        RestResp<SearchResultBean> beanListRes = getListByIds(docIds, null, null);
+        try {
+            if (!beanListRes.getData().getRsData().isEmpty()) {
+                List<ItemBean> beanList = beanListRes.getData().getRsData().get(0).getRsData();
+                List<Map<String,String>> mapList = new ArrayList<>();
+                List<String> customizedFields = new ArrayList<>();
+
+                try {
+                    customizedFields = com.hiekn.plantdata.util.JSONUtils.fromJson(customContent, new TypeToken<List<String>>() {
+                    }.getType());
+                }catch (Exception e) {
+                    log.error("parse to json error", e);
+                }
+
+                for (ItemBean itemBean: beanList) {
+                    if (DocType.PATENT.equals(itemBean.getDocType())) {
+                        mapList.add(patentService.formatCite(itemBean, format, customizedFields));
+                    } else if (DocType.PAPER.equals(itemBean.getDocType())) {
+                        mapList.add(paperService.formatCite(itemBean, format, customizedFields));
+                    } else if (DocType.STANDARD.equals(itemBean.getDocType())) {
+                        mapList.add(standardService.formatCite(itemBean, format, customizedFields));
+                    } else if (DocType.RESULTS.equals(itemBean.getDocType())) {
+                        mapList.add(resultsService.formatCite(itemBean, format, customizedFields));
+                    }
+                }
+                return new RestResp<>(mapList, tt);
+            }
+
+        }catch (Exception e){
+            log.error("request cite error", e);
+        }
+
+        return new RestResp<>(tt);
+    }
 
     private void setResultData(SearchResultBean result, SearchResponse response) {
         for (SearchHit hit : response.getHits()) {
@@ -740,6 +843,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient, generalSSEService, kgName);
         resultsService = new ResultsService(esClient, generalSSEService, kgName);
+        resultsService.setPaperService(paperService);
 
         word2vec = new Word2VEC();
         word2vec.loadJavaModel(modelLocation);

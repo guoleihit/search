@@ -141,6 +141,7 @@ public class Visualization implements InitializingBean, DisposableBean {
         }
         if (bean != null) {
             List<EntityBean> entityBeanList = bean.getEntityList();
+            Long fakeTmpKnowledgeId = null;
             if (entityBeanList.size() > 0) {
                 Map<Long, List<EntityBean>> treeClassId = new HashMap<>();
                 for (int i = 1; i < entityBeanList.size(); i++) {
@@ -148,11 +149,23 @@ public class Visualization implements InitializingBean, DisposableBean {
 
                     Long classId = entity.getClassId();
                     // 按照classid对结果分类
-                    if (treeClassId.get(classId) == null) {
+                    if (treeClassId.get(classId) == null && !Helper.knowledgeIds.contains(classId)) {
                         List<EntityBean> children = new ArrayList<>();
                         treeClassId.put(classId, children);
                         children.add(entity);
-                    } else {
+                    } else if(Helper.knowledgeIds.contains(classId)) {
+                        if (fakeTmpKnowledgeId == null) {
+                            fakeTmpKnowledgeId = -999l;
+                        }
+
+                        if (treeClassId.get(fakeTmpKnowledgeId)==null) {
+                            List<EntityBean> children = new ArrayList<>();
+                            treeClassId.put(fakeTmpKnowledgeId, children);
+                            children.add(entity);
+                        } else {
+                            treeClassId.get(fakeTmpKnowledgeId).add(entity);
+                        }
+                    }else {
                         treeClassId.get(classId).add(entity);
                     }
                 }
@@ -164,7 +177,12 @@ public class Visualization implements InitializingBean, DisposableBean {
                     Long classId = entry.getKey();
                     List<EntityBean> children = entry.getValue();
                     Map<String, Object> child = new HashMap<>();
-                    String name = getNameByClassId(rest,classId);
+                    String name;
+                    if(classId != fakeTmpKnowledgeId){
+                        name = getNameByClassId(rest,classId);
+                    }else {
+                        name = "知识点";
+                    }
                     child.put("name",name);
                     child.put("children",children);
                     topChildren.add(child);

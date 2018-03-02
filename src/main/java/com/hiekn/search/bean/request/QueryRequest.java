@@ -37,7 +37,7 @@ public class QueryRequest {
 	@DefaultValue("20")
 	private Integer pageSize = 20;
 
-	@ApiParam(value="排序方式")
+	@ApiParam(value="排序方式,1=发布时间降序,10=发布时间升序,2=专利申请时间降序,20=专利申请时间升序")
 	private Integer sort;
 
 	@ApiParam("查询信息来源,专利、论文、新闻...")

@@ -1,6 +1,7 @@
 package com.hiekn.service;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
@@ -29,11 +30,15 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
 import java.util.*;
+import java.util.concurrent.Future;
 
 import static com.hiekn.service.Helper.*;
+import static com.hiekn.util.CommonResource.PAPER_INDEX;
 import static com.hiekn.util.CommonResource.RESULTS_INDEX;
 
 public class ResultsService extends AbstractService {
+
+    private AbstractService paperService;
 
     public ResultsService(TransportClient esClient, IGeneralSSEService generalSSEService, String kgName) {
         this.esClient = esClient;
@@ -97,7 +102,7 @@ public class ResultsService extends AbstractService {
         if(source.get("earliest_publication_date")!=null) {
             item.setPubDate(Helper.toDateString(source.get("earliest_publication_date").toString(), "-"));
         }
-        if(source.get("year")!=null){
+        if(StringUtils.isEmpty(item.getPubDate()) && source.get("year")!=null){
             item.setPubDate(getString(source.get("year")));
         }
 
@@ -166,9 +171,7 @@ public class ResultsService extends AbstractService {
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
                 .setSize(request.getPageSize());
 
-        if (Integer.valueOf(1).equals(request.getSort())) {
-            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
-        }
+        Helper.addSortByPubDate(request, srb);
 
         String annotationField = getAnnotationFieldName(request);
         if (annotationField != null) {
@@ -211,7 +214,7 @@ public class ResultsService extends AbstractService {
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
         Helper.setTermAggFilter(result,response,"address_province","所在省市","province_city");
         Helper.setTermAggFilter(result,response,"results_level","成果水平","results_level",
-                Arrays.asList("特等奖","一等奖","二等奖","二等奖;三等奖","三等奖","中国电力科技三等奖","特别奖","特别"));
+                Arrays.asList("特等奖","一等奖","二等奖","二等","二等奖;三等奖","三等奖","三等","中国电力科技三等奖","特别奖","特别"));
         Helper.setTermAggFilter(result,response,"results_type","成果类型","results_type");
         return result;
     }
@@ -443,6 +446,53 @@ public class ResultsService extends AbstractService {
         similarKeywords.setV(new ArrayList<>());
         result.getSimilarData().add(similarKeywords);
         similarKeywords.getV().addAll(relatedKeyword);
+
+
+        Future<SearchResponse> similarPaperFuture = doSearchSimilarData("title.smart", detail.getTitle(), PAPER_INDEX);
+        Future<SearchResponse> similarResultsFuture = doSearchSimilarData("title.smart", detail.getTitle(), RESULTS_INDEX);
+
+        SearchResponse similarPaperResp = similarPaperFuture.get();
+        if (similarPaperResp != null) {
+            KVBean<String, List<Object>> similarPaper = new KVBean<>();
+            similarPaper.setD("相似论文");
+            similarPaper.setK("similarPapers");
+            similarPaper.setV(new ArrayList<>());
+            result.getSimilarData().add(similarPaper);
+            for (SearchHit hit : similarPaperResp.getHits()) {
+                ItemBean paperItem = paperService.extractItem(hit);
+                if(docId.equals(paperItem.getDocId())){
+                    continue;
+                }
+                similarPaper.getV().add(paperItem);
+            }
+            similarPaper.getV().sort(getItemBeanComparatorForPubDate());
+        }
+
+        SearchResponse similarResultsResp = similarResultsFuture.get();
+        if (similarResultsResp != null) {
+            KVBean<String, List<Object>> similarResults = new KVBean<>();
+            similarResults.setD("相似成果");
+            similarResults.setK("similarResults");
+            similarResults.setV(new ArrayList<>());
+            result.getSimilarData().add(similarResults);
+            for (SearchHit hit : similarResultsResp.getHits()) {
+                ItemBean resultsItem = extractItem(hit);
+                if(docId.equals(resultsItem.getDocId())){
+                    continue;
+                }
+                similarResults.getV().add(resultsItem);
+            }
+            similarResults.getV().sort(getItemBeanComparatorForPubDate());
+        }
+    }
+
+    private Future<SearchResponse> doSearchSimilarData(String field, String value, String index) {
+        QueryBuilder similarQuery = QueryBuilders.matchQuery(field,value);
+        SearchRequestBuilder spq = esClient.prepareSearch(index);
+        HighlightBuilder titleHighlighter = new HighlightBuilder().field(field);
+        spq.highlighter(titleHighlighter).setQuery(similarQuery).setFrom(0).setSize(6);
+        Future<SearchResponse> similarFuture = spq.execute();
+        return similarFuture;
     }
 
     @Override
@@ -464,42 +514,41 @@ public class ResultsService extends AbstractService {
         return allQueryBuilder;
     }
 
-    private ItemBean fakePatent(){
-        PatentItem item = new PatentItem();
-        item.setDocId("cn201610460900");
-        item.setTitle("一种交直流混联电网");
-        item.setAbs("本实用新型涉及电力设备技术领域，具体涉及一种交直流混联电网，包括若干个变电站，所述变电站中至少有一个为柔性变电站，每个变电站包括高压交流系统、高压直流系统、低压交流系统、低压直流系统中的部分或全部，每个柔性变电站中的高压交流系统、高压直流系统、低压交流系统、低压直流系统分别互联成网，本技术方案对现在技术中的配电网的功能做进一步完善，达到了配电网在提供高压交流电和低压交流电的同时又能提供高压直流电和低压直流电的目的，解决现有配电网只可提供模式单一的交流电、无法直接提供直流电的问题，实现配电网不同电压等级交直流系统之间的柔性互联，潮流灵活调节和故障的快速隔离。");
-        item.setAuthors(Arrays.asList(
-                "滕乐天",
-                "邓占锋",
-                "谢开",
-                "赵国亮",
-                "王志凯",
-                "刘海军",
-                "才志远"));
-        item.setPubDate("2017-4-5");
-        item.setAgencies(Arrays.asList("北京三聚阳光知识产权代理有限公司"));
-        item.setApplicants(Arrays.asList("全球能源互联网研究院","国家电网公司"));
-        item.setApplicationDate("2016-7-22");
-        item.setApplicationNumber("CN201620786365.6");
-        item.setPublicationNumber("CN206076972U");
-        item.setAgents(Arrays.asList("马永芬"));
-        item.setMainIPC("h02j5/00");
-        item.setType("实用新型");
-        item.setLegalStatus("授权");
-        item.setDocType(DocType.PATENT);
-        return item;
+    @Override
+    public Map<String, String> formatCite(ItemBean bean, Integer format, List<String> customizedFields) throws Exception {
+        String type = "[R]";
+        String authors = Helper.toStringFromList(bean.getAuthors(),",");
+        String pubDate = bean.getPubDate();
+        StringBuilder citeBuilder = new StringBuilder();
+        citeBuilder.append(authors).append(".").append(bean.getTitle());
+
+        if (bean instanceof ResultsItem) {
+            ResultsItem item = (ResultsItem)bean;
+            citeBuilder.append(":").append(item.getNo()).append(type).append(".").append(pubDate);
+
+            Map<String, String> results = new HashMap<>();
+            results.put("cite",citeBuilder.toString());
+            setCiteInfo(bean, format, customizedFields, authors, results);
+
+            if (Integer.valueOf(3).equals(format) && customizedFields != null) {
+                for (String field : customizedFields) {
+                    if ("orgs".equals(field)) {
+                        results.put("orgs", Helper.toStringFromList(item.getComplete_department(), ","));
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        return Maps.newHashMap();
     }
 
-    private ItemBean fakeStandard(){
-        StandardItem item = new StandardItem();
-        item.setDocId("AV_r1P9nzdSYo0sa9p4o");
-        item.setTitle("电工术语  电力牵引");
-        item.setPubDate("2003-5-26");
-        item.setDocType(DocType.STANDARD);
-        item.setNum("GB/T 2900.36—2003");
-        item.setSubNum("GB 3367.10—1984； GB 3367.9—1984； GB 2900.36—1996");
-        item.setCarryonDate("2003-10-1");
-        return item;
+    public AbstractService getPaperService() {
+        return paperService;
+    }
+
+    public void setPaperService(AbstractService paperService) {
+        this.paperService = paperService;
     }
 }

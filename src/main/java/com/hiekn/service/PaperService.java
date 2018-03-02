@@ -1,6 +1,7 @@
 package com.hiekn.service;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
@@ -172,6 +173,8 @@ public class PaperService extends AbstractService{
 		if (!kws.isEmpty()) {
 			item.setKeywords(kws);
 		}
+
+		item.setDoi(getString(source.get("doi")));
 
 		Object inventorsObj = source.get("authors");
 		Set<String> inventors = new HashSet<>();
@@ -621,7 +624,7 @@ public class PaperService extends AbstractService{
                 }else if ("doi".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "doi", false,false);
                 }else if ("references".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "refer.name", false,false);
+                    buildQueryCondition(boolQuery, reqItem, "refer.name.keyword", false,false);
                 }else if ("pubDate".equals(dateKey)) {
 					doBuildDateCondition(boolQuery, reqItem, "earliest_publication_date");
 				}else if ("all".equals(key)) {
@@ -659,7 +662,7 @@ public class PaperService extends AbstractService{
         buildQueryCondition(allQueryBuilder, reqItem, "keywords.keyword", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "authors.name.keyword", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "authors.organization.name", false,false, op);
-        buildQueryCondition(allQueryBuilder, reqItem, "refer.name", false,false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "refer.name.keyword", false,false, op);
         return allQueryBuilder;
     }
 
@@ -674,12 +677,10 @@ public class PaperService extends AbstractService{
                 .field("title.smart").field("abstract.smart")
                 .field("keywords.keyword").field("authors.name.keyword");
 
-        srb.highlighter(highlighter).setQuery(boolQuery).setFrom(request.getPageNo() - 1)
+        srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
 				.setSize(request.getPageSize());
 
-        if (Integer.valueOf(1).equals(request.getSort())) {
-            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
-        }
+        addSortByPubDate(request, srb);
 
         String annotationField = getAnnotationFieldName(request);
         if (annotationField != null) {
@@ -742,4 +743,65 @@ public class PaperService extends AbstractService{
             }
         }
     }
+
+    @Override
+    public Map<String,String> formatCite(ItemBean bean, Integer format, List<String> customizedFields) throws Exception {
+
+	    String type = "[C]";
+        String authors = Helper.toStringFromList(bean.getAuthors(),",");
+        String pubDate = bean.getPubDate();
+        StringBuilder citeBuilder = new StringBuilder();
+        citeBuilder.append(authors).append(".").append(bean.getTitle());
+	    if (bean instanceof PaperItem) {
+	        PaperItem paperItem = (PaperItem) bean;
+	        if (PaperType.DEGREE.equals(paperItem.getPaperType()) && paperItem instanceof Degree) {
+	            type = "[D]";
+	            Degree d = (Degree)paperItem;
+
+                citeBuilder.append(type).append(".").append(d.getUniversity())
+                        .append(",").append(d.getDegreeYear()).append("[")
+                        .append(pubDate).append("]");
+            } else if (PaperType.JOURNAL.equals(paperItem.getPaperType()) && paperItem instanceof Journal) {
+	            type = "[J]";
+                Journal j = (Journal)paperItem;
+                citeBuilder.append(type).append(".").append(j.getJournal())
+                        .append(",").append(j.getJournalYear())
+                        .append(",").append(j.getPeriod())
+                        .append(".");
+                if (!StringUtils.isEmpty(j.getDoi())) {
+                    citeBuilder.append("DOI:").append(j.getDoi()).append(".");
+                }
+            } else if (PaperType.CONFERENCE.equals(paperItem.getPaperType()) && paperItem instanceof Conference) {
+                Conference c = (Conference)paperItem;
+                citeBuilder.append(":").append(c.getConference()).append(type)
+                        .append(".").append(c.getConferenceDate()).append(".");
+            }
+
+
+
+            Map<String, String> results = new HashMap<>();
+            results.put("cite",citeBuilder.toString());
+            setCiteInfo(bean, format, customizedFields, authors, results);
+            if (Integer.valueOf(3).equals(format)) {
+                for(String field: customizedFields) {
+                    if ("orgs".equals(field)) {
+                        results.put("orgs", Helper.toStringFromList(paperItem.getOrgs(), ","));
+                    } else if ("keywords".equals(field)) {
+                        results.put("keywords", Helper.toStringFromList(paperItem.getKeywords(), ","));
+                    } else if ("doi".equals(field)) {
+                        results.put("doi", paperItem.getDoi());
+                    }
+                }
+            }
+
+
+            return results;
+        }
+
+
+
+	    return Maps.newHashMap();
+    }
+
+
 }

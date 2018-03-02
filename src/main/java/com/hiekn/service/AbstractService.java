@@ -5,6 +5,8 @@ import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.Code;
+import com.hiekn.search.bean.result.ItemBean;
+import com.hiekn.search.bean.result.PaperItem;
 import com.hiekn.search.bean.result.SearchResultBean;
 import com.hiekn.search.exception.BaseException;
 import org.apache.commons.lang3.StringUtils;
@@ -14,6 +16,7 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +64,34 @@ public abstract class AbstractService {
 
     public abstract void searchSimilarData(String docId, SearchResultBean result) throws Exception;
 
+    /**
+     * 生成引用词条
+     * @param bean
+     * @return
+     * @throws Exception
+     */
+    public  Map<String,String>  formatCite(ItemBean bean, Integer format, List<String> customizedFields) throws Exception { return null;}
+
+    public ItemBean extractItem(SearchHit hit) {return new ItemBean();}
+
+    protected void setCiteInfo(ItemBean bean, Integer format, List<String> customizedFields, String authors, Map<String, String> results) {
+        // 查新
+        if (Integer.valueOf(2).equals(format)) {
+            results.put("abs", bean.getAbs());
+        }else if (Integer.valueOf(3).equals(format)) {
+            if (customizedFields != null) {
+                for (String field : customizedFields) {
+                    if ("title".equals(field)) {
+                        results.put("title", bean.getTitle());
+                    } else if ("abs".equals(field)) {
+                        results.put("abs", bean.getAbs());
+                    } else if ("authors".equals(field)) {
+                        results.put("authors", authors);
+                    }
+                }
+            }
+        }
+    }
     List<AnalyzeResponse.AnalyzeToken> esSegment(QueryRequestInternal request, String index){
         //利用es分词
         if(request.getSegmentList() == null) {

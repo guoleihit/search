@@ -10,12 +10,15 @@ import com.hiekn.util.HttpClient;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeRequestBuilder;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.text.Text;
 import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -61,6 +64,25 @@ public class Helper {
 		}
 		return kws;
 	}
+
+    public static String toStringFromList(Iterable<String> keywords, String splitter) {
+        StringBuilder builder = new StringBuilder();
+
+        if (keywords!=null) {
+            Iterator<String> itr = keywords.iterator();
+            Boolean hasNext = itr.hasNext();
+            while(hasNext){
+                String kw = itr.next();
+                builder.append(kw);
+                hasNext = itr.hasNext();
+                if (hasNext) {
+                    builder.append(splitter);
+                }
+            }
+        }
+
+        return builder.toString();
+    }
 
 	public static List<String> getStringListFromNameOrgObject(Object inventorsObj) {
 		List<String> inventors = new ArrayList<>();
@@ -415,6 +437,14 @@ public class Helper {
             sortedMap.put(tmpEntry.getKey(), tmpEntry.getValue());
         }
         return sortedMap;
+    }
+
+    public static void addSortByPubDate(QueryRequest request, SearchRequestBuilder srb) {
+        if (Integer.valueOf(1).equals(request.getSort())) {
+            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
+        }else if (Integer.valueOf(1).equals(request.getSort())) {
+            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.ASC));
+        }
     }
 
     public static JSONObject getItemFromHbase(String rowKey, DocType docType){

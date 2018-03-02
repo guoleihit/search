@@ -35,6 +35,16 @@ public class PaperItem extends ItemBean {
 
     private Map<String, String> urls;
 
+    private String doi;
+
+    public String getDoi() {
+        return doi;
+    }
+
+    public void setDoi(String doi) {
+        this.doi = doi;
+    }
+
     public String getUrl() {
         return url;
     }

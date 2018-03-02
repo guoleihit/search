@@ -1,5 +1,6 @@
 package com.hiekn.service;
 
+import com.google.common.collect.Maps;
 import com.hiekn.plantdata.service.IGeneralSSEService;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
@@ -565,6 +566,37 @@ public class PatentService extends AbstractService {
     }
 
     @Override
+    public Map<String, String> formatCite(ItemBean bean, Integer format, List<String> customizedFields) throws Exception {
+        String type = "[P]";
+        String authors = Helper.toStringFromList(bean.getAuthors(),",");
+        String pubDate = bean.getPubDate();
+        StringBuilder citeBuilder = new StringBuilder();
+        citeBuilder.append(authors).append(".").append(bean.getTitle());
+
+        if (bean instanceof PatentItem) {
+            PatentItem item = (PatentItem)bean;
+            citeBuilder.append(":").append(item.getPublicationNumber())
+                    .append(type).append(".").append(pubDate);
+
+            Map<String, String> results = new HashMap<>();
+            results.put("cite",citeBuilder.toString());
+            setCiteInfo(bean, format, customizedFields, authors, results);
+
+            if (Integer.valueOf(3).equals(format) && customizedFields != null) {
+                for (String field : customizedFields) {
+                    if ("orgs".equals(field)) {
+                        results.put("orgs", Helper.toStringFromList(item.getApplicants(), ","));
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        return Maps.newHashMap();
+    }
+
+    @Override
     public SearchResultBean doCompositeSearch(CompositeQueryRequest request) throws ExecutionException, InterruptedException {
         QueryBuilder boolQuery = buildEnhancedQuery(request);
         if (boolQuery==null) {
@@ -617,10 +649,11 @@ public class PatentService extends AbstractService {
         srb.addAggregation(ipcs);
 
         // 排序
-        if (Integer.valueOf(1).equals(request.getSort())) {
-            srb.addSort(SortBuilders.fieldSort("earliest_publication_date").order(SortOrder.DESC));
-        }else if (Integer.valueOf(2).equals(request.getSort())) {
-        		srb.addSort(SortBuilders.fieldSort("application_date").order(SortOrder.DESC));
+        Helper.addSortByPubDate(request, srb);
+        if (Integer.valueOf(2).equals(request.getSort())) {
+            srb.addSort(SortBuilders.fieldSort("application_date").order(SortOrder.DESC));
+        } else if (Integer.valueOf(20).equals(request.getSort())) {
+            srb.addSort(SortBuilders.fieldSort("application_date").order(SortOrder.ASC));
         }
 
         System.out.println(srb.toString());
@@ -716,9 +749,7 @@ public class PatentService extends AbstractService {
         Future<SearchResponse>  inventorsPatentFuture = ipq.execute();
         //System.out.println(ipq.toString());
 
-        List<String> applicants = ((PatentDetail)result.getRsData().get(0)).getApplicants().stream().map((app)->{
-            return app.get("name")==null?"":app.get("name").toString();
-        }).collect(Collectors.toList());
+        List<String> applicants = ((PatentDetail)result.getRsData().get(0)).getApplicants().stream().map((app)-> app.get("name")==null?"":app.get("name").toString()).collect(Collectors.toList());
         QueryBuilder applicantPatentsQuery = QueryBuilders.termsQuery("applicants.name.original.keyword",applicants);
         HighlightBuilder applicantsHighlighter = new HighlightBuilder().field("applicants.name.original.keyword");
         SearchRequestBuilder apq = esClient.prepareSearch(PATENT_INDEX);
