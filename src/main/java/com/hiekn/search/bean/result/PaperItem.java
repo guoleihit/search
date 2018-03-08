@@ -37,6 +37,26 @@ public class PaperItem extends ItemBean {
 
     private String doi;
 
+    private String issn;
+
+    private String pageNum;
+
+    public String getIssn() {
+        return issn;
+    }
+
+    public void setIssn(String issn) {
+        this.issn = issn;
+    }
+
+    public String getPageNum() {
+        return pageNum;
+    }
+
+    public void setPageNum(String pageNum) {
+        this.pageNum = pageNum;
+    }
+
     public String getDoi() {
         return doi;
     }

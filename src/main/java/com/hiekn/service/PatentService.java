@@ -584,8 +584,14 @@ public class PatentService extends AbstractService {
 
             if (Integer.valueOf(3).equals(format) && customizedFields != null) {
                 for (String field : customizedFields) {
-                    if ("orgs".equals(field)) {
-                        results.put("orgs", Helper.toStringFromList(item.getApplicants(), ","));
+                    if ("applicant".equals(field)) {
+                        results.put("applicant", Helper.toStringFromList(item.getApplicants(), ","));
+                    } else if ("appNum".equals(field)) {
+                        results.put("appNum", item.getApplicationNumber());
+                    } else if ("pubNum".equals(field)) {
+                        results.put("pubNum", item.getPublicationNumber());
+                    } else if ("appDate".equals(field)) {
+                        results.put("appDate", item.getApplicationDate());
                     }
                 }
             }

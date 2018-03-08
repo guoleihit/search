@@ -25,6 +25,7 @@
 			<param-value>com.hiekn.search.app.Application</param-value>
 		</init-param>
 		<load-on-startup>1</load-on-startup>
+		<async-supported>true</async-supported>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>Jersey REST Service</servlet-name>
@@ -33,6 +34,7 @@
 	<filter>
 		<filter-name>authorityFilter</filter-name>
 		<filter-class>com.hiekn.filter.RequestFilter</filter-class>
+		<async-supported>true</async-supported>
 	</filter>
 	<filter-mapping>
 		<filter-name>authorityFilter</filter-name>

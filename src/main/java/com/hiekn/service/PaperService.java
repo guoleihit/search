@@ -176,6 +176,8 @@ public class PaperService extends AbstractService{
 
 		item.setDoi(getString(source.get("doi")));
 
+		item.setIssn(getString(source.get("ISSN_number")));
+		item.setPageNum(getString(source.get("page_number")));
 		Object inventorsObj = source.get("authors");
 		Set<String> inventors = new HashSet<>();
         Set<String> orgList = new HashSet<>();
@@ -697,7 +699,7 @@ public class PaperService extends AbstractService{
         AggregationBuilder paperTypes = AggregationBuilders.terms("paper_type").field("paperType");
         srb.addAggregation(paperTypes);
 
-        System.out.println(srb.toString());
+        //System.out.println(srb.toString());
 		SearchResponse response =  srb.execute().get();
 		SearchResultBean result = new SearchResultBean(request.getKw());
 		result.setRsCount(response.getHits().totalHits);
@@ -790,6 +792,10 @@ public class PaperService extends AbstractService{
                         results.put("keywords", Helper.toStringFromList(paperItem.getKeywords(), ","));
                     } else if ("doi".equals(field)) {
                         results.put("doi", paperItem.getDoi());
+                    } else if ("issn".equals(field)) {
+                        results.put("issn", paperItem.getIssn());
+                    } else if ("pageNum".equals(field)) {
+                        results.put("pageNum", paperItem.getPageNum());
                     }
                 }
             }

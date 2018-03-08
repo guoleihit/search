@@ -74,6 +74,8 @@ public abstract class AbstractService {
 
     public ItemBean extractItem(SearchHit hit) {return new ItemBean();}
 
+    public ItemBean extractDetail(SearchHit hit) {return extractItem(hit);}
+
     protected void setCiteInfo(ItemBean bean, Integer format, List<String> customizedFields, String authors, Map<String, String> results) {
         // 查新
         if (Integer.valueOf(2).equals(format)) {

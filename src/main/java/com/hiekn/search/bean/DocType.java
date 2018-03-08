@@ -10,7 +10,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
  *
  */
 public enum DocType {
-	PATENT("PATENT"), PAPER("PAPER"), STANDARD("STANDARD"), PICTURE("PICTURE") ,BAIKE("BAIKE"), NEWS("NEWS"), RESULTS("RESULTS");
+	PATENT("PATENT"), PAPER("PAPER"), STANDARD("STANDARD"), PICTURE("PICTURE") ,
+	BAIKE("BAIKE"), NEWS("NEWS"), RESULTS("RESULTS"), BOOK("BOOK");
 
 	private final String name;
 

@@ -53,6 +53,8 @@ import org.springframework.stereotype.Controller;
 
 import javax.annotation.Resource;
 import javax.ws.rs.*;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
 import java.io.BufferedReader;
 import java.io.File;
@@ -99,6 +101,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
     private PictureService pictureService = null;
     private StandardService standardService = null;
     private ResultsService resultsService = null;
+    private BookService bookService = null;
     private BaikeService baikeService = new BaikeService();
 
     private Map<String, String> synDicts = new ConcurrentHashMap<>();
@@ -134,19 +137,17 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         if (docResp.getHits().getHits().length > 0) {
             SearchHit hit = docResp.getHits().getAt(0);
             if ("paper_data".equals(hit.getType())) {
-                docType = DocType.PAPER;
                 service = paperService;
             } else if ("patent_data".equals(hit.getType())) {
-                docType = DocType.PATENT;
                 service = patentService;
             } else if ("results_data".equals(hit.getType())) {
-                docType = DocType.RESULTS;
                 service = resultsService;
             } else if ("standard_data".equals(hit.getType())) {
-                docType = DocType.STANDARD;
                 service = standardService;
+            } else if ("book_data".equals(hit.getType())) {
+                service = bookService;
             }
-            ItemBean item = extractDetail(hit, docType);
+            ItemBean item = service.extractDetail(hit);
             result.getRsData().add(item);
             docId = item.getDocId();
         }
@@ -171,16 +172,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         }
         SearchResultBean result = new SearchResultBean(docId);
         BoolQueryBuilder docQuery = buildQueryDetail(docId);
-        String index = PATENT_INDEX;
-        if (DocType.PICTURE.equals(docType)) {
-            index = PICTURE_INDEX;
-        } else if (DocType.PAPER.equals(docType)) {
-            index = PAPER_INDEX;
-        } else if (DocType.STANDARD.equals(docType)) {
-            index = STANDARD_INDEX;
-        } else if (DocType.RESULTS.equals(docType)){
-            index = RESULTS_INDEX;
-        }
+        String index = getIndex(docType);
 
         //System.out.println(Helper.getItemFromHbase(docId, DocType.NEWS).toString());
 
@@ -201,9 +193,43 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
                 paperService.searchSimilarData(docId, result);
             }else if (DocType.RESULTS.equals(docType)) {
                 resultsService.searchSimilarData(docId, result);
+            }else if (DocType.BOOK.equals(docType)) {
+                bookService.searchSimilarData(docId, result);
             }
         }
         return new RestResp<>(result, tt);
+    }
+
+    private String getIndex(DocType docType) {
+        String index = PATENT_INDEX;
+        if (DocType.PICTURE.equals(docType)) {
+            index = PICTURE_INDEX;
+        } else if (DocType.PAPER.equals(docType)) {
+            index = PAPER_INDEX;
+        } else if (DocType.STANDARD.equals(docType)) {
+            index = STANDARD_INDEX;
+        } else if (DocType.RESULTS.equals(docType)){
+            index = RESULTS_INDEX;
+        } else if (DocType.BOOK.equals(docType)){
+            index = BOOK_INDEX;
+        }
+        return index;
+    }
+
+    private AbstractService getService(DocType docType) {
+        AbstractService service = null;
+        if (DocType.PAPER.equals(docType)) {
+            service = paperService;
+        } else if (DocType.STANDARD.equals(docType)) {
+            service = standardService;
+        } else if (DocType.RESULTS.equals(docType)){
+            service = resultsService;
+        } else if (DocType.BOOK.equals(docType)){
+            service = bookService;
+        } else if (DocType.PATENT.equals(docType)) {
+            service = patentService;
+        }
+        return service;
     }
 
     private ItemBean extractDetail(SearchHit hit, DocType docType) {
@@ -216,6 +242,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
                 return standardService.extractDetail(hit);
             case RESULTS:
                 return resultsService.extractDetail(hit);
+            case BOOK:
+                return bookService.extractDetail(hit);
             case PATENT:
             default:
                 return patentService.extractDetail(hit);
@@ -356,6 +384,9 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         } else if (DocType.RESULTS.equals(docType)) {
             services.add(resultsService);
             indices.add(RESULTS_INDEX);
+        } else if (DocType.BOOK.equals(docType)) {
+            services.add(bookService);
+            indices.add(BOOK_INDEX);
         }
     }
 
@@ -376,7 +407,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[]{}));
         HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abstract")
-                .field("abstract.original").field("keywords.keyword").field("authors.name.keyword").field("authors.organization.name.keyword")
+                .field("abstract.original").field("keywords.keyword").field("authors.name").field("authors.organization.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
@@ -405,7 +436,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
-        System.out.println(srb.toString());
+        //System.out.println(srb.toString());
         return srb.execute().get();
     }
 
@@ -448,12 +479,12 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         FilterFunctionBuilder[] functions = new FilterFunctionBuilder[]{
                 // new FilterFunctionBuilder(QueryBuilders.wildcardQuery("description","*电*"), ScoreFunctionBuilders.weightFactorFunction(1.1f)),
                 new FilterFunctionBuilder(ScoreFunctionBuilders.fieldValueFactorFunction("score").modifier(FieldValueFactorFunction.Modifier.LOG1P).factor(10).missing(1)),
-                new FilterFunctionBuilder(QueryBuilders.termQuery("description",""), ScoreFunctionBuilders.weightFactorFunction(0.05f))};
+                new FilterFunctionBuilder(QueryBuilders.termQuery("description",""), ScoreFunctionBuilders.weightFactorFunction(0.01f))};
 
         QueryBuilder q = QueryBuilders.functionScoreQuery(boolQuery, functions).scoreMode(FiltersFunctionScoreQuery.ScoreMode.MULTIPLY).boostMode(CombineFunction.MULTIPLY);
         SearchRequestBuilder srb = esClient.prepareSearch(PROMPT_INDEX);
         srb.setQuery(q).setFrom((request.getPageNo() - 1) * request.getPageSize()).setSize(request.getPageSize());
-        log.info(srb.toString());
+        //log.info(srb.toString());
         SearchResponse response = srb.execute().get();
         List<PromptBean> promptList = new ArrayList<>();
         for (SearchHit hit : response.getHits()) {
@@ -491,6 +522,15 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         return new RestResp<>(schema, tt);
     }
 
+    @POST
+    @Path("/schemaAsync")
+    @ApiOperation(value = "schemaAsync")
+    @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
+            @ApiResponse(code = 500, message = "失败")})
+    public void schemaAsync(@QueryParam("tt") Long tt, @Suspended final AsyncResponse asyncResponse) {
+        asyncResponse.resume(schema(tt));
+    }
+
 
     @POST
     @Path("/kw2")
@@ -507,26 +547,10 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         String requestStr = JSONUtils.toJson(request);
         log.info(requestStr);
 
-        AbstractService service;
-        //QueryRequest req;
-        switch (request.getDocType()) {
-            case STANDARD:
-                service = standardService;
-                break;
-            case PAPER:
-                service = paperService;
-                break;
-            case PATENT:
-                service = patentService;
-                break;
-            case RESULTS:
-                service = resultsService;
-                break;
-            default:
-                throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        AbstractService service = getService(request.getDocType());
+        if (service == null) {
+            throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
         }
-
-       // if (req == null) throw new BaseException(Code.JSON_ERROR.getCode());
 
         SearchResultBean result = service.doCompositeSearch(request);
 
@@ -563,6 +587,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
                     indices.remove(PATENT_INDEX);
                 }else if (service == resultsService) {
                     indices.remove(RESULTS_INDEX);
+                }else if (service == bookService) {
+                    indices.remove(BOOK_INDEX);
                 }
             }
         }
@@ -581,8 +607,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
 
     private void setSearchResources(QueryRequest request, List<String> indices, List<AbstractService> services) {
         if (request.getDocType() == null && (request.getDocTypeList() == null || request.getDocTypeList().isEmpty())) {
-            services.addAll(Arrays.asList(patentService, paperService, standardService, resultsService));
-            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, RESULTS_INDEX));
+            services.addAll(Arrays.asList(patentService, paperService, standardService, resultsService, bookService));
+            indices.addAll(Arrays.asList(PAPER_INDEX, PATENT_INDEX, STANDARD_INDEX, RESULTS_INDEX, BOOK_INDEX));
         } else if(request.getDocType()!=null) {
             setSearchResource(request.getDocType(),services,indices);
         }else if (request.getDocTypeList() != null && !request.getDocTypeList().isEmpty()) {
@@ -726,24 +752,27 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
             if (!beanListRes.getData().getRsData().isEmpty()) {
                 List<ItemBean> beanList = beanListRes.getData().getRsData().get(0).getRsData();
                 List<Map<String,String>> mapList = new ArrayList<>();
-                List<String> customizedFields = new ArrayList<>();
+                Map<String,List<String>> customizedFields = new HashMap<>();
 
                 try {
-                    customizedFields = com.hiekn.plantdata.util.JSONUtils.fromJson(customContent, new TypeToken<List<String>>() {
+                    Map<String,List<String>> cFields = com.hiekn.plantdata.util.JSONUtils.fromJson(customContent, new TypeToken<Map<String,List<String>>>() {
                     }.getType());
+                    if (cFields != null) {
+                        customizedFields = cFields;
+                    }
                 }catch (Exception e) {
                     log.error("parse to json error", e);
                 }
 
                 for (ItemBean itemBean: beanList) {
                     if (DocType.PATENT.equals(itemBean.getDocType())) {
-                        mapList.add(patentService.formatCite(itemBean, format, customizedFields));
+                        mapList.add(patentService.formatCite(itemBean, format, customizedFields.get(DocType.PATENT.getName())));
                     } else if (DocType.PAPER.equals(itemBean.getDocType())) {
-                        mapList.add(paperService.formatCite(itemBean, format, customizedFields));
+                        mapList.add(paperService.formatCite(itemBean, format, customizedFields.get(DocType.PAPER.getName())));
                     } else if (DocType.STANDARD.equals(itemBean.getDocType())) {
-                        mapList.add(standardService.formatCite(itemBean, format, customizedFields));
+                        mapList.add(standardService.formatCite(itemBean, format, customizedFields.get(DocType.STANDARD.getName())));
                     } else if (DocType.RESULTS.equals(itemBean.getDocType())) {
-                        mapList.add(resultsService.formatCite(itemBean, format, customizedFields));
+                        mapList.add(resultsService.formatCite(itemBean, format, customizedFields.get(DocType.RESULTS.getName())));
                     }
                 }
                 return new RestResp<>(mapList, tt);
@@ -767,6 +796,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
                 item = standardService.extractItem(hit);
             else if (hit.getType().equals("picture_data"))
                 item = pictureService.extractItem(hit);
+            else if (hit.getType().equals("book_data"))
+                item = bookService.extractItem(hit);
             else if (hit.getType().equals("results_data"))
                 item = resultsService.extractItem(hit);
             else {
@@ -842,6 +873,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         patentService = new PatentService(esClient, generalSSEService, kgName);
         pictureService = new PictureService(esClient);
         standardService = new StandardService(esClient, generalSSEService, kgName);
+        bookService = new BookService(esClient);
         resultsService = new ResultsService(esClient, generalSSEService, kgName);
         resultsService.setPaperService(paperService);
 
