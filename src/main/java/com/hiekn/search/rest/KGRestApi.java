@@ -266,6 +266,17 @@ public class KGRestApi implements InitializingBean, DisposableBean {
                 entityId = doc.getLong("id");
                 log.info("for kwType=4, got entity from kg db :" + entityId);
             }
+        } else if (StringUtils.isEmpty(id) && kwType == null) {
+            String kgDb = CommonResource.getDBNameOfKg(kgName, mongoClient);
+            MongoDatabase db = mongoClient.getDatabase(kgDb);
+            MongoCollection<Document> collection = db.getCollection("entity_id");
+            Document doc = collection.find(Filters.and(Filters.regex("name","^"+kw)))
+                    .sort(new Document().append("meta_data.meta_data_4", -1)).first();
+            if (doc != null && doc.get("id")!=null) {
+                entityId = doc.getLong("id");
+                log.info("for kwType=null, got entity from kg db :" + entityId);
+            }
+
         }
         return entityId;
     }

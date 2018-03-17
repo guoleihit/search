@@ -2,6 +2,7 @@ package com.hiekn.service;
 
 import com.google.common.collect.Maps;
 import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
@@ -447,6 +448,9 @@ public class StandardService extends AbstractService{
 
             Map<String, String> results = new HashMap<>();
             results.put("cite",citeBuilder.toString());
+            results.put("title", item.getTitle());
+            results.put("docType", DocType.STANDARD.getName());
+            results.put("docId", item.getDocId());
             return results;
         }
 

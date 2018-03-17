@@ -177,6 +177,8 @@ public class BookService extends AbstractService {
                     buildLongTextQueryCondition(boolQuery, reqItem, BOOK_INDEX,"abstract", false, false, null);
                 }else if ("author".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "authors.name", false,false);
+                }else if ("isbn".equals(key)) {
+                    buildQueryCondition(boolQuery, reqItem, "isbn", false,false);
                 }else if ("all".equals(key)) {
                     BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery, reqItem, allQueryBuilder);

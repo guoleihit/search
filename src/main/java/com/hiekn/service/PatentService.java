@@ -2,6 +2,7 @@ package com.hiekn.service;
 
 import com.google.common.collect.Maps;
 import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
@@ -580,6 +581,9 @@ public class PatentService extends AbstractService {
 
             Map<String, String> results = new HashMap<>();
             results.put("cite",citeBuilder.toString());
+            results.put("title", bean.getTitle());
+            results.put("docType", DocType.PATENT.getName());
+            results.put("docId", item.getDocId());
             setCiteInfo(bean, format, customizedFields, authors, results);
 
             if (Integer.valueOf(3).equals(format) && customizedFields != null) {

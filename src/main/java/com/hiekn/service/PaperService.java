@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.hiekn.plantdata.service.IGeneralSSEService;
+import com.hiekn.search.bean.DocType;
 import com.hiekn.search.bean.KVBean;
 import com.hiekn.search.bean.request.*;
 import com.hiekn.search.bean.result.*;
@@ -783,6 +784,9 @@ public class PaperService extends AbstractService{
 
             Map<String, String> results = new HashMap<>();
             results.put("cite",citeBuilder.toString());
+            results.put("title", bean.getTitle());
+            results.put("docType", DocType.PAPER.getName());
+            results.put("docId", paperItem.getDocId());
             setCiteInfo(bean, format, customizedFields, authors, results);
             if (Integer.valueOf(3).equals(format)) {
                 for(String field: customizedFields) {

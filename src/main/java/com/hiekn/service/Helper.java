@@ -84,6 +84,21 @@ public class Helper {
         return builder.toString();
     }
 
+    /**
+     * check if given word is contained in element of list.
+     * @param list
+     * @param word
+     * @return
+     */
+    public static Boolean contains(List<String> list, String word) {
+        for (String s: list) {
+            if (s.contains(word)) {
+                return Boolean.TRUE;
+            }
+        }
+
+        return Boolean.FALSE;
+    }
 	public static List<String> getStringListFromNameOrgObject(Object inventorsObj) {
 		List<String> inventors = new ArrayList<>();
 		if (inventorsObj != null && inventorsObj instanceof List) {

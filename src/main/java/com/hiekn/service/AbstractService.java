@@ -254,7 +254,7 @@ public abstract class AbstractService {
             }
         }
 
-        if (oneWordList.size() == tokens.size()) {
+        if (oneWordList.size() == tokens.size() && !tokens.isEmpty()) {
             boolTitleQuery.should(QueryBuilders.termsQuery(field, oneWordList)).minimumShouldMatch(oneWordList.size());
         } else if(tokens==null || tokens.isEmpty()) {
             boolTitleQuery = null;

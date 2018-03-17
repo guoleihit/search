@@ -164,11 +164,17 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
     @ApiOperation(value = "")
     @ApiResponses(value = {@ApiResponse(code = 200, message = "成功", response = RestResp.class),
             @ApiResponse(code = 500, message = "失败")})
-    public RestResp<SearchResultBean> detail(@QueryParam("docId") String docId, @QueryParam("docType") DocType docType,
+    public RestResp<SearchResultBean> detail(@QueryParam("docId") String docId,
+                                             @QueryParam("docType") DocType docType,
+                                             @QueryParam("graphId") String graphId,
                                              @QueryParam("tt") Long tt) throws Exception {
-        log.info("docId=" + docId + ",docType" + docType);
-        if (StringUtils.isEmpty(docId)) {
+        log.info("docId=" + docId + ",docType" + docType + ", kgId="+graphId);
+        if (StringUtils.isEmpty(docId) && StringUtils.isEmpty(graphId)) {
             throw new BaseException(Code.PARAM_QUERY_EMPTY_ERROR.getCode());
+        }
+
+        if (!StringUtils.isEmpty(graphId)) {
+            return detailByKgId(graphId,tt);
         }
         SearchResultBean result = new SearchResultBean(docId);
         BoolQueryBuilder docQuery = buildQueryDetail(docId);
@@ -436,7 +442,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
         srb.highlighter(highlighter).setQuery(boolQuery).setFrom((request.getPageNo() - 1) * request.getPageSize())
                 .setSize(request.getPageSize());
 
-        //System.out.println(srb.toString());
+        System.out.println(srb.toString());
         return srb.execute().get();
     }
 
@@ -825,7 +831,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
             }
             for(EntityBean bean: rsList){
                 if(person.equals(bean.getClassId()) && !StringUtils.isEmpty(bean.getName())){
-                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                    if (Helper.contains(request.getUserSplitSegList(), bean.getName())) {
                         if (isChinese(bean.getName()) && (bean.getName().length() > 4 || bean.getName().length() < 2)) {
                             continue;
                         }
@@ -837,7 +843,7 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
                         request.setKw(request.getKw().replace(userInputPersonName, ""));
                     }
                 }else if(org.equals(bean.getClassId())){
-                    if (request.getUserSplitSegList().contains(bean.getName())) {
+                    if (Helper.contains(request.getUserSplitSegList(), bean.getName())) {
                         userInputOrgName = bean.getName();
                         request.getUserSplitSegList().remove(bean.getName());
                         result.put("机构", userInputOrgName);
