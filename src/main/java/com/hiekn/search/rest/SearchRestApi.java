@@ -412,8 +412,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
     private SearchResponse searchIndexes(QueryRequest request, BoolQueryBuilder boolQuery, List<String> indices)
             throws InterruptedException, ExecutionException {
         SearchRequestBuilder srb = esClient.prepareSearch(indices.toArray(new String[]{}));
-        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("title.original").field("abstract")
-                .field("abstract.original").field("keywords.keyword").field("authors.name").field("authors.organization.name.keyword")
+        HighlightBuilder highlighter = new HighlightBuilder().field("title").field("name").field("title.original").field("abstract")
+                .field("abstract.original").field("keywords.keyword").field("authors.name").field("draft_person").field("authors.organization.name.keyword")
                 .field("applicants.name.original.keyword").field("inventors.name.original.keyword");
 
         AggregationBuilder aggYear = AggregationBuilders.histogram("publication_year")
@@ -956,6 +956,8 @@ public class SearchRestApi implements InitializingBean, DisposableBean {
 
     @Override
     public void destroy() throws Exception {
-
+        if (Helper.book != null) {
+            Helper.book.clear();
+        }
     }
 }

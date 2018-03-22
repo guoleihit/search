@@ -110,19 +110,19 @@ public class StandardItem extends ItemBean{
         this.yield = yield;
     }
 
-    public List<String> getQuote() {
+    public List<Object> getQuote() {
         return quote;
     }
 
-    public void setQuote(List<String> quote) {
+    public void setQuote(List<Object> quote) {
         this.quote = quote;
     }
 
-    public List<String> getTerm() {
+    public List<Object> getTerm() {
         return term;
     }
 
-    public void setTerm(List<String> term) {
+    public void setTerm(List<Object> term) {
         this.term = term;
     }
 
@@ -166,12 +166,12 @@ public class StandardItem extends ItemBean{
         this.format = format;
     }
 
-    public String getBY() {
-        return BY;
+    public String getEdition() {
+        return edition;
     }
 
-    public void setBY(String BY) {
-        this.BY = BY;
+    public void setEdition(String edition) {
+        this.edition = edition;
     }
 
     public String getPrintNum() {
@@ -259,9 +259,9 @@ public class StandardItem extends ItemBean{
      */
     private String yield;
 
-    private List<String> quote;
+    private List<Object> quote;
 
-    private List<String> term;
+    private List<Object> term;
 
     /**
      * 发行单位
@@ -282,7 +282,7 @@ public class StandardItem extends ItemBean{
     /**
      * 版次印次
      */
-    private String BY;
+    private String edition;
 
     private String printNum;
 

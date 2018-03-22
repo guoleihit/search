@@ -24,13 +24,8 @@ import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 import static com.hiekn.service.Helper.*;
@@ -58,7 +53,7 @@ public class StandardService extends AbstractService{
             item.setAbs(absObj.toString());
         }
 
-        Object inventorsObj = source.get("persons");
+        Object inventorsObj = source.get("draft_person");
         List<String> inventors = toStringList(inventorsObj);
         if (!inventors.isEmpty()) {
             item.setAuthors(inventors);
@@ -75,27 +70,25 @@ public class StandardService extends AbstractService{
         item.setYield(getString(source.get("yield")));
 
         Object quotes = source.get("quote");
-        List<String> quoteList = toStringList(quotes);
-        if (!quoteList.isEmpty()) {
-            item.setQuote(quoteList);
+        if (quotes instanceof List) {
+            item.setQuote((List)quotes);
         }
 
-        Object terms = source.get("term");
-        List<String> termList = toStringList(terms);
-        if (!termList.isEmpty()) {
-            item.setTerm(termList);
+        Object terms = source.get("terms");
+        if (terms instanceof List) {
+            item.setTerm((List)terms);
         }
 
         item.setPubDep(getString(source.get("pub_dep")));
         item.setTelephone(getString(source.get("telephone")));
         item.setAddress(getString(source.get("address")));
-        item.setISBN(getString(source.get("ISBN")));
+        item.setISBN(getString(source.get("isbn")));
         item.setFormat(getString(source.get("format")));
-        item.setBY(getString(source.get("BY")));
+        item.setEdition(getString(source.get("edition")));
         item.setPrintNum(getString(source.get("print_num")));
         item.setWordNum(getString(source.get("word_num")));
         item.setPage(getString(source.get("page")));
-        item.setPdfPage(getString(source.get("Pdf_page")));
+        item.setPdfPage(getString(source.get("pdf_page")));
         item.setPrice(getString(source.get("price")));
         item.setCcs(getString(source.get("css")));
         item.setSubNum(getString(source.get("sub_num")));
@@ -103,7 +96,7 @@ public class StandardService extends AbstractService{
         item.setInterNum(getString(source.get("inter_num")));
         item.setInterName(getString(source.get("inter_name")));
         item.setYield(getString(source.get("yield")));
-        item.setState(getString(source.get("state")));
+        item.setState(getString(source.get("stdstate")));
 
 
         //highlight
@@ -112,13 +105,27 @@ public class StandardService extends AbstractService{
                 Text[] frags = entry.getValue().getFragments();
                 switch (entry.getKey()) {
                     case "name":
+                    case "name.smart":
                         if (frags != null && frags.length > 0) {
                             item.setTitle(frags[0].string());
                         }
                         break;
-                    case "num":
+                    case "yield":
                         if (frags != null && frags.length > 0) {
-                            item.setNum(frags[0].string());
+                            for (Text frag: frags) {
+                                String fragStr = frag.string();
+                                String noEmStr = fragStr.replaceAll("<em>", "");
+                                noEmStr = noEmStr.replaceAll("</em>", "");
+                                String abs = item.getYield();
+                                abs = abs.replace(noEmStr, fragStr);
+                                item.setYield(abs);
+                            }
+                        }
+                        break;
+                    case "draft_person":
+                        if (frags != null && frags.length > 0) {
+                            ListIterator<String> itr = item.getAuthors().listIterator();
+                            setHighlightElements(frags, itr);
                         }
                         break;
                 }
@@ -143,7 +150,7 @@ public class StandardService extends AbstractService{
         }
 
         item.setGraphId(getString(source.get("kg_id")));
-        Object inventorsObj = source.get("author");
+        Object inventorsObj = source.get("draft_person");
         List<String> inventors = toStringList(inventorsObj);
         if (!inventors.isEmpty()) {
             item.setAuthors(inventors);
@@ -158,12 +165,12 @@ public class StandardService extends AbstractService{
         item.setCcs(getString(source.get("ccs")));
         item.setIcs(getString(source.get("ics")));
         item.setNum(getString(source.get("num")));
-        item.seteName(getString(source.get("e_name")));
+        item.seteName(getString(source.get("en_name")));
         if (source.get("carryon_date")!=null) {
         		item.setCarryonDate(getString(toDateString(source.get("carryon_date").toString(), "-")));
         }
         item.setManageDep(getString(source.get("manage_dep")));
-        item.setState(getString(source.get("state")));
+        item.setState(getString(source.get("stdstate")));
         item.setAuthorDep(getString(source.get("author_dep")));
         item.setSubNum(getString(source.get("sub_num")));
         item.setInterNum(getString(source.get("inter_num")));
@@ -196,48 +203,31 @@ public class StandardService extends AbstractService{
         }
 
         BoolQueryBuilder boolTitleQuery = null;
-        Boolean emptyTitleQuery = true;
-        if (request.getKwType() != 1 && request.getKwType() != 2) {
-            List<AnalyzeResponse.AnalyzeToken> tokens = esSegment(request, STANDARD_INDEX);
-            boolTitleQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
-
-            List<String> oneWordList = new ArrayList<>();
-            for (AnalyzeResponse.AnalyzeToken token : tokens) {
-                String t = token.getTerm();
-                if (t.equals(request.getKw())) {
-                    continue;
-                }
-
-                if (t.length() == 1) {
-                    oneWordList.add(t);
-                } else {
-                    boolTitleQuery.should(QueryBuilders.termQuery("name", t));
-                    emptyTitleQuery = false;
-                }
-            }
-            if (oneWordList.size() == tokens.size()) {
-                boolTitleQuery.should(QueryBuilders.termsQuery("name", oneWordList)).minimumShouldMatch(oneWordList.size());
-            }
+        if (request.getUserSplitSegList()!=null && !request.getUserSplitSegList().isEmpty()) {
+            boolTitleQuery = createSegmentsTermQuery(request, STANDARD_INDEX, "name");
         }
 
         QueryBuilder titleTerm = createTermsQuery("name", request.getUserSplitSegList(), 2f);
-        QueryBuilder abstractTerm = createTermsQuery("abs", request.getUserSplitSegList(), 1);
-        QueryBuilder authorTerm = createTermsQuery("persons.keyword", request.getUserSplitSegList(),1.5f);
-        QueryBuilder kwsTerm = createTermsQuery("keywords", request.getUserSplitSegList(),1.5f);
+        QueryBuilder yieldTerm = createTermsQuery("yield", request.getUserSplitSegList(), 1);
+        QueryBuilder titleSmartTerm = createTermsQuery("name.smart", request.getUserSplitSegList(), 2f);
+        QueryBuilder yieldSmartTerm = createTermsQuery("yield.smart", request.getUserSplitSegList(), 1);
+
+        QueryBuilder authorTerm = createTermsQuery("draft_person", request.getUserSplitSegList(),1.5f);
+        QueryBuilder kwsTerm = createTermsQuery("terms.term", request.getUserSplitSegList(),1.5f);
 
         BoolQueryBuilder termQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
         should(termQuery,titleTerm);
-        should(termQuery,abstractTerm);
+        should(termQuery,yieldTerm);
+        should(termQuery,titleSmartTerm);
+        should(termQuery,yieldSmartTerm);
         should(termQuery,authorTerm);
         should(termQuery,kwsTerm);
+        should(termQuery,boolTitleQuery);
         if (request.getRecognizedPerson() != null) {
-            should(termQuery, QueryBuilders.termQuery("persons.keyword", request.getRecognizedPerson()).boost(1.5f));
+            should(termQuery, QueryBuilders.termQuery("draft_person", request.getRecognizedPerson()).boost(1.5f));
         }
         if (request.getRecognizedOrg() != null) { // TODO
-            should(termQuery, QueryBuilders.termQuery("name", request.getRecognizedOrg()).boost(1.5f));
-        }
-        if(boolTitleQuery!=null && !emptyTitleQuery){
-            termQuery.should(boolTitleQuery);
+            should(termQuery, QueryBuilders.termQuery("author_dep", request.getRecognizedOrg()).boost(1.5f));
         }
 
         boolQuery.must(termQuery);
@@ -276,17 +266,17 @@ public class StandardService extends AbstractService{
                     BoolQueryBuilder allQueryBuilder = makeFiledAllQueryBuilder(reqItem, Operator.OR);
                     setOperator(boolQuery,reqItem, allQueryBuilder);
                 }else if ("author".equals(key)){
-                    buildQueryCondition(boolQuery, reqItem, "persons", false, false);
+                    buildQueryCondition(boolQuery, reqItem, "draft_person", false, false);
                 }else if ("authorOrg".equals(key)) {
                     buildQueryCondition(boolQuery, reqItem, "author_dep", false, false);
                 }else if ("status".equals(key)) {
                     // TODO 标准状态: implement,publish,annull
-                    buildQueryCondition(boolQuery, reqItem, "state", false, false);
+                    buildQueryCondition(boolQuery, reqItem, "stdstate", false, false);
                 }else if ("term".equals(key)) {
                     // TODO 标准术语
-                    buildQueryCondition(boolQuery, reqItem, "term", false, false);
+                    buildQueryCondition(boolQuery, reqItem, "terms.term", false, false);
                 }else if ("standardType".equals(key)) {
-                    buildQueryCondition(boolQuery, reqItem, "num", true,true);
+                    buildQueryCondition(boolQuery, reqItem, "type", true,true);
                 }else if ("pubDate".equals(dateKey)) {
                     doBuildDateCondition(boolQuery,reqItem, "earliest_publication_date");
                 }else if (!StringUtils.isEmpty(key) || !StringUtils.isEmpty(dateKey)) {
@@ -314,7 +304,13 @@ public class StandardService extends AbstractService{
                 }else if ("status".equals(filter.getK()) ) {
                     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
                     for (String v : filter.getV()) {
-                        filterQuery.should(QueryBuilders.termQuery("state", v));
+                        if ("其他".equals(v)){
+                            filterQuery.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("stdstate")));
+                            filterQuery.should(QueryBuilders.termQuery("stdstate",""));
+                            filterQuery.should(QueryBuilders.termQuery("stdstate","其他"));
+                        }else {
+                            filterQuery.should(QueryBuilders.termQuery("stdstate", v));
+                        }
                     }
                     boolQuery.must(filterQuery);
                 }
@@ -361,7 +357,7 @@ public class StandardService extends AbstractService{
 
 
         // 标准状态
-        AggregationBuilder status = AggregationBuilders.terms("status").field("state");
+        AggregationBuilder status = AggregationBuilders.terms("status").field("stdstate").missing("其他");
         srb.addAggregation(status);
 
         Helper.addSortByPubDate(request, srb);
@@ -404,7 +400,7 @@ public class StandardService extends AbstractService{
         }
 
         Helper.setYearAggFilter(result,response,"publication_year", "发表年份","earliest_publication_date");
-        Helper.setTermAggFilter(result,response,"status", "专利状态","state");
+        Helper.setTermAggFilter(result,response,"status", "专利状态","stdstate");
         return result;
     }
 
@@ -427,8 +423,13 @@ public class StandardService extends AbstractService{
     BoolQueryBuilder makeFiledAllQueryBuilder(CompositeRequestItem reqItem, Operator op) {
         BoolQueryBuilder allQueryBuilder = QueryBuilders.boolQuery();
         buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, op);
+        //buildQueryCondition(allQueryBuilder, reqItem, "num", false, false, op);
         buildLongTextQueryCondition(allQueryBuilder, reqItem, STANDARD_INDEX,"name", false,false, op);
         buildQueryCondition(allQueryBuilder, reqItem, "num", true,true, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "draft_person", false, false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "terms.term", false, false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "author_dep", false, false, op);
+        buildQueryCondition(allQueryBuilder, reqItem, "type", false, false, op);
         return allQueryBuilder;
     }
 

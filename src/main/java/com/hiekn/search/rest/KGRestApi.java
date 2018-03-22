@@ -555,5 +555,11 @@ public class KGRestApi implements InitializingBean, DisposableBean {
         if(mongoClient != null){
             mongoClient.close();
         }
+        if (Helper.types != null) {
+            types.clear();
+        }
+        if (Helper.knowledgeIds != null) {
+            Helper.knowledgeIds.clear();
+        }
     }
 }

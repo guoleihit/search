@@ -28,6 +28,7 @@ import javax.xml.parsers.SAXParserFactory;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -280,7 +281,8 @@ public class Helper {
 			if (key == null || key.length()==0) {
 				key = "其他";
 			}
-			docMap.put(key, bucket.getDocCount());
+            addToMap(docMap, bucket, key);
+			//docMap.put(key, bucket.getDocCount());
 		}
 		docMap.put("_end",-1l);
 		docTypeFilter.setV(docMap);
@@ -302,6 +304,7 @@ public class Helper {
         docTypeFilter.setD(filterD);
         docTypeFilter.setK(filterK);
         Map<String, Long> docMap = new LinkedHashMap<>();
+
         for(String s : sortRule) {
             for (Terms.Bucket bucket : docTypes.getBuckets()) {
                 String key = bucket.getKeyAsString();
@@ -310,7 +313,7 @@ public class Helper {
                 }
 
                 if (key.equals(s)) {
-                    docMap.put(key, bucket.getDocCount());
+                    addToMap(docMap, bucket, key);
                 }
             }
         }
@@ -324,6 +327,8 @@ public class Helper {
 
                 if (!docMap.containsKey(key)) {
                     docMap.put(key, bucket.getDocCount());
+                } else {
+                    addToMap(docMap, bucket, key);
                 }
             }
         }
@@ -333,7 +338,15 @@ public class Helper {
         result.getFilters().add(docTypeFilter);
     }
 
-	public static void setYearAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
+    public static void addToMap(Map<String, Long> docMap, Terms.Bucket bucket, String key) {
+        Long count = bucket.getDocCount();
+        if (docMap.get(key)!=null) {
+            count += docMap.get(key);
+        }
+        docMap.put(key, count);
+    }
+
+    public static void setYearAggFilter(SearchResultBean result, SearchResponse response, String aggName, String filterD, String filterK) {
 		Histogram yearAgg = response.getAggregations().get(aggName);
 		KVBean<String, Map<String, ?>> yearFilter = new KVBean<>();
 		yearFilter.setD(filterD);

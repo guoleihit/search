@@ -382,6 +382,7 @@ public class ResultsService extends AbstractService {
                         if ("其他".equals(v)){
                             filterQuery.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("review_level")));
                             filterQuery.should(QueryBuilders.termQuery("review_level",""));
+                            filterQuery.should(QueryBuilders.termQuery("review_level","其他"));
                         }else {
                             filterQuery.should(QueryBuilders.termQuery("review_level", v));
                         }
